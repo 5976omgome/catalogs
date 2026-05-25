@@ -22,32 +22,49 @@ GEMINI_URL = (
 )
 
 SYSTEM_PROMPT = (
-    "You are a music catalog acquisitions analyst. You are given an artist "
-    "and the labels reported by three sources (the Chartmetric export, "
-    "Deezer's API, and Discogs). Determine whether this artist looks "
-    "self-released and unsigned across their recent catalog. "
+    "You are a music catalog acquisitions analyst. You receive label "
+    "metadata for an artist from four sources. The MOST AUTHORITATIVE "
+    "source is the Apple P-line (the legal phonographic copyright "
+    "string, e.g. '\u2117 2020 Russ My Way Inc. and Columbia Records'). "
+    "The P-line is the ground truth: it names every owner of the master "
+    "recording and any licensee the masters are licensed to.\n\n"
+    "Determine whether this artist looks fully self-released across "
+    "their RECENT catalog. Important rules:\n"
+    "- If any P-line names a major or established indie label among the "
+    "owners, FLAGGED.\n"
+    "- If any P-line says 'under exclusive licence to <X>' or 'licencia "
+    "exclusiva para <X>' and X is anyone other than the artist's own "
+    "imprint, FLAGGED. Even if the primary owner looks self-released, "
+    "a licensing-to clause means the artist does NOT control the "
+    "masters and is not a buyout candidate.\n"
+    "- If the P-line shows ONLY the artist or an imprint clearly named "
+    "after the artist (e.g. 'Russ My Way Inc.' for Russ), CLEAN.\n"
+    "- If sources disagree or P-line is missing, CAUTION.\n\n"
     "Respond in EXACTLY this format on a single line:\n"
     "<VERDICT> | <REASON>\n"
     "Where <VERDICT> is one of CLEAN, CAUTION, FLAGGED.\n"
-    "  CLEAN = appears fully self-released, no label deals.\n"
-    "  CAUTION = mixed signals or a distributor-only situation worth a manual check.\n"
-    "  FLAGGED = clearly signed to a major or established indie label at any point.\n"
-    "<REASON> is at most 18 words, plain English. No markdown. No quotes."
+    "<REASON> is at most 22 words, plain English. No markdown. No quotes."
 )
 
 
-def _user_prompt(artist: str, chartmetric: str, deezer: str, discogs: str,
+def _user_prompt(artist: str, chartmetric: str, plines: list[str],
+                 licensees: list[str], deezer: str, discogs: str,
                  rule_flag: str) -> str:
+    pline_block = "\n".join(f"  - {p}" for p in plines) if plines else "  (none)"
+    lic_block = ", ".join(licensees) if licensees else "(none)"
     return (
         f"Artist: {artist}\n"
         f"Chartmetric label: {chartmetric or '(none)'}\n"
-        f"Deezer labels: {deezer or '(none)'}\n"
-        f"Discogs labels: {discogs or '(none)'}\n"
-        f"Rule-based flag: {rule_flag or '(none)'}\n"
+        f"Apple P-line(s) (ground truth):\n{pline_block}\n"
+        f"Apple 'licensed to' parties: {lic_block}\n"
+        f"Deezer label(s): {deezer or '(none)'}\n"
+        f"Discogs label(s): {discogs or '(none)'}\n"
+        f"Rule-engine flags: {rule_flag or '(none)'}\n"
     )
 
 
-def _try_groq(artist: str, chartmetric: str, deezer: str, discogs: str,
+def _try_groq(artist: str, chartmetric: str, plines: list[str],
+              licensees: list[str], deezer: str, discogs: str,
               rule_flag: str) -> str | None:
     if not GROQ_API_KEY:
         return None
@@ -56,10 +73,11 @@ def _try_groq(artist: str, chartmetric: str, deezer: str, discogs: str,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": _user_prompt(
-                artist, chartmetric, deezer, discogs, rule_flag)},
+                artist, chartmetric, plines, licensees, deezer, discogs,
+                rule_flag)},
         ],
         "temperature": 0.1,
-        "max_tokens": 80,
+        "max_tokens": 90,
     }
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -74,7 +92,8 @@ def _try_groq(artist: str, chartmetric: str, deezer: str, discogs: str,
         return None
 
 
-def _try_gemini(artist: str, chartmetric: str, deezer: str, discogs: str,
+def _try_gemini(artist: str, chartmetric: str, plines: list[str],
+                licensees: list[str], deezer: str, discogs: str,
                 rule_flag: str) -> str | None:
     if not GEMINI_API_KEY:
         return None
@@ -82,9 +101,10 @@ def _try_gemini(artist: str, chartmetric: str, deezer: str, discogs: str,
         "contents": [{
             "role": "user",
             "parts": [{"text": SYSTEM_PROMPT + "\n\n" + _user_prompt(
-                artist, chartmetric, deezer, discogs, rule_flag)}],
+                artist, chartmetric, plines, licensees, deezer, discogs,
+                rule_flag)}],
         }],
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 80},
+        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 90},
     }
     data = post_json(
         GEMINI_URL,
@@ -103,27 +123,47 @@ def _try_gemini(artist: str, chartmetric: str, deezer: str, discogs: str,
         return None
 
 
-def _rule_based(rule_flag: str, deezer: str, discogs: str) -> str:
-    """Last resort if no AI configured or all AI calls failed."""
-    if not rule_flag and not deezer and not discogs:
-        return "CAUTION | No data found in any source. Manual check required."
-    if not rule_flag:
-        return "CLEAN | All sources self-released or distributor only."
-    if "MAJOR" in rule_flag.upper():
-        return "FLAGGED | Major label detected in one or more sources."
-    if "INDIE" in rule_flag.upper():
+def _rule_based(rule_flag: str, plines: list[str], licensees: list[str],
+                deezer: str, discogs: str) -> str:
+    """Last resort if no AI configured or all AI calls failed.
+
+    The P-line drives the decision when present, since it is ground truth.
+    """
+    flag_upper = (rule_flag or "").upper()
+    has_pline = bool(plines)
+
+    if licensees:
+        return (f"FLAGGED | P-line shows masters licensed to {licensees[0]}; "
+                f"artist does not control the recording.")
+
+    if "MAJOR" in flag_upper:
+        return "FLAGGED | Major label detected. Not a self-release."
+    if "INDIE" in flag_upper:
         return "FLAGGED | Established indie label detected. Not fully independent."
-    return "CAUTION | Label diverges from artist name. Verify P-line on Spotify."
+
+    if has_pline and not flag_upper:
+        return "CLEAN | P-line names only artist-owned imprint across recent releases."
+
+    if not flag_upper and not has_pline and not deezer and not discogs:
+        return "CAUTION | No label data found anywhere. Manual P-line check required."
+
+    if not flag_upper:
+        return "CLEAN | All sources self-released or distributor only."
+
+    return "CAUTION | Label diverges from artist name. Verify P-line manually."
 
 
-def get_verdict(artist: str, chartmetric: str, deezer: str, discogs: str,
+def get_verdict(artist: str, chartmetric: str, plines: list[str],
+                licensees: list[str], deezer: str, discogs: str,
                 rule_flag: str) -> tuple[str, str]:
     """Return (verdict, reason). Verdict is CLEAN / CAUTION / FLAGGED."""
-    raw = _try_groq(artist, chartmetric, deezer, discogs, rule_flag)
+    raw = _try_groq(artist, chartmetric, plines, licensees, deezer, discogs,
+                    rule_flag)
     if not raw:
-        raw = _try_gemini(artist, chartmetric, deezer, discogs, rule_flag)
+        raw = _try_gemini(artist, chartmetric, plines, licensees, deezer,
+                          discogs, rule_flag)
     if not raw:
-        raw = _rule_based(rule_flag, deezer, discogs)
+        raw = _rule_based(rule_flag, plines, licensees, deezer, discogs)
 
     return _parse(raw)
 

@@ -16,9 +16,13 @@ OUTPUT_COLS = [
     "Spotify Monthly Listeners",
     "Associated Labels",
     "Recent Momentum",
+    "Apple P-Line",
+    "Apple Licensed-To",
+    "Apple Owners",
     "Deezer Labels Found",
     "Discogs Labels Found",
     "Ever Signed",
+    "Has Licensing",
     "Flag",
     "AI Verdict",
     "AI Reason",
@@ -32,9 +36,13 @@ COL_WIDTHS = {
     "Spotify Monthly Listeners": 14,
     "Associated Labels": 22,
     "Recent Momentum": 13,
-    "Deezer Labels Found": 32,
-    "Discogs Labels Found": 32,
+    "Apple P-Line": 60,
+    "Apple Licensed-To": 30,
+    "Apple Owners": 30,
+    "Deezer Labels Found": 28,
+    "Discogs Labels Found": 28,
     "Ever Signed": 11,
+    "Has Licensing": 12,
     "Flag": 46,
     "AI Verdict": 12,
     "AI Reason": 52,
@@ -80,8 +88,12 @@ def write(df: pd.DataFrame, path: Path | str) -> None:
             cell = ws.cell(row=ri, column=ci, value=value)
             cell.font = Font(name="Arial", size=9)
             cell.border = border
-            wrap = ci in {reason_col, headers.index("Flag") + 1 if "Flag" in headers else -1}
-            cell.alignment = Alignment(vertical="center", wrap_text=wrap)
+            wrap_cols = {
+                reason_col,
+                headers.index("Flag") + 1 if "Flag" in headers else -1,
+                headers.index("Apple P-Line") + 1 if "Apple P-Line" in headers else -1,
+            }
+            cell.alignment = Alignment(vertical="center", wrap_text=(ci in wrap_cols))
             if row_fill:
                 cell.fill = row_fill
 

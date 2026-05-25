@@ -202,9 +202,13 @@ class JobManager:
 
                 if audit is None:
                     out = {
+                        "itunes_pline": "error",
+                        "itunes_licensee": "",
+                        "itunes_labels": "error",
                         "deezer_labels": "error",
                         "discogs_labels": "error",
                         "ever_signed": "no",
+                        "has_licensing": "no",
                         "flag": "ERROR during lookup",
                         "verdict": "CAUTION",
                         "ai_reason": "Audit failed for this artist; rerun or check manually.",
@@ -233,13 +237,19 @@ class JobManager:
                     "verdict": verdict,
                     "reason": out["ai_reason"],
                     "flag": out["flag"],
+                    "pline": out["itunes_pline"],
+                    "licensee": out.get("itunes_licensee", ""),
                     "deezer_labels": out["deezer_labels"],
                     "discogs_labels": out["discogs_labels"],
                 })
 
+            df["Apple P-Line"] = [r["itunes_pline"] for r in results]
+            df["Apple Licensed-To"] = [r["itunes_licensee"] for r in results]
+            df["Apple Owners"] = [r["itunes_labels"] for r in results]
             df["Deezer Labels Found"] = [r["deezer_labels"] for r in results]
             df["Discogs Labels Found"] = [r["discogs_labels"] for r in results]
             df["Ever Signed"] = [r["ever_signed"] for r in results]
+            df["Has Licensing"] = [r["has_licensing"] for r in results]
             df["Flag"] = [r["flag"] for r in results]
             df["AI Verdict"] = [r["verdict"] for r in results]
             df["AI Reason"] = [r["ai_reason"] for r in results]

@@ -123,6 +123,11 @@ async function refreshStatus() {
     discogsPill.classList.add("warn");
   }
   outputDirEl.textContent = "outputs: " + data.output_dir;
+  const itunesPill = $("itunes-pill");
+  if (itunesPill) {
+    itunesPill.textContent = "apple p-line: ok";
+    itunesPill.classList.add("ok");
+  }
 
   state.jobs.clear();
   for (const j of data.jobs) state.jobs.set(j.job_id, j);
@@ -238,6 +243,12 @@ function handleEvent(ev) {
       else if (tag === "CAUTION") { cls = "caution"; state.totals.caution++; }
       else { cls = "clean"; state.totals.clean++; }
       logLine(`  [${tag.padEnd(7)}] ${ev.artist} -- ${ev.reason || ""}`, cls);
+      if (ev.pline && ev.pline !== "not found" && ev.pline !== "error") {
+        logLine(`             pline: ${ev.pline}`, "dim");
+      }
+      if (ev.licensee) {
+        logLine(`             licensed to: ${ev.licensee}`, "flag");
+      }
       if (ev.flag) logLine(`             flag: ${ev.flag}`, "dim");
       const job = state.jobs.get(ev.job_id);
       if (job) {
