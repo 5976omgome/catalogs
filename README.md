@@ -4,23 +4,51 @@ A local web app that scans a Chartmetric artist export and flags anyone
 who is **not** fully self-released, so you only have to manually verify
 the small handful that look clean.
 
-It cross-checks three sources for every artist and asks an LLM for a
-single-sentence verdict:
+It cross-checks four sources for every artist and lets a small AI bridge
+resolve trivial label-string differences when the rule engine is
+otherwise being too literal.
 
-| Source | What it tells us |
+| Source | Role |
 | --- | --- |
-| Chartmetric (the CSV you exported) | What the artist self-reports |
-| **Deezer** (free, no auth) | Current streaming label on recent releases |
-| **Discogs** (free token) | Historical catalog & physical-release labels |
-| **Groq / Gemini** (free tier) | Plain-English `CLEAN` / `CAUTION` / `FLAGGED` verdict |
+| Chartmetric CSV (your input) | What the artist self-reports + `First Release Date` (used for the 2005 catalog-age cutoff) |
+| **Apple iTunes** P-line | Ground truth. The legal phonographic copyright owner string. No auth required. |
+| **Deezer** | Current streaming-label cross-check. No auth. |
+| **Discogs** | Historical catalog cross-check. Free token. |
+| **Groq / Gemini** *(optional)* | Bridges trivial string differences (e.g. "X Records" vs "X Recordings"). Cannot override hard flags. |
 
-Output is an `.xlsx` next to the input file with these columns:
+Output is an `.xlsx` with these columns:
 
-`Artist · Spotify Links · Genres · Region · Spotify Monthly Listeners ·
-Associated Labels · Recent Momentum · Deezer Labels Found ·
-Discogs Labels Found · Ever Signed · Flag · AI Verdict · AI Reason`
+`<all your input columns> · Apple P-Line · Apple Owners · Apple Licensed-To ·
+Deezer Labels Found · Discogs Labels Found · First Release Year ·
+Ever Signed · Has Licensing · Likely Self-Imprint · Flag · AI Verdict · AI Reason`
 
-Rows colored green (clean), yellow (caution), red (flagged).
+Plus a parallel `<filename>OutputCleanOnly.xlsx` containing only the rows
+that came back CLEAN, for fast handoff.
+
+Rows colored green (clean) or red (flagged). No rows are ever dropped.
+
+---
+
+## Verdict rules
+
+A row is **CLEAN** only when ALL of these are true:
+
+- iTunes P-line names only the artist (or a known DIY distributor)
+- No "licensed to" / "exclusive licence to" clause anywhere
+- No major or established indie label hit on any source
+- No self-imprint pattern (e.g. "Artist Music", "Artist Records")
+- Earliest release year is 2005 or later (from Chartmetric `First
+  Release Date` if present, otherwise from the strict-name-matched
+  iTunes / Deezer / Discogs lookup)
+
+Anything else is **FLAGGED** with a specific reason in the `Flag` column.
+
+The optional AI bridge is invoked only when the *only* reason for
+flagging is a `DIVERGES` label-string mismatch. The bridge can upgrade
+FLAGGED → CLEAN when it confirms the divergent strings are the same
+entity (e.g. "Lyniel Records" vs "Lyniel Recordings"). The bridge can
+**never** override a major-label hit, an indie-label hit, a licensing
+clause, a self-imprint, or an old-catalog flag.
 
 ---
 
@@ -69,19 +97,27 @@ Either launcher will:
 
 1. Drop one or more Chartmetric CSV exports into the **QUEUE** card.
 2. Click **RUN QUEUE**.
-3. Watch the live log. Each artist gets `CLEAN`, `CAUTION`, or `FLAGGED`.
-4. When a job finishes, click **download** in the queue, or **OPEN OUTPUTS FOLDER**.
+3. Watch the live log. Each artist gets `CLEAN` or `FLAGGED`.
+4. Watch the two stat rows under the progress bar — the top one is run
+   progress (`50 of 120 processed · 41%`), the bottom one is the live
+   clean rate (`12 of 50 clean · 24%`).
+5. When a job finishes, click **full** or **clean-only** in the queue,
+   or **OPEN OUTPUTS FOLDER**.
 
 ---
 
 ## What the verdicts mean
 
-- **CLEAN** — All three sources show self-released or distributor-only.
-  These are your strongest candidates. **Still verify the P-line on Spotify** before reaching out.
-- **CAUTION** — Mixed signals or a label name that diverges from the artist name without a clear self-release pattern. Worth a manual check.
-- **FLAGGED** — A known major or established indie label was detected on at least one release. Probably not a fit for buyout / licensing deals.
-
-The `Flag` column shows exactly which source and which release triggered the flag, so you can audit the AI's reasoning.
+- **CLEAN** — Every source agrees the artist is fully self-released, no
+  label deals, post-2005 catalog. Strong candidates for buyout /
+  licensing outreach. The Apple P-line column shows the literal legal
+  string Apple has on file; you can still spot-check it visually.
+- **FLAGGED** — Anything not clean. Read the `Flag` column for the
+  specific reason: `MAJOR`, `INDIE`, `LICENSED-TO`, `DIVERGES`,
+  `SELF_IMPRINT`, `OLD_CATALOG`. Self-imprints (artist-name + suffix
+  patterns) are flagged on purpose — even though they're often
+  self-released in practice, you said you want to manually review them
+  rather than auto-clear.
 
 ---
 

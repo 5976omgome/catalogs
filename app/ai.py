@@ -1,17 +1,28 @@
-"""AI verdict generation.
+"""AI bridge for cross-source label disambiguation.
 
-Tries Groq (free tier, fast, requires API key) first.
-Falls back to Gemini (free tier, requires API key).
-Falls back to a deterministic rule-based verdict if no AI is available.
+The AI here has ONE narrow job: when iTunes / Deezer / Discogs / Chartmetric
+all agree the label is the artist's own name (or a known DIY distributor)
+but the rule engine says they 'diverge' because of trivial string
+differences (whitespace, punctuation, abbreviations like 'Records' vs
+'Recordings'), the AI confirms the labels really are the same entity and
+allows the verdict to flip from FLAGGED -> CLEAN.
 
-All calls have hard timeouts. The audit pipeline NEVER blocks on AI.
+The AI NEVER overrides:
+  - MAJOR / INDIE label hits
+  - LICENSED-TO clauses (masters licensed to a third party)
+  - SELF_IMPRINT detections (creative-named imprints like 'OVO' or 'DIEMON'
+    always stay flagged for manual review)
+  - OLD_CATALOG flags (pre-2005 first-release year)
+
+Provider order: Groq -> Gemini -> deterministic fallback.
+All calls have hard timeouts; the audit pipeline never blocks on AI.
 """
 from __future__ import annotations
 
-import json
+import re
 
 from .config import GEMINI_API_KEY, GROQ_API_KEY
-from .http import post_json, get_json
+from .http import post_json
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "llama-3.1-8b-instant"
@@ -21,69 +32,61 @@ GEMINI_URL = (
     "gemini-2.5-flash-lite:generateContent"
 )
 
+
 SYSTEM_PROMPT = (
-    "You are a music catalog acquisitions analyst. You receive label "
-    "metadata for an artist from four sources. The MOST AUTHORITATIVE "
-    "source is the Apple P-line (the legal phonographic copyright "
-    "string, e.g. '\u2117 2020 Russ My Way Inc. and Columbia Records'). "
-    "The P-line is the ground truth: it names every owner of the master "
-    "recording and any licensee the masters are licensed to.\n\n"
-    "Determine whether this artist looks fully self-released across "
-    "their RECENT catalog. Important rules:\n"
-    "- If any P-line names a major or established indie label among the "
-    "owners, FLAGGED.\n"
-    "- If any P-line says 'under exclusive licence to <X>' or 'licencia "
-    "exclusiva para <X>' and X is anyone other than the artist's own "
-    "imprint, FLAGGED. Even if the primary owner looks self-released, "
-    "a licensing-to clause means the artist does NOT control the "
-    "masters and is not a buyout candidate.\n"
-    "- If the P-line shows ONLY the artist or an imprint clearly named "
-    "after the artist (e.g. 'Russ My Way Inc.' for Russ), CLEAN.\n"
-    "- If sources disagree or P-line is missing, CAUTION.\n\n"
-    "Respond in EXACTLY this format on a single line:\n"
-    "<VERDICT> | <REASON>\n"
-    "Where <VERDICT> is one of CLEAN, CAUTION, FLAGGED.\n"
-    "<REASON> is at most 22 words, plain English. No markdown. No quotes."
+    "You are checking whether a list of record-label strings, pulled from "
+    "different music databases for the SAME artist, all refer to the same "
+    "self-release entity (i.e. the artist themselves or a known DIY "
+    "distributor like DistroKid / CD Baby / TuneCore).\n\n"
+    "You are NOT asked to evaluate label history, signing status, or "
+    "licensing. You ARE asked to ignore trivial string differences:\n"
+    "  - whitespace and punctuation\n"
+    "  - capitalisation\n"
+    "  - 'Records' vs 'Recordings' vs 'Music' vs 'Productions' vs 'Inc' / "
+    "'LLC' / 'Ltd' / 'Group'\n"
+    "  - articles ('The X' vs 'X')\n"
+    "  - obvious abbreviations\n\n"
+    "Reply EXACTLY one line in this format:\n"
+    "<MATCH|MIXED> | <REASON, max 18 words>\n\n"
+    "MATCH = every label string clearly refers to the artist's own "
+    "self-release entity, or a DIY distributor.\n"
+    "MIXED = at least one label looks like a different entity that the "
+    "artist might be signed to (a third-party label, an imprint with a "
+    "different name from the artist, anything you cannot confidently "
+    "match to the artist).\n"
+    "When in doubt, answer MIXED."
 )
 
 
-def _user_prompt(artist: str, chartmetric: str, plines: list[str],
-                 licensees: list[str], deezer: str, discogs: str,
-                 rule_flag: str) -> str:
-    pline_block = "\n".join(f"  - {p}" for p in plines) if plines else "  (none)"
-    lic_block = ", ".join(licensees) if licensees else "(none)"
+def _user_prompt(artist: str, sources: dict[str, str]) -> str:
+    src_lines = []
+    for name, value in sources.items():
+        if value:
+            src_lines.append(f"  {name}: {value}")
+    body = "\n".join(src_lines) if src_lines else "  (none)"
     return (
         f"Artist: {artist}\n"
-        f"Chartmetric label: {chartmetric or '(none)'}\n"
-        f"Apple P-line(s) (ground truth):\n{pline_block}\n"
-        f"Apple 'licensed to' parties: {lic_block}\n"
-        f"Deezer label(s): {deezer or '(none)'}\n"
-        f"Discogs label(s): {discogs or '(none)'}\n"
-        f"Rule-engine flags: {rule_flag or '(none)'}\n"
+        f"Label strings reported per source:\n{body}\n"
     )
 
 
-def _try_groq(artist: str, chartmetric: str, plines: list[str],
-              licensees: list[str], deezer: str, discogs: str,
-              rule_flag: str) -> str | None:
+def _try_groq(artist: str, sources: dict[str, str]) -> str | None:
     if not GROQ_API_KEY:
         return None
     body = {
         "model": GROQ_MODEL,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": _user_prompt(
-                artist, chartmetric, plines, licensees, deezer, discogs,
-                rule_flag)},
+            {"role": "user", "content": _user_prompt(artist, sources)},
         ],
-        "temperature": 0.1,
-        "max_tokens": 90,
+        "temperature": 0.05,
+        "max_tokens": 60,
     }
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
     }
-    data = post_json(GROQ_URL, json_body=body, headers=headers, timeout=15)
+    data = post_json(GROQ_URL, json_body=body, headers=headers, timeout=12)
     if not data:
         return None
     try:
@@ -92,19 +95,15 @@ def _try_groq(artist: str, chartmetric: str, plines: list[str],
         return None
 
 
-def _try_gemini(artist: str, chartmetric: str, plines: list[str],
-                licensees: list[str], deezer: str, discogs: str,
-                rule_flag: str) -> str | None:
+def _try_gemini(artist: str, sources: dict[str, str]) -> str | None:
     if not GEMINI_API_KEY:
         return None
     body = {
         "contents": [{
             "role": "user",
-            "parts": [{"text": SYSTEM_PROMPT + "\n\n" + _user_prompt(
-                artist, chartmetric, plines, licensees, deezer, discogs,
-                rule_flag)}],
+            "parts": [{"text": SYSTEM_PROMPT + "\n\n" + _user_prompt(artist, sources)}],
         }],
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 90},
+        "generationConfig": {"temperature": 0.05, "maxOutputTokens": 60},
     }
     data = post_json(
         GEMINI_URL,
@@ -113,7 +112,7 @@ def _try_gemini(artist: str, chartmetric: str, plines: list[str],
             "Content-Type": "application/json",
             "x-goog-api-key": GEMINI_API_KEY,
         },
-        timeout=15,
+        timeout=12,
     )
     if not data:
         return None
@@ -123,73 +122,53 @@ def _try_gemini(artist: str, chartmetric: str, plines: list[str],
         return None
 
 
-def _rule_based(rule_flag: str, plines: list[str], licensees: list[str],
-                deezer: str, discogs: str) -> str:
-    """Last resort if no AI configured or all AI calls failed.
+def _normalise_loose(s: str) -> str:
+    """Strip punctuation, common label suffix words, and extra whitespace."""
+    if not s:
+        return ""
+    s = s.lower()
+    s = re.sub(r"[^a-z0-9 ]+", " ", s)
+    drop = {
+        "records", "recordings", "music", "productions", "production",
+        "studios", "studio", "media", "group", "ltd", "llc", "inc",
+        "co", "company", "official", "label", "publishing", "ent",
+        "entertainment",
+    }
+    tokens = [t for t in s.split() if t and t not in drop]
+    return " ".join(tokens).strip()
 
-    The P-line drives the decision when present, since it is ground truth.
+
+def _deterministic_match(sources: dict[str, str], artist: str) -> bool:
+    """Last-resort fallback when no AI is configured.
+
+    Rule: every non-empty label, after stripping label-suffix words and
+    punctuation, must equal either the loose-normalised artist name OR
+    contain a known DIY distributor name.
     """
-    flag_upper = (rule_flag or "").upper()
-    has_pline = bool(plines)
+    target = _normalise_loose(artist)
+    if not target:
+        return False
 
-    if licensees:
-        return (f"FLAGGED | P-line shows masters licensed to {licensees[0]}; "
-                f"artist does not control the recording.")
+    distributors = (
+        "distrokid", "tunecore", "cd baby", "cdbaby", "amuse",
+        "unitedmasters", "united masters", "ditto", "routenote",
+        "landr", "stem", "awal", "the orchard",
+    )
 
-    if "MAJOR" in flag_upper:
-        return "FLAGGED | Major label detected. Not a self-release."
-    if "INDIE" in flag_upper:
-        return "FLAGGED | Established indie label detected. Not fully independent."
-
-    if has_pline and not flag_upper:
-        return "CLEAN | P-line names only artist-owned imprint across recent releases."
-
-    if not flag_upper and not has_pline and not deezer and not discogs:
-        return "CAUTION | No label data found anywhere. Manual P-line check required."
-
-    if not flag_upper:
-        return "CLEAN | All sources self-released or distributor only."
-
-    return "CAUTION | Label diverges from artist name. Verify P-line manually."
-
-
-def get_verdict(artist: str, chartmetric: str, plines: list[str],
-                licensees: list[str], deezer: str, discogs: str,
-                rule_flag: str) -> tuple[str, str]:
-    """Return (verdict, reason). Verdict is CLEAN / CAUTION / FLAGGED."""
-    raw = _try_groq(artist, chartmetric, plines, licensees, deezer, discogs,
-                    rule_flag)
-    if not raw:
-        raw = _try_gemini(artist, chartmetric, plines, licensees, deezer,
-                          discogs, rule_flag)
-    if not raw:
-        raw = _rule_based(rule_flag, plines, licensees, deezer, discogs)
-
-    return _parse(raw)
+    for value in sources.values():
+        for part in re.split(r"\s*\|\s*", value or ""):
+            part = part.strip()
+            if not part:
+                continue
+            low = part.lower()
+            if any(d in low for d in distributors):
+                continue
+            if _normalise_loose(part) != target:
+                return False
+    return True
 
 
-def _parse(raw: str) -> tuple[str, str]:
-    """Parse '<VERDICT> | <REASON>' tolerantly."""
-    text = raw.strip().splitlines()[0].strip()
-    if "|" in text:
-        verdict, reason = text.split("|", 1)
-    else:
-        verdict, reason = text, ""
-    verdict = verdict.strip().upper()
-    reason = reason.strip()
-
-    if "FLAGGED" in verdict:
-        verdict = "FLAGGED"
-    elif "CAUTION" in verdict:
-        verdict = "CAUTION"
-    elif "CLEAN" in verdict:
-        verdict = "CLEAN"
-    else:
-        verdict = "CAUTION"
-
-    if len(reason) > 240:
-        reason = reason[:237] + "..."
-    return verdict, reason
+# ---------------------------------------------------------------------------
 
 
 def is_configured() -> bool:
@@ -201,4 +180,43 @@ def provider_name() -> str:
         return "Groq (llama-3.1-8b-instant)"
     if GEMINI_API_KEY:
         return "Gemini 2.5 Flash Lite"
-    return "rule-based fallback"
+    return "deterministic fallback"
+
+
+def bridge_diverges(
+    *,
+    artist: str,
+    itunes: str,
+    deezer: str,
+    discogs: str,
+    chartmetric: str,
+) -> tuple[bool, str]:
+    """Return (is_match, reason).
+
+    is_match=True means the AI (or deterministic fallback) is confident the
+    divergent label strings all describe the same self-release entity.
+    The audit pipeline only calls this when the rule engine produced
+    DIVERGES-only flags.
+    """
+    sources = {
+        "iTunes P-line owners": itunes,
+        "Deezer label(s)": deezer,
+        "Discogs label(s)": discogs,
+        "Chartmetric Associated Labels": chartmetric,
+    }
+
+    raw = _try_groq(artist, sources) or _try_gemini(artist, sources)
+    if raw:
+        first_line = raw.strip().splitlines()[0].strip()
+        verdict, _, reason = first_line.partition("|")
+        verdict = verdict.strip().upper()
+        reason = reason.strip()
+        if verdict == "MATCH":
+            return True, reason or "AI confirmed labels match across sources."
+        if verdict == "MIXED":
+            return False, reason or "AI flagged a possible third-party label."
+        # Unparseable response -> fall through to deterministic.
+
+    if _deterministic_match(sources, artist):
+        return True, "Deterministic match: every label equals artist or distributor."
+    return False, "Could not confirm labels are the same entity."

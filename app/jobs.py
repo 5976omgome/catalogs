@@ -168,6 +168,7 @@ class JobManager:
         try:
             df = pd.read_csv(job.csv_path)
             df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
+            df = _normalise_headers(df)
             if "Artist" not in df.columns:
                 raise ValueError("CSV is missing required 'Artist' column")
             if "Spotify Links" in df.columns:
@@ -184,6 +185,7 @@ class JobManager:
             for idx, row in df.iterrows():
                 artist = str(row.get("Artist", "")).strip()
                 cm_label = str(row.get("Associated Labels", "")).strip()
+                cm_first_year = _parse_year_from_date(row.get("First Release Date"))
 
                 self._bus.publish({
                     "event": "artist_start",
@@ -194,7 +196,10 @@ class JobManager:
                 })
 
                 try:
-                    audit = audit_artist(artist, cm_label)
+                    audit = audit_artist(
+                        artist, cm_label,
+                        chartmetric_first_year=cm_first_year,
+                    )
                 except Exception as e:
                     self._bus.publish({
                         "event": "artist_error",
@@ -304,3 +309,108 @@ def _job_dict(j: JobItem) -> dict:
 
 # Singleton
 MANAGER = JobManager()
+
+
+
+# ---------------------------------------------------------------------------
+# CSV header normalisation
+#
+# Different Chartmetric exports come with slightly different headers.
+# We rename a tolerant set of variants to canonical names so the rest of
+# the pipeline can rely on `Artist` / `Associated Labels` etc.
+
+_HEADER_ALIASES = {
+    "Artist": ("artist", "artist name", "name", "performer"),
+    "Associated Labels": (
+        "associated labels", "associated label", "label", "labels",
+        "associatedlabels", "associated_labels",
+    ),
+    "Spotify Links": (
+        "spotify links", "spotify link", "spotify url", "spotify",
+        "spotifylinks",
+    ),
+    "Genres": ("genres", "category genres", "genre"),
+    "Region": ("region",),
+    "Country": ("country",),
+    "Spotify Monthly Listeners": (
+        "spotify monthly listeners", "monthly listeners",
+    ),
+    "Recent Momentum": ("recent momentum", "momentum"),
+    "Chartmetric ID": (
+        "chartmetric id", "chartmetric_id", "id", "cm id", "cmid",
+    ),
+    "First Release Date": (
+        "first release date", "first release", "first_release_date",
+        "earliest release date", "debut date",
+    ),
+    "Latest Release Date": (
+        "latest release date", "latest release", "last release date",
+        "most recent release date", "latest_release_date",
+    ),
+}
+
+
+def _normalise_headers(df: "pd.DataFrame") -> "pd.DataFrame":
+    """Rename tolerant header variants to their canonical names. Whitespace
+    and case are ignored. Unknown columns are left alone."""
+    rename_map: dict[str, str] = {}
+    for canonical, aliases in _HEADER_ALIASES.items():
+        if canonical in df.columns:
+            continue
+        for col in df.columns:
+            if not isinstance(col, str):
+                continue
+            simplified = col.strip().lower().replace("_", " ")
+            simplified = " ".join(simplified.split())
+            if simplified in aliases:
+                rename_map[col] = canonical
+                break
+    if rename_map:
+        df = df.rename(columns=rename_map)
+    return df
+
+
+
+# ---------------------------------------------------------------------------
+# Date parsing for the Chartmetric "First Release Date" column.
+
+import re as _re
+from datetime import datetime as _datetime
+
+
+_DATE_FORMATS = (
+    "%b %d, %Y",     # Oct 30, 2019
+    "%B %d, %Y",     # October 30, 2019
+    "%Y-%m-%d",      # 2019-10-30
+    "%Y/%m/%d",      # 2019/10/30
+    "%d/%m/%Y",      # 30/10/2019
+    "%m/%d/%Y",      # 10/30/2019
+    "%Y",            # 2019
+)
+
+
+def _parse_year_from_date(value) -> int | None:
+    """Extract the year from a date-like string. Returns None if unparseable
+    or absent. Handles Chartmetric's 'Oct 30, 2019' format and several
+    common ISO/local variations."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        try:
+            year = int(value)
+            return year if 1900 <= year <= 2100 else None
+        except (ValueError, TypeError):
+            return None
+    s = str(value).strip()
+    if not s or s.lower() in ("nan", "none", "n/a", ""):
+        return None
+    for fmt in _DATE_FORMATS:
+        try:
+            return _datetime.strptime(s, fmt).year
+        except ValueError:
+            continue
+    # Last-ditch: pull any 4-digit year out of the string.
+    m = _re.search(r"(19|20)\d{2}", s)
+    if m:
+        return int(m.group(0))
+    return None

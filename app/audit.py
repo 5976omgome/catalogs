@@ -15,6 +15,12 @@ Verdicts:
               No licensee anywhere. Deezer/Discogs match. Earliest release
               year >= 2005. No major / indie hits anywhere.
   FLAGGED  -- Anything else. The Flag column says exactly why.
+
+AI bridge: when the rule engine produces ONLY 'DIVERGES' reasons (i.e. no
+major / indie / licensed-to / self-imprint / old-catalog hits), the AI
+bridge in app.ai is asked whether the divergent label strings really refer
+to the same self-release entity. If yes, the verdict is upgraded to CLEAN.
+The AI cannot override any other flag type.
 """
 from __future__ import annotations
 
@@ -176,14 +182,21 @@ def _scan_itunes(releases: list[dict], artist: str, flag_reasons: list[str]
 
 def _earliest_year(it_full_earliest: int | None,
                    dz_full_earliest: int | None,
-                   dc_full_earliest: int | None) -> int | None:
+                   dc_full_earliest: int | None,
+                   chartmetric_first_year: int | None) -> int | None:
     """Determine the artist's earliest known release year.
 
-    Each source's earliest-year helper does a STRICT name match before
-    accepting a year, which keeps namesake artists from polluting the
-    result. We only use those strict lookups here.
+    The Chartmetric "First Release Date" column is the most trusted
+    source because Chartmetric has already matched the right artist;
+    no namesake risk. We use that whenever it's present.
+
+    The per-source helpers (iTunes / Deezer / Discogs) each do a STRICT
+    name match before accepting a year, which keeps namesake artists from
+    polluting the result. We use them only as fallbacks or to find a
+    year EARLIER than what Chartmetric reports.
     """
-    candidates = [v for v in (it_full_earliest, dz_full_earliest, dc_full_earliest)
+    candidates = [v for v in (chartmetric_first_year, it_full_earliest,
+                              dz_full_earliest, dc_full_earliest)
                   if isinstance(v, int) and v > 1900]
     return min(candidates) if candidates else None
 
@@ -230,8 +243,14 @@ def _decide_verdict(*, signed: bool, has_licensing: bool,
     )
 
 
-def audit_artist(artist: str, chartmetric_label: str = "") -> ArtistAudit:
-    """Run a full audit. Pure function, safe to call from a worker thread."""
+def audit_artist(artist: str, chartmetric_label: str = "",
+                 chartmetric_first_year: int | None = None) -> ArtistAudit:
+    """Run a full audit. Pure function, safe to call from a worker thread.
+
+    chartmetric_first_year, when provided, is treated as the most trusted
+    source for the catalog-age check (we trust Chartmetric to have
+    correctly matched the artist).
+    """
     artist = artist.strip()
     chartmetric_label = (chartmetric_label or "").strip()
 
@@ -294,7 +313,8 @@ def audit_artist(artist: str, chartmetric_label: str = "") -> ArtistAudit:
     ever_signed = it_signed or dz_signed or dc_signed or cm_signed
     self_imprint = it_imprint or dz_imprint or dc_imprint or cm_imprint
 
-    earliest_year = _earliest_year(it_earliest, dz_earliest, dc_earliest)
+    earliest_year = _earliest_year(it_earliest, dz_earliest, dc_earliest,
+                                   chartmetric_first_year)
     if earliest_year is not None and earliest_year < OLD_CATALOG_CUTOFF:
         flag_reasons.append(f"OLD_CATALOG: earliest release {earliest_year}")
 
@@ -312,21 +332,39 @@ def audit_artist(artist: str, chartmetric_label: str = "") -> ArtistAudit:
         flag_reasons=flag_reasons,
     )
 
-    # AI commentary is optional and never overrides the deterministic
-    # verdict. It only enriches the reason text when configured.
-    if ai.is_configured():
-        ai_verdict, ai_reason = ai.get_verdict(
+    # AI bridge: if the only reasons we flagged are DIVERGES-style label
+    # name mismatches, ask the AI whether the divergent strings actually
+    # all describe the same self-release entity (e.g. "X Records" vs
+    # "X Recordings"). If yes, upgrade FLAGGED -> CLEAN. AI cannot
+    # override MAJOR / INDIE / LICENSED-TO / SELF_IMPRINT / OLD_CATALOG.
+    diverges_only = bool(flag_reasons) and all(
+        r.startswith("DIVERGES (") for r in flag_reasons
+    )
+    bridged = False
+    if (
+        verdict == "FLAGGED"
+        and diverges_only
+        and not has_licensing
+        and not self_imprint
+        and (earliest_year is None or earliest_year >= OLD_CATALOG_CUTOFF)
+    ):
+        is_match, bridge_reason = ai.bridge_diverges(
             artist=artist,
-            chartmetric=chartmetric_label,
-            plines=plines,
-            licensees=licensees,
+            itunes=" | ".join(it_owners),
             deezer=" | ".join(dz_labels),
             discogs=" | ".join(dc_labels),
-            rule_flag=" / ".join(flag_reasons),
+            chartmetric=chartmetric_label,
         )
-        # Keep our verdict; surface the AI's take alongside.
-        if ai_reason:
-            reason = f"{reason} | AI: {ai_reason}"
+        if is_match:
+            verdict = "CLEAN"
+            reason = (
+                "Bridged divergent label strings to the same self-release "
+                f"entity across sources. ({bridge_reason})"
+            )
+            bridged = True
+        else:
+            # Surface the bridge's negative reasoning alongside the original.
+            reason = f"{reason} | bridge: {bridge_reason}"
 
     return ArtistAudit(
         artist=artist,

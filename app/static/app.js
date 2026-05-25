@@ -12,7 +12,10 @@ const openOutputBtn = $("open-output-btn");
 const cacheClearBtn = $("cache-clear-btn");
 const logEl = $("log");
 const progressFill = $("progress-fill");
-const progressPct = $("progress-pct");
+const processedLine = $("processed-line");
+const processedPct = $("processed-pct");
+const cleanLine = $("clean-line");
+const cleanPct = $("clean-pct");
 const progressLine = $("progress-line");
 const aiPill = $("ai-pill");
 const discogsPill = $("discogs-pill");
@@ -21,12 +24,11 @@ const runPill = $("run-pill");
 const outputDirEl = $("output-dir");
 const ctClean = $("ct-clean");
 const ctFlagged = $("ct-flagged");
-const ctRatio = $("ct-ratio");
 const filterToggle = $("filter-flagged-only");
 
 const state = {
   jobs: new Map(),
-  totals: { clean: 0, flagged: 0 },
+  totals: { clean: 0, flagged: 0, processed: 0, total: 0 },
   running: false,
   filterFlaggedOnly: false,
 };
@@ -125,16 +127,26 @@ function labelFor(job) {
 }
 
 function setProgress(processed, total) {
+  state.totals.processed = processed;
+  state.totals.total = total;
   const pct = total ? Math.floor((processed / total) * 100) : 0;
   progressFill.style.width = pct + "%";
-  progressPct.textContent = pct + "%";
+  processedLine.textContent = `${processed} of ${total} processed`;
+  processedPct.textContent = pct + "%";
 }
 
 function updateCounters() {
   ctClean.textContent = state.totals.clean;
   ctFlagged.textContent = state.totals.flagged;
-  const tot = state.totals.clean + state.totals.flagged;
-  ctRatio.textContent = `${state.totals.clean}/${tot}`;
+  const done = state.totals.clean + state.totals.flagged;
+  if (done <= 0) {
+    cleanLine.textContent = "— of — clean";
+    cleanPct.textContent = "—";
+    return;
+  }
+  const cleanPctVal = Math.floor((state.totals.clean / done) * 100);
+  cleanLine.textContent = `${state.totals.clean} of ${done} clean`;
+  cleanPct.textContent = cleanPctVal + "%";
 }
 
 // --- API ------------------------------------------------------------------
@@ -190,6 +202,9 @@ async function startQueue() {
   // Reset rolling totals for a fresh run
   state.totals.clean = 0;
   state.totals.flagged = 0;
+  state.totals.processed = 0;
+  state.totals.total = 0;
+  setProgress(0, 0);
   updateCounters();
   const r = await fetch("/api/run", { method: "POST" });
   const data = await r.json();

@@ -199,9 +199,28 @@ body::before {
   transition: width 0.2s;
   box-shadow: 0 0 8px rgba(0, 255, 102, 0.4);
 }
-.progress-pct {
-  font-size: 13px;
+
+/* stacked stat rows below the progress bar */
+.stat-rows {
+  margin: 0 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stat-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.stat-label {
+  color: var(--green-dim);
+}
+.stat-pct {
   color: var(--green);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   min-width: 44px;
   text-align: right;
 }

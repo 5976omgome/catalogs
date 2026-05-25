@@ -44,8 +44,19 @@
     <section class="card">
       <h2>PROGRESS</h2>
       <div class="progress-row">
-        <div class="progress-track"><div id="progress-fill" class="progress-fill"></div></div>
-        <span id="progress-pct" class="progress-pct">0%</span>
+        <div class="progress-track">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+      </div>
+      <div class="stat-rows">
+        <div class="stat-row">
+          <span class="stat-label" id="processed-line">0 of 0 processed</span>
+          <span class="stat-pct" id="processed-pct">0%</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label" id="clean-line">— of — clean</span>
+          <span class="stat-pct" id="clean-pct">—</span>
+        </div>
       </div>
       <p id="progress-line" class="muted">waiting for files...</p>
       <div class="counters">
@@ -54,9 +65,6 @@
         </div>
         <div class="counter">
           <span class="cr">FLAGGED</span><span id="ct-flagged">0</span>
-        </div>
-        <div class="counter">
-          <span class="cm">RATIO</span><span id="ct-ratio">0/0</span>
         </div>
       </div>
     </section>
