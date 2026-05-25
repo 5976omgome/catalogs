@@ -1,22 +1,34 @@
 """Per-artist audit pipeline.
 
-Order of authority:
-  1. Apple iTunes `copyright` (= the legal P-line, ground truth)
-  2. Deezer `label` (current streaming metadata, cross-check)
-  3. Discogs releases (historical catalog, cross-check)
-  4. Chartmetric self-reported label (the input row)
+Strict mode: only artists whose label data unanimously points to fully
+self-released, distributor-only, post-2005 catalogs are returned CLEAN.
+Everything else is FLAGGED with a specific reason. We never drop rows.
 
-The rule engine flags MAJOR / INDIE / DIVERGES / LICENSED on each source
-independently and then the AI writes a final verdict using ALL of it,
-including the raw P-line text so its reasoning is grounded in legal
-language, not heuristics.
+Sources, in order of authority:
+  1. Apple iTunes `copyright` field (the legal P-line). Ground truth.
+  2. Deezer `label` (current streaming metadata cross-check)
+  3. Discogs releases (historical catalog cross-check)
+  4. The Chartmetric-supplied "Associated Labels" cell
+
+Verdicts:
+  CLEAN    -- iTunes P-line names ONLY the artist, OR a known distributor.
+              No licensee anywhere. Deezer/Discogs match. Earliest release
+              year >= 2005. No major / indie hits anywhere.
+  FLAGGED  -- Anything else. The Flag column says exactly why.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from . import ai
-from .labels import classify_label, is_self_released
+from .labels import (
+    OLD_CATALOG_CUTOFF,
+    classify_label,
+    is_distributor,
+    is_exact_artist_match,
+    is_likely_self_imprint,
+    is_self_released,
+)
 from .sources import deezer, discogs, itunes
 
 
@@ -30,12 +42,14 @@ class ArtistAudit:
     itunes_labels: list[str]
     deezer_labels: list[str]
     discogs_labels: list[str]
-    plines: list[str]              # raw P-line strings, newest first
-    licensees: list[str]           # any "licensed to" entities found
+    plines: list[str]
+    licensees: list[str]
     flag_reasons: list[str]
     ever_signed: bool
-    has_licensing: bool            # P-line contained "licensed to ..."
-    verdict: str                   # CLEAN | CAUTION | FLAGGED
+    has_licensing: bool
+    likely_self_imprint: bool
+    earliest_year: int | None
+    verdict: str            # CLEAN | FLAGGED
     reason: str
 
     def to_row(self) -> dict:
@@ -43,7 +57,7 @@ class ArtistAudit:
             "itunes_pline": " || ".join(self.plines) or (
                 "self-released" if self.itunes_releases else "not found"),
             "itunes_licensee": " | ".join(self.licensees),
-            "itunes_labels": " | ".join(self.itunes_labels) or (
+            "itunes_owners": " | ".join(self.itunes_labels) or (
                 "self-released" if self.itunes_releases else "not found"),
             "deezer_labels": " | ".join(self.deezer_labels) or (
                 "self-released" if self.deezer_releases else "not found"),
@@ -51,6 +65,8 @@ class ArtistAudit:
                 "self-released" if self.discogs_releases else "not found"),
             "ever_signed": "YES" if self.ever_signed else "no",
             "has_licensing": "YES" if self.has_licensing else "no",
+            "likely_self_imprint": "YES" if self.likely_self_imprint else "no",
+            "earliest_year": str(self.earliest_year) if self.earliest_year else "",
             "flag": " / ".join(self.flag_reasons),
             "verdict": self.verdict,
             "ai_reason": self.reason,
@@ -58,12 +74,12 @@ class ArtistAudit:
 
 
 def _scan(source: str, releases: list[dict], artist: str,
-          flag_reasons: list[str]) -> tuple[list[str], bool]:
-    """Run rule-based classification on a list of releases.
-    Returns (unique labels found, whether any release was non-self-release).
-    """
+          flag_reasons: list[str]) -> tuple[list[str], bool, bool]:
+    """Classify every label in `releases`. Returns
+    (unique_labels_found, any_signed, any_likely_self_imprint)."""
     found: list[str] = []
     signed = False
+    self_imprint = False
     for rel in releases:
         label = (rel.get("label") or "").strip()
         if not label:
@@ -78,25 +94,35 @@ def _scan(source: str, releases: list[dict], artist: str,
         elif cat == "indie":
             signed = True
             flag_reasons.append(f"INDIE ({source}): {label} [{title}]")
-        elif cat == "other" and not is_self_released(artist, label):
-            signed = True
-            flag_reasons.append(f"DIVERGES ({source}): {label} [{title}]")
-    return found, signed
+        elif cat == "other":
+            if is_exact_artist_match(artist, label):
+                pass  # exact match, clean
+            elif is_likely_self_imprint(artist, label):
+                self_imprint = True
+                flag_reasons.append(
+                    f"SELF_IMPRINT ({source}): {label} [{title}]"
+                )
+            else:
+                signed = True
+                flag_reasons.append(f"DIVERGES ({source}): {label} [{title}]")
+    return found, signed, self_imprint
 
 
-def _scan_itunes(releases: list[dict], artist: str,
-                 flag_reasons: list[str]
-                 ) -> tuple[list[str], list[str], list[str], bool, bool]:
-    """Itunes is special: each release has multiple owners + a licensee.
-    EVERY owner gets classified independently, plus the licensee.
+def _scan_itunes(releases: list[dict], artist: str, flag_reasons: list[str]
+                 ) -> tuple[list[str], list[str], list[str], bool, bool, bool]:
+    """iTunes is the authority: each release has multiple owners + a
+    licensee. Every owner is classified independently; any licensee is a
+    hard flag.
 
-    Returns (all_labels_found, plines, licensees, signed, has_licensing).
+    Returns (all_owners_seen, plines, licensees, ever_signed,
+             has_licensing, any_self_imprint).
     """
-    all_labels: list[str] = []
+    all_owners: list[str] = []
     plines: list[str] = []
     licensees_seen: list[str] = []
     signed = False
     has_licensing = False
+    self_imprint = False
 
     for rel in releases:
         title = rel.get("title", "")
@@ -104,12 +130,11 @@ def _scan_itunes(releases: list[dict], artist: str,
         if pline and pline not in plines:
             plines.append(pline)
 
-        # Each owner string is checked independently.
         for owner in rel.get("owners", []):
             if not owner:
                 continue
-            if owner not in all_labels:
-                all_labels.append(owner)
+            if owner not in all_owners:
+                all_owners.append(owner)
             cat = classify_label(owner)
             if cat == "major":
                 signed = True
@@ -117,48 +142,133 @@ def _scan_itunes(releases: list[dict], artist: str,
             elif cat == "indie":
                 signed = True
                 flag_reasons.append(f"INDIE (Apple P-line): {owner} [{title}]")
-            elif cat == "other" and not is_self_released(artist, owner):
-                signed = True
-                flag_reasons.append(f"DIVERGES (Apple P-line): {owner} [{title}]")
+            elif cat == "other":
+                if is_exact_artist_match(artist, owner):
+                    pass  # CLEAN candidate
+                elif is_likely_self_imprint(artist, owner):
+                    self_imprint = True
+                    flag_reasons.append(
+                        f"SELF_IMPRINT (Apple P-line): {owner} [{title}]"
+                    )
+                else:
+                    signed = True
+                    flag_reasons.append(
+                        f"DIVERGES (Apple P-line): {owner} [{title}]"
+                    )
 
         licensee = (rel.get("licensee") or "").strip()
         if licensee:
             has_licensing = True
             if licensee not in licensees_seen:
                 licensees_seen.append(licensee)
-            if licensee not in all_labels:
-                all_labels.append(licensee)
+            if licensee not in all_owners:
+                all_owners.append(licensee)
+            # Always a hard flag, regardless of who the licensee is.
             cat = classify_label(licensee)
-            # ANY licensing-to clause is a hard flag for catalog acquisition
-            # because it means the masters are controlled by the licensee.
             tag = cat.upper() if cat in ("major", "indie") else "LICENSED-TO"
             signed = True
             flag_reasons.append(
                 f"{tag} (Apple P-line, licensed-to): {licensee} [{title}]"
             )
 
-    return all_labels, plines, licensees_seen, signed, has_licensing
+    return all_owners, plines, licensees_seen, signed, has_licensing, self_imprint
+
+
+def _earliest_year(it_full_earliest: int | None,
+                   dz_full_earliest: int | None,
+                   dc_full_earliest: int | None) -> int | None:
+    """Determine the artist's earliest known release year.
+
+    Each source's earliest-year helper does a STRICT name match before
+    accepting a year, which keeps namesake artists from polluting the
+    result. We only use those strict lookups here.
+    """
+    candidates = [v for v in (it_full_earliest, dz_full_earliest, dc_full_earliest)
+                  if isinstance(v, int) and v > 1900]
+    return min(candidates) if candidates else None
+
+
+def _decide_verdict(*, signed: bool, has_licensing: bool,
+                    self_imprint: bool, earliest_year: int | None,
+                    has_any_pline: bool, has_any_data: bool,
+                    flag_reasons: list[str]
+                    ) -> tuple[str, str]:
+    """Apply the final rules. Returns (verdict, reason)."""
+    if signed:
+        # signed includes major/indie hits AND any licensing-to clause
+        first = next((r for r in flag_reasons
+                      if "MAJOR" in r or "INDIE" in r or "LICENSED" in r),
+                     flag_reasons[0] if flag_reasons else "label deal")
+        return "FLAGGED", f"Label evidence found: {first}"
+
+    if has_licensing:
+        return "FLAGGED", "P-line shows masters licensed to a third party."
+
+    if self_imprint:
+        return "FLAGGED", (
+            "Looks like a self-imprint (artist name + suffix). "
+            "Surfaced for manual review."
+        )
+
+    if not has_any_data:
+        return "FLAGGED", "No data found in any source. Manual check required."
+
+    if not has_any_pline:
+        # We require positive evidence from Apple before declaring CLEAN.
+        return "FLAGGED", "No Apple P-line available. Cannot verify ownership."
+
+    if earliest_year is not None and earliest_year < OLD_CATALOG_CUTOFF:
+        return "FLAGGED", (
+            f"Catalog dates back to {earliest_year} "
+            f"(earlier than {OLD_CATALOG_CUTOFF}). "
+            "Likely posthumous or long-tenured independent."
+        )
+
+    return "CLEAN", (
+        "All sources self-released or distributor-only; "
+        "P-line names only the artist."
+    )
 
 
 def audit_artist(artist: str, chartmetric_label: str = "") -> ArtistAudit:
-    """Run a full audit for a single artist. Pure function, safe to call
-    from a worker thread."""
+    """Run a full audit. Pure function, safe to call from a worker thread."""
     artist = artist.strip()
     chartmetric_label = (chartmetric_label or "").strip()
 
-    # Authoritative source first: the P-line from Apple.
-    it_releases = itunes.get_releases(artist) if artist else []
-    dz_releases = deezer.get_releases(artist) if artist else []
-    dc_releases = discogs.get_releases(artist) if artist else []
+    if not artist:
+        return ArtistAudit(
+            artist=artist, chartmetric_label=chartmetric_label,
+            itunes_releases=[], deezer_releases=[], discogs_releases=[],
+            itunes_labels=[], deezer_labels=[], discogs_labels=[],
+            plines=[], licensees=[],
+            flag_reasons=["empty artist name"], ever_signed=False,
+            has_licensing=False, likely_self_imprint=False,
+            earliest_year=None, verdict="FLAGGED",
+            reason="No artist name in input row.",
+        )
 
+    # ----- Source fetches -----
+    it_releases = itunes.get_releases(artist)
+    dz_releases = deezer.get_releases(artist)
+    dc_releases = discogs.get_releases(artist)
+
+    # Earliest-year lookups (each cached, so cheap on re-runs)
+    it_earliest = itunes.get_earliest_year(artist)
+    dz_earliest = deezer.get_earliest_year(artist)
+    dc_earliest = discogs.get_earliest_year(artist)
+
+    # ----- Rule scans -----
     flag_reasons: list[str] = []
-    it_labels, plines, licensees, it_signed, has_licensing = _scan_itunes(
-        it_releases, artist, flag_reasons)
-    dz_labels, dz_signed = _scan("Deezer", dz_releases, artist, flag_reasons)
-    dc_labels, dc_signed = _scan("Discogs", dc_releases, artist, flag_reasons)
+    it_owners, plines, licensees, it_signed, has_licensing, it_imprint = \
+        _scan_itunes(it_releases, artist, flag_reasons)
+    dz_labels, dz_signed, dz_imprint = _scan(
+        "Deezer", dz_releases, artist, flag_reasons)
+    dc_labels, dc_signed, dc_imprint = _scan(
+        "Discogs", dc_releases, artist, flag_reasons)
 
-    # Also evaluate the Chartmetric-supplied label (lowest weight)
+    # Chartmetric-supplied label is rated last
     cm_signed = False
+    cm_imprint = False
     if chartmetric_label:
         cat = classify_label(chartmetric_label)
         if cat == "major":
@@ -167,21 +277,56 @@ def audit_artist(artist: str, chartmetric_label: str = "") -> ArtistAudit:
         elif cat == "indie":
             cm_signed = True
             flag_reasons.append(f"INDIE (Chartmetric): {chartmetric_label}")
-        elif cat == "other" and not is_self_released(artist, chartmetric_label):
-            cm_signed = True
-            flag_reasons.append(f"DIVERGES (Chartmetric): {chartmetric_label}")
+        elif cat == "other":
+            if is_exact_artist_match(artist, chartmetric_label):
+                pass
+            elif is_likely_self_imprint(artist, chartmetric_label):
+                cm_imprint = True
+                flag_reasons.append(
+                    f"SELF_IMPRINT (Chartmetric): {chartmetric_label}"
+                )
+            else:
+                cm_signed = True
+                flag_reasons.append(
+                    f"DIVERGES (Chartmetric): {chartmetric_label}"
+                )
 
     ever_signed = it_signed or dz_signed or dc_signed or cm_signed
+    self_imprint = it_imprint or dz_imprint or dc_imprint or cm_imprint
 
-    verdict, reason = ai.get_verdict(
-        artist=artist,
-        chartmetric=chartmetric_label,
-        plines=plines,
-        licensees=licensees,
-        deezer=" | ".join(dz_labels),
-        discogs=" | ".join(dc_labels),
-        rule_flag=" / ".join(flag_reasons),
+    earliest_year = _earliest_year(it_earliest, dz_earliest, dc_earliest)
+    if earliest_year is not None and earliest_year < OLD_CATALOG_CUTOFF:
+        flag_reasons.append(f"OLD_CATALOG: earliest release {earliest_year}")
+
+    has_any_pline = bool(plines)
+    has_any_data = bool(it_releases or dz_releases or dc_releases or
+                        chartmetric_label)
+
+    verdict, reason = _decide_verdict(
+        signed=ever_signed,
+        has_licensing=has_licensing,
+        self_imprint=self_imprint,
+        earliest_year=earliest_year,
+        has_any_pline=has_any_pline,
+        has_any_data=has_any_data,
+        flag_reasons=flag_reasons,
     )
+
+    # AI commentary is optional and never overrides the deterministic
+    # verdict. It only enriches the reason text when configured.
+    if ai.is_configured():
+        ai_verdict, ai_reason = ai.get_verdict(
+            artist=artist,
+            chartmetric=chartmetric_label,
+            plines=plines,
+            licensees=licensees,
+            deezer=" | ".join(dz_labels),
+            discogs=" | ".join(dc_labels),
+            rule_flag=" / ".join(flag_reasons),
+        )
+        # Keep our verdict; surface the AI's take alongside.
+        if ai_reason:
+            reason = f"{reason} | AI: {ai_reason}"
 
     return ArtistAudit(
         artist=artist,
@@ -189,7 +334,7 @@ def audit_artist(artist: str, chartmetric_label: str = "") -> ArtistAudit:
         itunes_releases=it_releases,
         deezer_releases=dz_releases,
         discogs_releases=dc_releases,
-        itunes_labels=it_labels,
+        itunes_labels=it_owners,
         deezer_labels=dz_labels,
         discogs_labels=dc_labels,
         plines=plines,
@@ -197,6 +342,8 @@ def audit_artist(artist: str, chartmetric_label: str = "") -> ArtistAudit:
         flag_reasons=flag_reasons,
         ever_signed=ever_signed,
         has_licensing=has_licensing,
+        likely_self_imprint=self_imprint,
+        earliest_year=earliest_year,
         verdict=verdict,
         reason=reason,
     )

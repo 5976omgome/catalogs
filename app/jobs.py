@@ -5,14 +5,12 @@ The Flask layer subscribes to an EventBus per job to stream SSE.
 """
 from __future__ import annotations
 
-import json
 import queue
 import threading
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 import pandas as pd
 
@@ -26,13 +24,13 @@ class JobItem:
     job_id: str
     csv_path: Path
     display_name: str
-    status: str = "queued"          # queued | running | done | error
+    status: str = "queued"            # queued | running | done | error
     total: int = 0
     processed: int = 0
     flagged: int = 0
-    cautioned: int = 0
     clean: int = 0
     output_path: str | None = None
+    clean_output_path: str | None = None
     error: str | None = None
     started_at: float | None = None
     finished_at: float | None = None
@@ -90,6 +88,10 @@ class JobManager:
     def list_jobs(self) -> list[JobItem]:
         with self._lock:
             return [self._jobs[j] for j in self._order]
+
+    def get_job(self, job_id: str) -> JobItem | None:
+        with self._lock:
+            return self._jobs.get(job_id)
 
     def add(self, csv_path: Path, display_name: str) -> JobItem:
         with self._lock:
@@ -173,10 +175,12 @@ class JobManager:
                     lambda x: x.split(",")[0].strip() if isinstance(x, str) else x
                 )
 
-            job.total = len(df)
-            self._bus.publish({"event": "job_total", "job_id": job.job_id, "total": job.total})
+            with self._lock:
+                job.total = len(df)
+            self._bus.publish({"event": "job_total",
+                              "job_id": job.job_id, "total": job.total})
 
-            results = []
+            results: list[dict] = []
             for idx, row in df.iterrows():
                 artist = str(row.get("Artist", "")).strip()
                 cm_label = str(row.get("Associated Labels", "")).strip()
@@ -191,7 +195,7 @@ class JobManager:
 
                 try:
                     audit = audit_artist(artist, cm_label)
-                except Exception as e:  # never let one row kill the job
+                except Exception as e:
                     self._bus.publish({
                         "event": "artist_error",
                         "job_id": job.job_id,
@@ -203,69 +207,83 @@ class JobManager:
                 if audit is None:
                     out = {
                         "itunes_pline": "error",
+                        "itunes_owners": "error",
                         "itunes_licensee": "",
-                        "itunes_labels": "error",
                         "deezer_labels": "error",
                         "discogs_labels": "error",
                         "ever_signed": "no",
                         "has_licensing": "no",
+                        "likely_self_imprint": "no",
+                        "earliest_year": "",
                         "flag": "ERROR during lookup",
-                        "verdict": "CAUTION",
-                        "ai_reason": "Audit failed for this artist; rerun or check manually.",
+                        "verdict": "FLAGGED",
+                        "ai_reason": "Audit failed for this row; rerun.",
                     }
-                    verdict = "CAUTION"
+                    verdict = "FLAGGED"
                 else:
                     out = audit.to_row()
                     verdict = audit.verdict
 
                 results.append(out)
 
-                job.processed += 1
-                if verdict == "FLAGGED":
-                    job.flagged += 1
-                elif verdict == "CAUTION":
-                    job.cautioned += 1
-                else:
-                    job.clean += 1
+                with self._lock:
+                    job.processed += 1
+                    if verdict == "CLEAN":
+                        job.clean += 1
+                    else:
+                        job.flagged += 1
+                    snapshot = (job.processed, job.total,
+                                job.flagged, job.clean)
 
                 self._bus.publish({
                     "event": "artist_done",
                     "job_id": job.job_id,
-                    "index": job.processed,
-                    "total": job.total,
+                    "index": snapshot[0],
+                    "total": snapshot[1],
                     "artist": artist,
                     "verdict": verdict,
                     "reason": out["ai_reason"],
                     "flag": out["flag"],
                     "pline": out["itunes_pline"],
                     "licensee": out.get("itunes_licensee", ""),
+                    "earliest_year": out.get("earliest_year", ""),
+                    "self_imprint": out.get("likely_self_imprint", "no"),
                     "deezer_labels": out["deezer_labels"],
                     "discogs_labels": out["discogs_labels"],
+                    "running_clean": snapshot[3],
+                    "running_flagged": snapshot[2],
                 })
 
             df["Apple P-Line"] = [r["itunes_pline"] for r in results]
+            df["Apple Owners"] = [r["itunes_owners"] for r in results]
             df["Apple Licensed-To"] = [r["itunes_licensee"] for r in results]
-            df["Apple Owners"] = [r["itunes_labels"] for r in results]
             df["Deezer Labels Found"] = [r["deezer_labels"] for r in results]
             df["Discogs Labels Found"] = [r["discogs_labels"] for r in results]
+            df["First Release Year"] = [r["earliest_year"] for r in results]
             df["Ever Signed"] = [r["ever_signed"] for r in results]
             df["Has Licensing"] = [r["has_licensing"] for r in results]
+            df["Likely Self-Imprint"] = [r["likely_self_imprint"] for r in results]
             df["Flag"] = [r["flag"] for r in results]
             df["AI Verdict"] = [r["verdict"] for r in results]
             df["AI Reason"] = [r["ai_reason"] for r in results]
 
             stem = job.csv_path.stem
             out_path = OUTPUT_DIR / f"{stem}Output.xlsx"
+            clean_path = OUTPUT_DIR / f"{stem}OutputCleanOnly.xlsx"
             excel.write(df, out_path)
-            job.output_path = str(out_path)
-            job.status = "done"
-            job.finished_at = time.time()
+            excel.write(df, clean_path, clean_only=True)
+            with self._lock:
+                job.output_path = str(out_path)
+                job.clean_output_path = str(clean_path)
+                job.status = "done"
+                job.finished_at = time.time()
             self._bus.publish({"event": "job_done", "job": _job_dict(job)})
 
         except Exception as e:
-            job.status = "error"
-            job.error = str(e)
-            job.finished_at = time.time()
+            with self._lock:
+                job.status = "error"
+                job.error = str(e)
+                job.finished_at = time.time()
             self._bus.publish({"event": "job_error", "job": _job_dict(job)})
 
 
@@ -277,9 +295,9 @@ def _job_dict(j: JobItem) -> dict:
         "total": j.total,
         "processed": j.processed,
         "flagged": j.flagged,
-        "cautioned": j.cautioned,
         "clean": j.clean,
         "output_path": j.output_path,
+        "clean_output_path": j.clean_output_path,
         "error": j.error,
     }
 

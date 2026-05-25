@@ -16,28 +16,52 @@ const progressPct = $("progress-pct");
 const progressLine = $("progress-line");
 const aiPill = $("ai-pill");
 const discogsPill = $("discogs-pill");
+const itunesPill = $("itunes-pill");
 const runPill = $("run-pill");
 const outputDirEl = $("output-dir");
 const ctClean = $("ct-clean");
-const ctCaution = $("ct-caution");
 const ctFlagged = $("ct-flagged");
+const ctRatio = $("ct-ratio");
+const filterToggle = $("filter-flagged-only");
 
 const state = {
-  jobs: new Map(), // job_id -> jobObj
-  totals: { clean: 0, caution: 0, flagged: 0 },
+  jobs: new Map(),
+  totals: { clean: 0, flagged: 0 },
   running: false,
+  filterFlaggedOnly: false,
 };
 
 // --- helpers --------------------------------------------------------------
 
-function logLine(text, cls = "") {
+// We build a lightweight "pending" buffer so toggling the filter doesn't
+// lose history.
+const logBuffer = [];
+
+function appendLogNode(text, cls, isFlagged) {
   const span = document.createElement("span");
   span.className = "ln" + (cls ? " " + cls : "");
   span.textContent = text;
+  span.dataset.flagged = isFlagged ? "1" : "0";
   logEl.appendChild(span);
+  // Cap to last 4000 lines
+  while (logEl.childElementCount > 4000) logEl.removeChild(logEl.firstChild);
+}
+
+function logLine(text, cls = "", isFlagged = false) {
+  logBuffer.push({ text, cls, isFlagged });
+  if (logBuffer.length > 4000) logBuffer.shift();
+  if (state.filterFlaggedOnly && !isFlagged) return;
+  appendLogNode(text, cls, isFlagged);
   logEl.scrollTop = logEl.scrollHeight;
-  // cap log to last ~2000 lines
-  while (logEl.childElementCount > 2000) logEl.removeChild(logEl.firstChild);
+}
+
+function rerenderLog() {
+  logEl.innerHTML = "";
+  for (const { text, cls, isFlagged } of logBuffer) {
+    if (state.filterFlaggedOnly && !isFlagged) continue;
+    appendLogNode(text, cls, isFlagged);
+  }
+  logEl.scrollTop = logEl.scrollHeight;
 }
 
 function setRunPill(text, cls) {
@@ -55,18 +79,28 @@ function renderQueue() {
     name.textContent = job.name;
     li.appendChild(name);
 
-    const state_ = document.createElement("span");
-    state_.className = "state " + job.status;
-    state_.textContent = labelFor(job);
-    li.appendChild(state_);
+    const stateEl = document.createElement("span");
+    stateEl.className = "state " + job.status;
+    stateEl.textContent = labelFor(job);
+    li.appendChild(stateEl);
 
-    if (job.status === "done" && job.output_path) {
-      const dl = document.createElement("a");
-      dl.className = "link-btn";
-      dl.style.fontSize = "11px";
-      dl.textContent = "download";
-      dl.href = `/api/download/${job.job_id}`;
-      li.appendChild(dl);
+    if (job.status === "done") {
+      if (job.output_path) {
+        const dl = document.createElement("a");
+        dl.className = "link-btn";
+        dl.style.fontSize = "11px";
+        dl.textContent = "full";
+        dl.href = `/api/download/${job.job_id}`;
+        li.appendChild(dl);
+      }
+      if (job.clean_output_path) {
+        const dl = document.createElement("a");
+        dl.className = "link-btn";
+        dl.style.fontSize = "11px";
+        dl.textContent = "clean-only";
+        dl.href = `/api/download-clean/${job.job_id}`;
+        li.appendChild(dl);
+      }
     }
 
     if (job.status === "queued") {
@@ -84,8 +118,8 @@ function renderQueue() {
 
 function labelFor(job) {
   if (job.status === "queued") return "queued";
-  if (job.status === "running") return `running ${job.processed}/${job.total}`;
-  if (job.status === "done") return `done · ${job.flagged}F ${job.cautioned}C ${job.clean}OK`;
+  if (job.status === "running") return `${job.processed}/${job.total}`;
+  if (job.status === "done") return `done · ${job.clean} clean / ${job.total}`;
   if (job.status === "error") return "error";
   return job.status;
 }
@@ -98,8 +132,9 @@ function setProgress(processed, total) {
 
 function updateCounters() {
   ctClean.textContent = state.totals.clean;
-  ctCaution.textContent = state.totals.caution;
   ctFlagged.textContent = state.totals.flagged;
+  const tot = state.totals.clean + state.totals.flagged;
+  ctRatio.textContent = `${state.totals.clean}/${tot}`;
 }
 
 // --- API ------------------------------------------------------------------
@@ -110,24 +145,23 @@ async function refreshStatus() {
 
   if (data.ai_configured) {
     aiPill.textContent = `ai: ${data.ai_provider}`;
-    aiPill.classList.add("ok");
+    aiPill.className = "pill ok";
   } else {
-    aiPill.textContent = "ai: rule-based (no key)";
-    aiPill.classList.add("warn");
+    aiPill.textContent = "ai: rule-based (deterministic)";
+    aiPill.className = "pill ok";
   }
   if (data.discogs_configured) {
     discogsPill.textContent = "discogs: ok";
-    discogsPill.classList.add("ok");
+    discogsPill.className = "pill ok";
   } else {
     discogsPill.textContent = "discogs: missing token";
-    discogsPill.classList.add("warn");
+    discogsPill.className = "pill warn";
   }
-  outputDirEl.textContent = "outputs: " + data.output_dir;
-  const itunesPill = $("itunes-pill");
   if (itunesPill) {
     itunesPill.textContent = "apple p-line: ok";
-    itunesPill.classList.add("ok");
+    itunesPill.className = "pill ok";
   }
+  outputDirEl.textContent = "outputs: " + data.output_dir;
 
   state.jobs.clear();
   for (const j of data.jobs) state.jobs.set(j.job_id, j);
@@ -153,6 +187,10 @@ async function removeJob(jobId) {
 
 async function startQueue() {
   if (state.running) return;
+  // Reset rolling totals for a fresh run
+  state.totals.clean = 0;
+  state.totals.flagged = 0;
+  updateCounters();
   const r = await fetch("/api/run", { method: "POST" });
   const data = await r.json();
   if (!data.started) {
@@ -189,6 +227,12 @@ function connectStream() {
   };
 }
 
+function truncate(s, n) {
+  if (!s) return "";
+  s = String(s);
+  return s.length > n ? s.slice(0, n - 1) + "\u2026" : s;
+}
+
 function handleEvent(ev) {
   switch (ev.event) {
     case "snapshot":
@@ -218,7 +262,7 @@ function handleEvent(ev) {
       state.jobs.set(ev.job.job_id, ev.job);
       state.running = true;
       setRunPill("running", "ok");
-      logLine(`\n>> ${ev.job.name}`, "head");
+      logLine(`\n>> ${ev.job.name}`, "head", true);
       progressLine.textContent = `running: ${ev.job.name}`;
       setProgress(0, 0);
       renderQueue();
@@ -232,31 +276,42 @@ function handleEvent(ev) {
 
     case "artist_start":
       progressLine.textContent = `[${ev.index}/${ev.total}] ${ev.artist}`;
-      logLine(`  [scan] ${ev.artist}`, "dim");
+      logLine(`  [scan] ${ev.artist}`, "dim", false);
       break;
 
     case "artist_done": {
       setProgress(ev.index, ev.total);
-      const tag = ev.verdict || "CAUTION";
-      let cls = "clean";
-      if (tag === "FLAGGED") { cls = "flag"; state.totals.flagged++; }
-      else if (tag === "CAUTION") { cls = "caution"; state.totals.caution++; }
-      else { cls = "clean"; state.totals.clean++; }
-      logLine(`  [${tag.padEnd(7)}] ${ev.artist} -- ${ev.reason || ""}`, cls);
+      const tag = ev.verdict || "FLAGGED";
+      const isClean = tag === "CLEAN";
+      const cls = isClean ? "clean" : "flag";
+      if (isClean) state.totals.clean++; else state.totals.flagged++;
+
+      logLine(
+        `  [${tag.padEnd(7)}] ${ev.artist} \u2014 ${truncate(ev.reason, 140)}`,
+        cls, !isClean
+      );
       if (ev.pline && ev.pline !== "not found" && ev.pline !== "error") {
-        logLine(`             pline: ${ev.pline}`, "dim");
+        logLine(`             pline: ${truncate(ev.pline, 140)}`, "dim", !isClean);
       }
       if (ev.licensee) {
-        logLine(`             licensed to: ${ev.licensee}`, "flag");
+        logLine(`             licensed-to: ${ev.licensee}`, "flag", true);
       }
-      if (ev.flag) logLine(`             flag: ${ev.flag}`, "dim");
+      if (ev.earliest_year) {
+        logLine(`             first release: ${ev.earliest_year}`, "dim", !isClean);
+      }
+      if (ev.self_imprint === "YES") {
+        logLine(`             self-imprint suspected (manual review)`, "flag", true);
+      }
+      if (ev.flag) {
+        logLine(`             flag: ${truncate(ev.flag, 140)}`, "dim", !isClean);
+      }
+
       const job = state.jobs.get(ev.job_id);
       if (job) {
         job.processed = ev.index;
         job.total = ev.total;
-        if (tag === "FLAGGED") job.flagged = (job.flagged || 0) + 1;
-        else if (tag === "CAUTION") job.cautioned = (job.cautioned || 0) + 1;
-        else job.clean = (job.clean || 0) + 1;
+        job.flagged = ev.running_flagged;
+        job.clean = ev.running_clean;
         renderQueue();
       }
       updateCounters();
@@ -264,14 +319,16 @@ function handleEvent(ev) {
     }
 
     case "artist_error":
-      logLine(`  [ERROR] ${ev.artist}: ${ev.error}`, "err");
+      logLine(`  [ERROR] ${ev.artist}: ${ev.error}`, "err", true);
       break;
 
     case "job_done": {
       state.jobs.set(ev.job.job_id, ev.job);
+      const j = ev.job;
       logLine(
-        `  [done] ${ev.job.name} -- ${ev.job.flagged} flagged, ${ev.job.cautioned} caution, ${ev.job.clean} clean`,
-        "info"
+        `  [done] ${j.name} \u2014 ${j.clean} clean / ${j.total} total ` +
+        `(${j.flagged} flagged)`,
+        "info", true
       );
       renderQueue();
       break;
@@ -279,7 +336,7 @@ function handleEvent(ev) {
 
     case "job_error":
       state.jobs.set(ev.job.job_id, ev.job);
-      logLine(`  [job error] ${ev.job.name}: ${ev.job.error}`, "err");
+      logLine(`  [job error] ${ev.job.name}: ${ev.job.error}`, "err", true);
       renderQueue();
       break;
 
@@ -287,7 +344,7 @@ function handleEvent(ev) {
       state.running = false;
       setRunPill("done", "ok");
       progressLine.textContent = "queue complete";
-      logLine("\n== queue complete ==", "head");
+      logLine("\n== queue complete ==", "head", true);
       break;
   }
 }
@@ -314,7 +371,14 @@ clearBtn.addEventListener("click", clearFinished);
 openOutputBtn.addEventListener("click", openOutput);
 cacheClearBtn.addEventListener("click", clearCache);
 
+if (filterToggle) {
+  filterToggle.addEventListener("change", () => {
+    state.filterFlaggedOnly = filterToggle.checked;
+    rerenderLog();
+  });
+}
+
 // init
 refreshStatus();
 connectStream();
-logLine("ready. drop a chartmetric csv to begin.", "info");
+logLine("ready. drop a chartmetric csv to begin.", "info", true);

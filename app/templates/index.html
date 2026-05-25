@@ -14,7 +14,7 @@
       <span class="brand-mark">[ </span>
       <span class="brand-name">CATALOG_AUDIT</span>
       <span class="brand-mark"> ]</span>
-      <span class="brand-version">v2.0</span>
+      <span class="brand-version">v3.0 P-LINE</span>
     </div>
     <div class="status-pills">
       <span class="pill" id="itunes-pill">apple p-line: ok</span>
@@ -49,14 +49,26 @@
       </div>
       <p id="progress-line" class="muted">waiting for files...</p>
       <div class="counters">
-        <div class="counter"><span class="ck">CLEAN</span><span id="ct-clean">0</span></div>
-        <div class="counter"><span class="cy">CAUTION</span><span id="ct-caution">0</span></div>
-        <div class="counter"><span class="cr">FLAGGED</span><span id="ct-flagged">0</span></div>
+        <div class="counter">
+          <span class="ck">CLEAN</span><span id="ct-clean">0</span>
+        </div>
+        <div class="counter">
+          <span class="cr">FLAGGED</span><span id="ct-flagged">0</span>
+        </div>
+        <div class="counter">
+          <span class="cm">RATIO</span><span id="ct-ratio">0/0</span>
+        </div>
       </div>
     </section>
 
     <section class="card span-2">
-      <h2>LIVE_OUTPUT</h2>
+      <div class="card-head">
+        <h2>LIVE_OUTPUT</h2>
+        <label class="toggle">
+          <input type="checkbox" id="filter-flagged-only" />
+          <span>show only flagged</span>
+        </label>
+      </div>
       <pre id="log" class="log"></pre>
     </section>
 

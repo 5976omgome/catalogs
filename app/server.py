@@ -84,6 +84,13 @@ def create_app() -> Flask:
                 return send_file(j.output_path, as_attachment=True)
         return jsonify({"error": "not found"}), 404
 
+    @app.get("/api/download-clean/<job_id>")
+    def download_clean(job_id: str):
+        for j in MANAGER.list_jobs():
+            if j.job_id == job_id and j.clean_output_path:
+                return send_file(j.clean_output_path, as_attachment=True)
+        return jsonify({"error": "not found"}), 404
+
     @app.post("/api/open-output")
     def open_output():
         """Open the Outputs folder in the host OS file manager."""

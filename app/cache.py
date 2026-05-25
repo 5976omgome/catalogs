@@ -34,25 +34,36 @@ def _conn() -> sqlite3.Connection:
     return conn
 
 
+_MISS = object()  # sentinel returned when key truly absent / expired
+
+
 def _key(artist: str) -> str:
     return artist.strip().lower()
 
 
-def get(source: str, artist: str, ttl: int = DEFAULT_TTL) -> Any | None:
+def get(source: str, artist: str, ttl: int = DEFAULT_TTL):
+    """Return cached payload or the _MISS sentinel.
+
+    Callers should compare with ``cache.MISS`` to distinguish a cached
+    empty list (legitimately "no data found") from a missing entry.
+    """
     with _LOCK, _conn() as c:
         row = c.execute(
             "SELECT payload, fetched_at FROM label_cache WHERE source=? AND artist_key=?",
             (source, _key(artist)),
         ).fetchone()
     if not row:
-        return None
+        return _MISS
     payload, fetched_at = row
     if time.time() - fetched_at > ttl:
-        return None
+        return _MISS
     try:
         return json.loads(payload)
     except json.JSONDecodeError:
-        return None
+        return _MISS
+
+
+MISS = _MISS
 
 
 def put(source: str, artist: str, payload: Any) -> None:

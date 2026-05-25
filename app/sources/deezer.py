@@ -63,7 +63,7 @@ def get_releases(artist_name: str, top_n: int = TOP_N_RELEASES) -> list[dict]:
     Sorted newest first. Empty list if artist not found.
     """
     cached = cache.get(SOURCE, f"{artist_name}|{top_n}")
-    if cached is not None:
+    if cached is not cache.MISS:
         return cached
 
     artist_id = _find_artist_id(artist_name)
@@ -101,6 +101,59 @@ def get_releases(artist_name: str, top_n: int = TOP_N_RELEASES) -> list[dict]:
 
     cache.put(SOURCE, f"{artist_name}|{top_n}", out)
     return out
+
+
+def get_earliest_year(artist_name: str) -> int | None:
+    """Cheap earliest-release lookup. Returns earliest year among up to 50
+    Deezer albums for this artist (strict exact-name match required to
+    avoid namesake pollution)."""
+    ck = f"earliest|{artist_name}"
+    cached = cache.get(SOURCE, ck)
+    if cached is not cache.MISS:
+        return cached
+
+    artist_id = _find_artist_id_strict(artist_name)
+    if not artist_id:
+        cache.put(SOURCE, ck, None)
+        return None
+
+    polite_sleep(0.12)
+    data = get_json(
+        f"{BASE}/artist/{artist_id}/albums",
+        params={"limit": 50},
+    )
+    earliest: int | None = None
+    for a in (data or {}).get("data", []) or []:
+        rd = a.get("release_date") or ""
+        if len(rd) >= 4 and rd[:4].isdigit():
+            year = int(rd[:4])
+            if year > 1900 and (earliest is None or year < earliest):
+                earliest = year
+    cache.put(SOURCE, ck, earliest)
+    return earliest
+
+
+def _find_artist_id_strict(artist_name: str) -> int | None:
+    """Find the Deezer artist ID with EXACT normalized name match only.
+
+    Deezer's search returns many namesakes; for the earliest-year
+    heuristic we require exact-equality to avoid pulling old years from
+    a different artist with the same name.
+    """
+    data = get_json(
+        f"{BASE}/search/artist",
+        params={"q": artist_name, "limit": 10, "strict": "on"},
+    ) or get_json(
+        f"{BASE}/search/artist",
+        params={"q": artist_name, "limit": 10},
+    )
+    if not data:
+        return None
+    target = normalize(artist_name)
+    for entry in data.get("data", []):
+        if normalize(entry.get("name", "")) == target:
+            return entry.get("id")
+    return None
 
 
 def labels_only(releases: Iterable[dict]) -> list[str]:

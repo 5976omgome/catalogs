@@ -233,6 +233,33 @@ body::before {
 .counter .ck { color: var(--green) !important; }
 .counter .cy { color: var(--yellow) !important; }
 .counter .cr { color: var(--red) !important; }
+.counter .cm { color: #66ddff !important; }
+
+/* card-head: title + inline control */
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.card-head h2 { margin: 0; }
+
+/* small toggle */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.toggle input[type=checkbox] {
+  accent-color: var(--green);
+  cursor: pointer;
+}
+.toggle:hover { color: var(--green); }
 
 /* log */
 .log {

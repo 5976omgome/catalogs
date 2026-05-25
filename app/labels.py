@@ -10,6 +10,11 @@ from typing import Literal
 
 LabelType = Literal["major", "indie", "distributor", "self", "other", "none"]
 
+# Catalog age threshold: artists whose earliest known release is BEFORE
+# this year are considered too established for the catalog-acquisition
+# play and get flagged automatically.
+OLD_CATALOG_CUTOFF = 2005
+
 # Major label imprints and parents.
 MAJORS: tuple[str, ...] = (
     # Universal
@@ -80,25 +85,55 @@ def classify_label(label: str | None) -> LabelType:
     return "other"
 
 
-def is_self_released(artist_name: str, label: str | None) -> bool:
-    """Strict self-release check.
+def is_distributor(label: str | None) -> bool:
+    """True if the label is a known DIY distributor (DistroKid/CDBaby/etc.)."""
+    if not label:
+        return False
+    return _contains_any(label.lower().strip(), DISTRIBUTORS)
 
-    Rules (in order):
+
+def is_exact_artist_match(artist_name: str, label: str | None) -> bool:
+    """True only if the label normalized equals the artist name normalized.
+
+    This is the STRICTEST possible self-release check: the label string
+    is literally the artist's name, no suffix, no additions.
+    """
+    if not artist_name or not label:
+        return False
+    return normalize(artist_name) == normalize(label)
+
+
+def is_self_released(artist_name: str, label: str | None,
+                     strict: bool = False) -> bool:
+    """Self-release check.
+
+    strict=False (default, lenient mode used for cross-checks):
       1. Empty / "none" / "[no label]" -> self-released.
-      2. Distributor name appears in the label -> self-released.
+      2. Distributor name in the label -> self-released.
       3. Normalized label equals normalized artist name -> self-released.
       4. Normalized label equals artist name + a recognized suffix word
-         (e.g. "Drake Music", "Drake Records", "Drake LTD") -> self-released.
+         (e.g. "Drake Music", "Drake Records") -> self-released.
       5. Anything else -> NOT self-released.
 
-    This is intentionally stricter than substring matching to avoid
-    flagging "Drake Music Group" (a real third-party label) as self-released.
+    strict=True (used for the final CLEAN verdict):
+      1. Empty -> NOT self-released. We require positive evidence.
+      2. Distributor name -> self-released.
+      3. EXACT artist-name match -> self-released.
+      4. Anything else (including "Artist Music", "Artist Records",
+         self-imprints with creative names, etc.) -> NOT self-released.
+
+    This is intentionally aggressive. It avoids the "Drake Music Group"
+    pitfall and per the user's spec, even self-named imprints like
+    "Russ My Way Inc." should NOT auto-pass as CLEAN -- they get
+    flagged for manual review instead.
     """
     if not label:
-        return True
+        # Lenient mode treats "no label" as self-release; strict treats it
+        # as inconclusive (we want positive proof).
+        return not strict
     ll = label.lower().strip()
-    if ll in ("", "none", "[no label]", "not on label"):
-        return True
+    if ll in ("none", "[no label]", "not on label"):
+        return not strict
     if _contains_any(ll, DISTRIBUTORS):
         return True
 
@@ -110,12 +145,14 @@ def is_self_released(artist_name: str, label: str | None) -> bool:
     if artist_norm == label_norm:
         return True
 
-    # Check artist + suffix patterns
+    if strict:
+        return False
+
+    # Lenient suffix check
     if label_norm.startswith(artist_norm):
         remainder = label_norm[len(artist_norm):]
         if remainder in {normalize(s) for s in SELF_SUFFIXES}:
             return True
-        # Allow "<artist><number>" too (e.g. SoundCloud-style)
         if remainder.isdigit():
             return True
 
@@ -125,3 +162,19 @@ def is_self_released(artist_name: str, label: str | None) -> bool:
             return True
 
     return False
+
+
+def is_likely_self_imprint(artist_name: str, label: str | None) -> bool:
+    """True if the label LOOKS like a self-imprint (artist name + suffix
+    pattern) but is not an exact match.
+
+    We use this to flag rows for manual review without auto-clearing them.
+    Distributors are NOT self-imprints; they are a separate clean category.
+    """
+    if not label or not artist_name:
+        return False
+    if is_distributor(label):
+        return False
+    if is_exact_artist_match(artist_name, label):
+        return False  # exact match is its own thing
+    return is_self_released(artist_name, label, strict=False)
