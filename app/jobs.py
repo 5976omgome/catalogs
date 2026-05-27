@@ -190,6 +190,7 @@ class JobManager:
         return self._running
 
     def _run_loop(self) -> None:
+        import traceback
         try:
             while True:
                 if self._stop_requested:
@@ -198,7 +199,18 @@ class JobManager:
                     nxt = next((it for it in self._items if it.status == "queued"), None)
                 if nxt is None:
                     break
-                self._run_item(nxt)
+                try:
+                    self._run_item(nxt)
+                except Exception as e:
+                    # Don't let an unexpected per-item failure kill the worker.
+                    tb = traceback.format_exc()
+                    print(f"[worker] unhandled exception in _run_item:\n{tb}",
+                          flush=True)
+                    with self._lock:
+                        nxt.status = "error"
+                        nxt.error = f"{type(e).__name__}: {e}"
+                    self._broadcast({"type": "item_error",
+                                     "item": nxt.to_dict()})
         finally:
             with self._lock:
                 self._running = False
@@ -242,7 +254,8 @@ class JobManager:
                            if isinstance(v, str) and v.strip() else "")
             )
 
-        # Output columns we'll fill in
+        # Output columns we'll fill in. Use object dtype (Python objects)
+        # to avoid pandas 3.0's strict 'str' dtype rejecting int values.
         new_cols = [
             "Status", "Status Reason", "iTunes P-Line", "Licensee",
             "Earliest Year", "Earliest Year Note",
@@ -250,7 +263,9 @@ class JobManager:
         ]
         for c in new_cols:
             if c not in df.columns:
-                df[c] = ""
+                df[c] = pd.Series([""] * len(df), index=df.index, dtype="object")
+            else:
+                df[c] = df[c].astype("object")
 
         # Per-artist loop
         cancelled = False
@@ -291,15 +306,18 @@ class JobManager:
                 for e in a.evaluations
             )
 
-            df.at[idx, "Status"] = a.status
-            df.at[idx, "Status Reason"] = a.status_reason
-            df.at[idx, "iTunes P-Line"] = pline_text
-            df.at[idx, "Licensee"] = a.licensee or ""
-            df.at[idx, "Earliest Year"] = a.earliest_year or ""
-            df.at[idx, "Earliest Year Note"] = a.earliest_year_note
-            df.at[idx, "Label Evaluations"] = evals_text
+            # NOTE: every value is coerced to str() because pandas 3.0
+            # tightened dtype='str' columns to reject ints. The xlsx
+            # writer treats everything as text anyway.
+            df.at[idx, "Status"] = str(a.status)
+            df.at[idx, "Status Reason"] = str(a.status_reason)
+            df.at[idx, "iTunes P-Line"] = str(pline_text)
+            df.at[idx, "Licensee"] = str(a.licensee or "")
+            df.at[idx, "Earliest Year"] = str(a.earliest_year) if a.earliest_year else ""
+            df.at[idx, "Earliest Year Note"] = str(a.earliest_year_note)
+            df.at[idx, "Label Evaluations"] = str(evals_text)
             df.at[idx, "AI / Informational"] = " | ".join(a.informational)
-            df.at[idx, "Verdict"] = a.verdict
+            df.at[idx, "Verdict"] = str(a.verdict)
 
             with self._lock:
                 item.processed += 1
