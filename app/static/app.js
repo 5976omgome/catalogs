@@ -136,23 +136,107 @@ function renderItem(item) {
   if (item.has_output) {
     const exp = document.createElement("div");
     exp.className = "qexports";
-    const mk = (label, cls, href) => {
-      const a = document.createElement("a");
-      a.textContent = label;
-      a.href = href;
-      if (cls) a.className = cls;
-      return a;
+    const mk = (label, cls, href, suggestedName) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = label;
+      if (cls) btn.className = cls;
+      btn.addEventListener("click", () => downloadFromUrl(btn, href, suggestedName));
+      return btn;
     };
-    exp.appendChild(mk("export keep", "", `/api/export/${item.id}/keep`));
-    exp.appendChild(mk("export review", "", `/api/export/${item.id}/review`));
-    exp.appendChild(mk("export drops", "", `/api/export/${item.id}/drops`));
-    exp.appendChild(mk("export all", "", `/api/export/${item.id}/all`));
-    exp.appendChild(mk("full xlsx", "full", `/api/download/${item.id}`));
+    const stem = item.filename.replace(/\.(csv|tsv)$/i, "");
+    exp.appendChild(mk("Download KEEP",   "btn-export keep",   `/api/export/${item.id}/keep`,   `${stem}-keep.xlsx`));
+    exp.appendChild(mk("Download REVIEW", "btn-export review", `/api/export/${item.id}/review`, `${stem}-review.xlsx`));
+    exp.appendChild(mk("Download DROPS",  "btn-export drops",  `/api/export/${item.id}/drops`,  `${stem}-drops.xlsx`));
+    exp.appendChild(mk("Download ALL",    "btn-export all",    `/api/export/${item.id}/all`,    `${stem}-all.xlsx`));
+    exp.appendChild(mk("Download FULL",   "btn-export full",   `/api/download/${item.id}`,      `${stem}Output.xlsx`));
     li.appendChild(exp);
   }
 
   $("queue").appendChild(li);
   queueState[item.id] = li;
+}
+
+// ---------------------------------------------------------------------------
+// Downloads — fetch as Blob, prompt Save As (with location picker on Chrome/Edge)
+// ---------------------------------------------------------------------------
+async function downloadFromUrl(btn, url, suggestedName) {
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Preparing…";
+  try {
+    const r = await fetch(url);
+    if (!r.ok) {
+      let msg = `${r.status} ${r.statusText}`;
+      try {
+        const j = await r.json();
+        if (j && j.error) msg = j.error;
+      } catch { /* ignore */ }
+      btn.textContent = originalLabel;
+      btn.disabled = false;
+      logLine(`[download error] ${suggestedName}: ${msg}`, "bad");
+      alert(`Download failed: ${msg}`);
+      return;
+    }
+    // Pull a sensible filename out of Content-Disposition if present
+    const cd = r.headers.get("Content-Disposition") || "";
+    const match = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(cd);
+    const filename = (match && decodeURIComponent(match[1].replace(/"$/, ""))) || suggestedName;
+
+    const blob = await r.blob();
+
+    // Best path on Chrome/Edge: actual native Save dialog where the user
+    // picks the folder. Falls through to <a download> on Safari/Firefox.
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{
+            description: "Excel spreadsheet",
+            accept: {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"]},
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        btn.textContent = "Saved ✓";
+        logLine(`[saved] ${filename}`, "ok");
+        setTimeout(() => { btn.textContent = originalLabel; btn.disabled = false; }, 1500);
+        return;
+      } catch (e) {
+        if (e && e.name === "AbortError") {
+          // User cancelled the picker — restore button and bail silently.
+          btn.textContent = originalLabel;
+          btn.disabled = false;
+          return;
+        }
+        // Any other error: fall through to the <a download> path
+        console.warn("showSaveFilePicker failed, falling back:", e);
+      }
+    }
+
+    // Fallback: <a download>. Browser uses its configured download
+    // location, OR shows Save As if the user has "Always ask" enabled.
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+
+    btn.textContent = "Downloaded ✓";
+    logLine(`[downloaded] ${filename}`, "ok");
+    setTimeout(() => { btn.textContent = originalLabel; btn.disabled = false; }, 1500);
+  } catch (err) {
+    console.error("download failed", err);
+    btn.textContent = originalLabel;
+    btn.disabled = false;
+    logLine(`[download error] ${err.message || err}`, "bad");
+    alert(`Download failed: ${err.message || err}`);
+  }
 }
 
 // ---------------------------------------------------------------------------

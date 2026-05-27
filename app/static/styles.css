@@ -66,13 +66,19 @@ button.primary:hover { background: #16a34a; }
 }
 .queue .qcounts { font-size: 12px; color: #555; margin-top: 6px; }
 .queue .qexports { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.queue .qexports a {
+.queue .qexports button {
   font-size: 12px; padding: 4px 10px; border: 1px solid #ccc;
-  border-radius: 3px; text-decoration: none; color: #333;
-  background: #fff;
+  border-radius: 3px; color: #333; background: #fff; cursor: pointer;
+  font-family: inherit;
 }
-.queue .qexports a:hover { background: #eee; }
-.queue .qexports a.full { background: #1db954; color: #fff; border-color: #169c45; }
+.queue .qexports button:hover:not(:disabled) { background: #eee; }
+.queue .qexports button:disabled { opacity: 0.6; cursor: progress; }
+.queue .qexports button.btn-export.keep   { background: #f0faf2; border-color: #b9e3c1; color: #146c2e; }
+.queue .qexports button.btn-export.review { background: #fff7e6; border-color: #ffe08a; color: #8a5b00; }
+.queue .qexports button.btn-export.drops  { background: #fdecea; border-color: #f3b3ad; color: #8a1f17; }
+.queue .qexports button.btn-export.all    { background: #fafafa; border-color: #ccc; color: #333; }
+.queue .qexports button.btn-export.full   { background: #1db954; color: #fff; border-color: #169c45; }
+.queue .qexports button.btn-export.full:hover:not(:disabled) { background: #16a34a; }
 .queue li.done { background: #f0faf2; }
 .queue li.stopped { background: #fff7e6; }
 .queue li.error { background: #fdecea; }
