@@ -1,11 +1,15 @@
-"""Discogs API - free token, returns historical label data."""
+"""Discogs API - free token, returns historical label data.
+
+Reads the Discogs token live (per call) so a Save in the Settings UI
+takes effect immediately, without restarting the server.
+"""
 import time
 from typing import List
 
 import requests
 
-from .. import cache
-from ..config import DISCOGS_TOKEN, USER_AGENT
+from .. import cache, config
+from ..config import USER_AGENT
 from ..labels import normalize
 
 BASE = "https://api.discogs.com"
@@ -13,8 +17,9 @@ BASE = "https://api.discogs.com"
 
 def _headers():
     h = {"User-Agent": USER_AGENT}
-    if DISCOGS_TOKEN:
-        h["Authorization"] = f"Discogs token={DISCOGS_TOKEN}"
+    token = config.discogs_token()
+    if token:
+        h["Authorization"] = f"Discogs token={token}"
     return h
 
 
@@ -40,7 +45,7 @@ def _find_artist_id_strict(artist_name: str):
 
 def get_releases(artist_name: str, limit: int = 3) -> List[dict]:
     """Returns up to N main-artist releases sorted year desc. Each: {title, label, release_year}."""
-    if not DISCOGS_TOKEN:
+    if not config.discogs_token():
         return []
 
     key = f"discogs:rel:{normalize(artist_name)}:{limit}"
@@ -91,7 +96,7 @@ def get_releases(artist_name: str, limit: int = 3) -> List[dict]:
 
 def get_earliest_year(artist_name: str) -> str:
     """Earliest release year on Discogs (strict name match only)."""
-    if not DISCOGS_TOKEN:
+    if not config.discogs_token():
         return ""
     key = f"discogs:earliest:{normalize(artist_name)}"
     cached = cache.get(key)
