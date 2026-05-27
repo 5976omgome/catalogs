@@ -7,7 +7,7 @@ like Waitress raise AssertionError if applications try to set it.
 import queue
 import uuid
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Optional
 
 from flask import Flask, Response, jsonify, request, send_file, send_from_directory
 
@@ -137,6 +137,16 @@ def create_app() -> Flask:
         manager.start()
         return jsonify({"ok": True})
 
+    @app.route("/api/queue/stop", methods=["POST"])
+    def stop_queue():
+        """
+        Graceful stop: the running item finishes its current artist, writes
+        its partial xlsx output, and is marked 'stopped'. Remaining queued
+        items stay queued for a future Start.
+        """
+        manager.stop()
+        return jsonify({"ok": True})
+
     @app.route("/api/queue/clear", methods=["POST"])
     def clear_queue():
         manager.clear()
@@ -159,6 +169,59 @@ def create_app() -> Flask:
                 if p.exists():
                     return send_file(str(p), as_attachment=True)
         return jsonify({"error": "not found"}), 404
+
+    @app.route("/api/export/<item_id>")
+    def export(item_id):
+        """
+        Export a filtered xlsx for an item that has already finished.
+        Query params:
+          filter = keep | drop | review | all   (default: keep)
+
+        Returns a freshly-built xlsx containing ONLY rows whose Status
+        column matches the filter. 'keep' is the default because that's
+        the slice of artists worth pursuing for licensing deals.
+        """
+        filter_kind = (request.args.get("filter", "keep") or "keep").strip().lower()
+        if filter_kind not in {"keep", "drop", "review", "all"}:
+            return jsonify({"error": f"unknown filter '{filter_kind}'"}), 400
+
+        # Look up the source xlsx via the public snapshot.
+        src_path: Optional[Path] = None
+        src_filename: str = ""
+        for it in manager.snapshot():
+            if it["item_id"] == item_id and it.get("output_path"):
+                p = Path(it["output_path"])
+                if p.exists():
+                    src_path = p
+                    src_filename = it.get("filename") or p.stem
+                    break
+        if src_path is None:
+            return jsonify({"error": "not found"}), 404
+
+        from .excel import filter_xlsx_by_status
+
+        try:
+            filtered_path, kept = filter_xlsx_by_status(src_path, filter_kind)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+        if filtered_path is None or kept == 0:
+            # No matching rows. Return 200 + empty body? Better to surface
+            # a useful 404 with a note so the front-end can show a message.
+            return jsonify({
+                "error": f"no rows matched filter '{filter_kind}'",
+                "kept": 0,
+            }), 404
+
+        download_name = (
+            f"{Path(src_filename).stem}-{filter_kind}.xlsx"
+            if src_filename else filtered_path.name
+        )
+        return send_file(
+            str(filtered_path),
+            as_attachment=True,
+            download_name=download_name,
+        )
 
     @app.route("/api/stream")
     def stream():

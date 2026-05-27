@@ -84,6 +84,17 @@ MAJOR_FAMILIES: dict[str, list[str]] = {
     ],
 }
 
+# Known indie labels that are still NOT name variants of any artist - used
+# only by find_licensing_clause() to gate soft markers like 'distributed
+# by'. Major-family detection lives in match_major_family() above.
+KNOWN_INDIES: List[str] = [
+    "merlin", "beggars banquet", "4ad records", "matador records",
+    "sub pop", "secretly canadian", "jagjaguwar", "dead oceans",
+    "warp records", "rough trade records", "domino recording",
+    "ninja tune", "monstercat", "empire distribution", "alamo records",
+    "because music", "play music",
+]
+
 # A few tokens are too short / too generic to substring-match safely. They
 # are only flagged when they appear with a major-distribution context word
 # in the same string. Format: (token, required_companion_substring or None).
@@ -403,7 +414,7 @@ def is_neutral_distributor(label: str) -> bool:
 # found.
 
 LICENSING_MARKERS: List[str] = [
-    # English
+    # English - hard licensing markers (these always trigger)
     "under exclusive licence to", "under exclusive license to",
     "under exclusive licence", "under exclusive license",
     "under licence to", "under license to",
@@ -412,12 +423,6 @@ LICENSING_MARKERS: List[str] = [
     "licensed to",
     "licensee for",
     "exclusively distributed by",
-    "distributed by",
-    "dist. by", "dist by",
-    "manufactured and distributed by", "mfd by", "mfd. by",
-    "a division of",
-    "a label of",
-    "exclusively", "exclusive",
     # Spanish
     "licencia exclusiva", "bajo licencia",
     # French
@@ -430,12 +435,26 @@ LICENSING_MARKERS: List[str] = [
     "onder licentie",
 ]
 
+# Soft licensing markers - "X, distributed by Y" or "X, a division of Y"
+# only counts as licensing when Y names a major or known indie. Without
+# that gate, "Records Inc., a division of nothing" or "12345 Records DK,
+# distributed by DistroKid" would both false-flag.
+SOFT_LICENSING_MARKERS: List[str] = [
+    "distributed by",
+    "dist. by", "dist by",
+    "manufactured and distributed by", "mfd by", "mfd. by",
+    "a division of",
+    "a label of",
+    "a subsidiary of",
+]
+
 # Sort longest-first so "under exclusive licence to" beats "exclusive".
 _SORTED_LICENSING_MARKERS = sorted(LICENSING_MARKERS, key=lambda s: -len(s))
+_SORTED_SOFT_LICENSING = sorted(SOFT_LICENSING_MARKERS, key=lambda s: -len(s))
 
 # Bare "exclusively" / "exclusive" must not match harmless phrases like
 # "Exclusive Records" used as a label name. Require a follow-up cue.
-_BARE_EXCLUSIVE_TOKENS = {"exclusive", "exclusively"}
+_BARE_EXCLUSIVE_TOKENS: set = set()  # disabled - too many false positives
 _EXCLUSIVE_FOLLOW_CUES = (
     "license", "licence", "licensed", "licensee", "to ", "for ", "by ",
 )
@@ -447,28 +466,54 @@ def find_licensing_clause(text: str) -> str:
     to marker. The returned string is the text following the marker, trimmed
     at the next clause-terminating punctuation (`,`, `;`, `.`, `/`).
 
-    Empty string when no marker is found, OR when the only match is a bare
-    "exclusive"/"exclusively" without a follow-up "to / for / by / license".
+    Empty string when no marker is found.
+
+    Soft markers ('distributed by', 'a division of') only count when the
+    clause names a major or known indie — that prevents false positives on
+    plain prose like "Records Inc., a division of nothing" and on legit
+    distributor placeholders like "12345 Records DK, distributed by
+    DistroKid".
     """
     if not text:
         return ""
     lower = text.lower()
+
+    # Hard markers always trigger.
     for marker in _SORTED_LICENSING_MARKERS:
+        idx = lower.find(marker)
+        if idx >= 0:
+            tail = text[idx + len(marker):].strip(" ,.:;-")
+            for stop in (",", ";", ".", "/"):
+                p = tail.find(stop)
+                if p > 0:
+                    tail = tail[:p]
+                    break
+            return tail.strip()
+
+    # Soft markers only trigger when the clause names a major or known indie.
+    for marker in _SORTED_SOFT_LICENSING:
         idx = lower.find(marker)
         if idx < 0:
             continue
-        # Bare "exclusive" / "exclusively" needs a follow-up cue to count.
-        if marker in _BARE_EXCLUSIVE_TOKENS:
-            tail = lower[idx + len(marker):].lstrip()
-            if not any(tail.startswith(c) for c in _EXCLUSIVE_FOLLOW_CUES):
-                continue
         tail = text[idx + len(marker):].strip(" ,.:;-")
         for stop in (",", ";", ".", "/"):
             p = tail.find(stop)
             if p > 0:
                 tail = tail[:p]
                 break
-        return tail.strip()
+        tail = tail.strip()
+        if not tail:
+            continue
+        # Gate: does the tail name a major or known indie? If yes, it's a
+        # real licensing/distribution-by-major clause. If no, it's just
+        # prose and we ignore the marker.
+        if match_major_family(tail) is not None:
+            return tail
+        if any(needle in tail.lower() for needle in KNOWN_INDIES):
+            return tail
+        # No major / no indie -> not a licensing clause, just descriptive text.
+        continue
+
     return ""
 
 

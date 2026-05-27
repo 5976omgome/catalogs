@@ -72,6 +72,7 @@ class JobManager:
         self._subs: List[_Subscriber] = []
         self._worker: Optional[threading.Thread] = None
         self._running = False
+        self._stop_requested = False
 
     # --- subscriber API for SSE ---
     def subscribe(self) -> _Subscriber:
@@ -199,14 +200,31 @@ class JobManager:
             if self._running:
                 return
             self._running = True
+            self._stop_requested = False
             self._worker = threading.Thread(target=self._run_loop, daemon=True)
             self._worker.start()
         self._broadcast({"type": "queue_started"})
+
+    def stop(self):
+        """
+        Request a graceful stop. The currently-running item finishes the
+        artist it's on, writes its partial xlsx output (with whatever rows
+        were processed), and is marked 'stopped'. Remaining queued items
+        stay in the queue but won't be processed until start() is called
+        again.
+        """
+        with self._lock:
+            if not self._running:
+                return
+            self._stop_requested = True
+        self._broadcast({"type": "queue_stop_requested"})
 
     def _run_loop(self):
         try:
             while True:
                 with self._lock:
+                    if self._stop_requested:
+                        break
                     next_id = None
                     for iid in self._order:
                         it = self._items.get(iid)
@@ -219,6 +237,7 @@ class JobManager:
         finally:
             with self._lock:
                 self._running = False
+                self._stop_requested = False
             self._broadcast({"type": "queue_done"})
 
     def _run_item(self, item_id: str):
@@ -255,11 +274,15 @@ class JobManager:
                              "total": total})
 
             output_rows = []
+            stopped_mid_run = False
             for i, row in df.iterrows():
                 # Cooperative cancel: if the user cleared the queue mid-run,
                 # stop processing this file.
                 with self._lock:
                     if item_id not in self._items:
+                        break
+                    if self._stop_requested:
+                        stopped_mid_run = True
                         break
 
                 artist = str(row.get("Artist", "")).strip()
@@ -360,10 +383,11 @@ class JobManager:
             out_path = OUTPUT_DIR / f"{stem}Output.xlsx"
             write_xlsx(output_rows, input_columns, out_path)
 
-            snap = self._update_item(item_id, output_path=str(out_path), status="done")
+            final_status = "stopped" if stopped_mid_run else "done"
+            snap = self._update_item(item_id, output_path=str(out_path), status=final_status)
             if snap is not None:
                 self._broadcast({
-                    "type": "item_done",
+                    "type": "item_done" if final_status == "done" else "item_stopped",
                     "item_id": item_id,
                     "output_path": snap["output_path"],
                     "clean": snap["clean"],
@@ -372,6 +396,7 @@ class JobManager:
                     "review": snap["review"],
                     "drop": snap["drop"],
                     "total": snap["total"],
+                    "processed": snap["processed"],
                 })
 
         except Exception as e:

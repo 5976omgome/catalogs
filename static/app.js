@@ -58,24 +58,65 @@ function renderQueue(items) {
   for (const it of items) {
     const li = document.createElement("li");
     li.classList.add(it.status);
+    const head = document.createElement("div");
+    head.className = "qitem-head";
     let txt = it.filename;
-    if (it.status === "running") txt += `  ${it.processed}/${it.total}`;
-    if (it.status === "done") {
-      txt += `  ✓  ${it.clean}/${it.total} clean`;
+    if (it.status === "running") {
+      txt += `  ${it.processed || 0}/${it.total || 0}`;
     }
-    if (it.status === "error") txt += `  ✕  ${it.error}`;
-    li.textContent = txt;
-    if (it.status === "done" && it.output_path) {
-      const a = document.createElement("a");
-      a.href = `/api/download/${it.item_id}`;
-      a.textContent = "download";
-      a.style.color = "#00ff41";
-      a.style.fontSize = "10px";
-      a.style.marginLeft = "12px";
-      li.appendChild(a);
+    if (it.status === "done" || it.status === "stopped") {
+      const counts = [];
+      if (typeof it.keep === "number")  counts.push(`${it.keep} keep`);
+      if (typeof it.review === "number") counts.push(`${it.review} review`);
+      if (typeof it.drop === "number")  counts.push(`${it.drop} drop`);
+      const tail = counts.length ? counts.join(" / ") : `${it.clean || 0}/${it.total || 0} clean`;
+      const mark = it.status === "stopped" ? "■" : "✓";
+      txt += `  ${mark}  ${tail}`;
     }
+    if (it.status === "error") txt += `  ✕  ${it.error || ""}`;
+    head.textContent = txt;
+    li.appendChild(head);
+
+    if ((it.status === "done" || it.status === "stopped") && it.output_path) {
+      const tools = document.createElement("div");
+      tools.className = "qitem-tools";
+      tools.appendChild(makeExportLink(it, "keep",   "export keep"));
+      tools.appendChild(makeExportLink(it, "review", "export review"));
+      tools.appendChild(makeExportLink(it, "drop",   "export drops"));
+      tools.appendChild(makeExportLink(it, "all",    "export all"));
+      tools.appendChild(makeDownloadLink(it));
+      li.appendChild(tools);
+    }
+
     ul.appendChild(li);
   }
+}
+
+function makeExportLink(item, kind, label) {
+  const a = document.createElement("a");
+  a.href = `/api/export/${item.item_id}?filter=${encodeURIComponent(kind)}`;
+  a.textContent = label;
+  a.className = "qitem-link";
+  a.addEventListener("click", async (e) => {
+    // Probe first so we can tell the user when there are zero rows for
+    // that filter, instead of silently downloading an error JSON.
+    e.preventDefault();
+    const r = await fetch(a.href, { method: "HEAD" }).catch(() => null);
+    if (!r || !r.ok) {
+      // HEAD may not be supported by every WSGI route; just let the
+      // browser navigate and any 404 will surface inline.
+    }
+    window.location = a.href;
+  });
+  return a;
+}
+
+function makeDownloadLink(item) {
+  const a = document.createElement("a");
+  a.href = `/api/download/${item.item_id}`;
+  a.textContent = "full xlsx";
+  a.className = "qitem-link";
+  return a;
 }
 
 function updateProgress(processed, total, clean) {
@@ -156,9 +197,30 @@ function handleEvent(ev) {
         total: ev.total,
         clean: ev.clean,
         flagged: ev.flagged,
+        keep: ev.keep,
+        review: ev.review,
+        drop: ev.drop,
       });
-      logLine(`[DONE] ${ev.clean}/${ev.total} clean -> ${ev.output_path}`, "line-clean");
+      logLine(`[DONE] keep=${ev.keep ?? "?"} review=${ev.review ?? "?"} drop=${ev.drop ?? "?"} -> ${ev.output_path}`, "line-clean");
       aggregate();
+      break;
+    case "item_stopped":
+      patchItem(ev.item_id, {
+        status: "stopped",
+        output_path: ev.output_path,
+        total: ev.total,
+        processed: ev.processed,
+        clean: ev.clean,
+        flagged: ev.flagged,
+        keep: ev.keep,
+        review: ev.review,
+        drop: ev.drop,
+      });
+      logLine(`[STOPPED] processed ${ev.processed}/${ev.total} -> ${ev.output_path}`, "line-flagged");
+      aggregate();
+      break;
+    case "queue_stop_requested":
+      logLine(`[STOP requested - finishing current artist...]`, "line-flagged");
       break;
     case "item_error":
       patchItem(ev.item_id, { status: "error", error: ev.error });
@@ -347,6 +409,9 @@ function wireUI() {
 
   $("run").addEventListener("click", async () => {
     await fetch("/api/queue/start", { method: "POST" });
+  });
+  $("stop").addEventListener("click", async () => {
+    await fetch("/api/queue/stop", { method: "POST" });
   });
   $("clear").addEventListener("click", async () => {
     await fetch("/api/queue/clear", { method: "POST" });
