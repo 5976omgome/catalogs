@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Catalog Audit</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Catalog Audit</h1>
+    <div class="pills">
+      <span class="pill" id="pill-discogs">discogs: ?</span>
+      <span class="pill" id="pill-ai">ai: ?</span>
+    </div>
+  </header>
+
+  <section class="card" id="card-keys">
+    <h2>API KEYS</h2>
+    <p class="muted">
+      Stored locally at <code>~/.catalog_audit/keys.json</code> with
+      owner-only permissions. Never committed to git. Shown as a masked
+      preview after save.
+    </p>
+    <div class="keys-grid">
+      <label>
+        Discogs token
+        <input id="key-discogs" type="password" placeholder="Paste new value to update">
+        <small id="prev-discogs" class="muted"></small>
+      </label>
+      <label>
+        Groq API key
+        <input id="key-groq" type="password" placeholder="Paste new value to update">
+        <small id="prev-groq" class="muted"></small>
+      </label>
+      <label>
+        Gemini API key
+        <input id="key-gemini" type="password" placeholder="Paste new value to update">
+        <small id="prev-gemini" class="muted"></small>
+      </label>
+    </div>
+    <div class="row">
+      <button id="btn-save-keys" class="primary">SAVE KEYS</button>
+      <button id="btn-clear-keys">CLEAR ALL</button>
+      <span id="keys-msg" class="muted"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>QUEUE</h2>
+    <div class="row">
+      <input type="file" id="file-input" accept=".csv,.tsv">
+      <button id="btn-upload">UPLOAD</button>
+      <button id="btn-run" class="primary">RUN QUEUE</button>
+      <button id="btn-stop">STOP</button>
+      <button id="btn-clear">CLEAR DONE</button>
+    </div>
+    <ul id="queue" class="queue"></ul>
+  </section>
+
+  <section class="card">
+    <h2>LIVE LOG</h2>
+    <pre id="log" class="log"></pre>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
