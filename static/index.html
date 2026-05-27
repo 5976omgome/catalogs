@@ -17,6 +17,43 @@
   </header>
 
   <section class="card">
+    <div class="card-head">
+      <h2>API KEYS</h2>
+      <span class="card-hint" id="settings-storage-hint"></span>
+    </div>
+    <p class="card-help">
+      Keys are stored locally on this machine, never in the repo. Leave a
+      field blank to keep the saved value. Type a new value to replace it,
+      or just spaces to clear it.
+    </p>
+    <div class="settings-grid">
+      <label class="settings-row">
+        <span class="settings-name">Discogs token</span>
+        <span class="settings-status" id="settings-discogs-status">unset</span>
+        <input type="password" id="settings-discogs" autocomplete="off"
+               spellcheck="false" placeholder="paste token to set / leave blank to keep">
+      </label>
+      <label class="settings-row">
+        <span class="settings-name">Groq API key</span>
+        <span class="settings-status" id="settings-groq-status">unset</span>
+        <input type="password" id="settings-groq" autocomplete="off"
+               spellcheck="false" placeholder="paste key to set / leave blank to keep">
+      </label>
+      <label class="settings-row">
+        <span class="settings-name">Gemini API key</span>
+        <span class="settings-status" id="settings-gemini-status">unset</span>
+        <input type="password" id="settings-gemini" autocomplete="off"
+               spellcheck="false" placeholder="paste key to set / leave blank to keep">
+      </label>
+    </div>
+    <div class="row">
+      <button id="settings-save" class="primary">SAVE KEYS</button>
+      <button id="settings-clear" type="button">CLEAR ALL</button>
+      <span class="settings-feedback" id="settings-feedback"></span>
+    </div>
+  </section>
+
+  <section class="card">
     <h2>FILE QUEUE</h2>
     <div id="dropzone" class="dropzone">
       Drop CSV files here or

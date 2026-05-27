@@ -210,6 +210,122 @@ async function uploadFiles(files) {
   await fetch("/api/upload", { method: "POST", body: fd });
 }
 
+// ---------- Settings (API keys) ----------
+
+const SETTINGS_FIELDS = [
+  { key: "discogs_token", inputId: "settings-discogs", statusId: "settings-discogs-status" },
+  { key: "groq_api_key",  inputId: "settings-groq",    statusId: "settings-groq-status"    },
+  { key: "gemini_api_key",inputId: "settings-gemini",  statusId: "settings-gemini-status"  },
+];
+
+function renderSettings(payload) {
+  if (!payload || !payload.keys) return;
+  for (const f of SETTINGS_FIELDS) {
+    const info = payload.keys[f.key] || { set: false, source: "unset", preview: "" };
+    const statusEl = $(f.statusId);
+    const inputEl  = $(f.inputId);
+    statusEl.classList.remove("set", "env");
+    if (info.set && info.source === "file") {
+      statusEl.textContent = info.preview;
+      statusEl.classList.add("set");
+      inputEl.placeholder = "leave blank to keep";
+    } else if (info.set && info.source === "env") {
+      statusEl.textContent = `${info.preview} (env)`;
+      statusEl.classList.add("env");
+      inputEl.placeholder = "leave blank to keep env value";
+    } else {
+      statusEl.textContent = "unset";
+      inputEl.placeholder = "paste token / key";
+    }
+    // Never refill the input from the server response.
+    inputEl.value = "";
+  }
+  if (payload.storage_path) {
+    $("settings-storage-hint").textContent = `stored at ${payload.storage_path}`;
+  }
+}
+
+function setFeedback(msg, kind) {
+  const el = $("settings-feedback");
+  el.textContent = msg || "";
+  el.classList.remove("ok", "err");
+  if (kind) el.classList.add(kind);
+  if (msg) {
+    setTimeout(() => {
+      if (el.textContent === msg) {
+        el.textContent = "";
+        el.classList.remove("ok", "err");
+      }
+    }, 3500);
+  }
+}
+
+async function loadSettings() {
+  try {
+    const r = await fetch("/api/settings");
+    if (!r.ok) return;
+    renderSettings(await r.json());
+  } catch (e) {
+    /* network errors are non-fatal here */
+  }
+}
+
+async function saveSettings() {
+  // Only send fields the user actually typed in. Empty input means
+  // "leave it alone" (we omit it from the request).
+  const body = {};
+  let anyTouched = false;
+  for (const f of SETTINGS_FIELDS) {
+    const raw = $(f.inputId).value;
+    if (raw === "") continue; // leave unchanged
+    body[f.key] = raw.trim() === "" ? "" : raw.trim();
+    anyTouched = true;
+  }
+  if (!anyTouched) {
+    setFeedback("nothing to save", "err");
+    return;
+  }
+  setFeedback("saving…");
+  try {
+    const r = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      setFeedback(`error ${r.status}`, "err");
+      return;
+    }
+    const data = await r.json();
+    renderSettings(data);
+    setFeedback(`saved (${(data.updated || []).length})`, "ok");
+    // Pills depend on /api/status; refresh them so they go green immediately.
+    fetchStatus();
+  } catch (e) {
+    setFeedback("network error", "err");
+  }
+}
+
+async function clearAllSettings() {
+  if (!confirm("Clear all saved API keys on this machine?")) return;
+  setFeedback("clearing…");
+  try {
+    const r = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        discogs_token: "", groq_api_key: "", gemini_api_key: "",
+      }),
+    });
+    if (!r.ok) { setFeedback(`error ${r.status}`, "err"); return; }
+    renderSettings(await r.json());
+    setFeedback("cleared", "ok");
+    fetchStatus();
+  } catch (e) {
+    setFeedback("network error", "err");
+  }
+}
+
 function wireUI() {
   $("pick").addEventListener("click", () => $("file-input").click());
   $("file-input").addEventListener("change", (e) => {
@@ -241,8 +357,21 @@ function wireUI() {
     state.filterFlagged = e.target.checked;
     renderLog();
   });
+
+  $("settings-save").addEventListener("click", saveSettings);
+  $("settings-clear").addEventListener("click", clearAllSettings);
+  // Submit on Enter from any of the three password inputs
+  for (const f of SETTINGS_FIELDS) {
+    $(f.inputId).addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        saveSettings();
+      }
+    });
+  }
 }
 
 wireUI();
 fetchStatus();
+loadSettings();
 startSSE();

@@ -4,13 +4,16 @@ AI label-bridge: narrowly scoped tiebreaker for trivial label-string differences
 Only called when the rule engine flagged ONLY for DIVERGES reasons.
 Cannot override MAJOR / INDIE / LICENSED-TO / OLD_CATALOG / SELF_IMPRINT.
 Falls back to deterministic loose-string compare if no API key is set.
+
+Reads keys live (per call) so a Save in the Settings UI takes effect
+immediately, without restarting the server.
 """
 import threading
 from typing import List
 
 import requests
 
-from .config import GROQ_API_KEY, GEMINI_API_KEY
+from . import config
 from .labels import normalize, is_distributor, SELF_IMPRINT_SUFFIXES
 
 _PROMPT_TMPL = (
@@ -30,13 +33,14 @@ def _format_labels(labels: List[str]) -> str:
 
 
 def _call_groq(prompt: str, timeout: float = 12.0) -> str:
-    if not GROQ_API_KEY:
+    key = config.groq_api_key()
+    if not key:
         return ""
     try:
         r = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Authorization": f"Bearer {key}",
                 "Content-Type": "application/json",
             },
             json={
@@ -55,12 +59,13 @@ def _call_groq(prompt: str, timeout: float = 12.0) -> str:
 
 
 def _call_gemini(prompt: str, timeout: float = 12.0) -> str:
-    if not GEMINI_API_KEY:
+    key = config.gemini_api_key()
+    if not key:
         return ""
     try:
         r = requests.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}",
+            f"gemini-2.0-flash:generateContent?key={key}",
             json={
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {"temperature": 0.0, "maxOutputTokens": 10},

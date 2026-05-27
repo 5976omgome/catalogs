@@ -1,9 +1,17 @@
-"""Background job manager with SSE event broadcasting."""
+"""Background job manager with SSE event broadcasting.
+
+All mutations to JobItem fields go through methods that hold the manager
+lock, so concurrent readers (snapshot, broadcast payload builders) see
+consistent state.
+
+Uploaded source CSVs are removed from .uploads/ once a job finishes
+(success or error) so the directory never accumulates forever.
+"""
+import contextlib
 import json
 import queue
 import re
 import threading
-import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -65,7 +73,7 @@ class JobManager:
         sub = _Subscriber()
         with self._lock:
             self._subs.append(sub)
-        # Send a snapshot immediately
+        # Send a snapshot immediately so a fresh client paints the queue.
         self._send_to(sub, {"type": "snapshot", "items": self._snapshot()})
         return sub
 
@@ -98,7 +106,8 @@ class JobManager:
         with self._lock:
             self._items[item.item_id] = item
             self._order.append(item.item_id)
-        self._broadcast({"type": "item_added", "item": self._item_dict(item)})
+            payload = self._item_dict(item)
+        self._broadcast({"type": "item_added", "item": payload})
         return item
 
     def remove(self, item_id: str):
@@ -116,9 +125,18 @@ class JobManager:
 
     def _snapshot(self) -> List[dict]:
         with self._lock:
-            return [self._item_dict(self._items[i]) for i in self._order if i in self._items]
+            return [
+                self._item_dict(self._items[i])
+                for i in self._order
+                if i in self._items
+            ]
+
+    # Public alias - thread-safe, used by HTTP handlers.
+    def snapshot(self) -> List[dict]:
+        return self._snapshot()
 
     def _item_dict(self, item: JobItem) -> dict:
+        # Caller must hold self._lock when item is owned by the manager.
         return {
             "item_id": item.item_id,
             "filename": item.filename,
@@ -130,6 +148,31 @@ class JobManager:
             "output_path": item.output_path,
             "error": item.error,
         }
+
+    def _update_item(self, item_id: str, **fields) -> Optional[dict]:
+        """
+        Atomically apply field updates to a JobItem and return its snapshot.
+        Returns None if the item has been removed from the queue.
+        """
+        with self._lock:
+            it = self._items.get(item_id)
+            if not it:
+                return None
+            for k, v in fields.items():
+                setattr(it, k, v)
+            return self._item_dict(it)
+
+    def _bump_counters(self, item_id: str, processed: int, clean_inc: int,
+                       flagged_inc: int) -> Optional[dict]:
+        """Atomic counter bump for one artist completing."""
+        with self._lock:
+            it = self._items.get(item_id)
+            if not it:
+                return None
+            it.processed = processed
+            it.clean += clean_inc
+            it.flagged += flagged_inc
+            return self._item_dict(it)
 
     # --- run ---
     def start(self):
@@ -160,43 +203,58 @@ class JobManager:
             self._broadcast({"type": "queue_done"})
 
     def _run_item(self, item_id: str):
+        # Snapshot the path/filename inside the lock so we don't race with
+        # remove() / clear() while reading them.
         with self._lock:
             item = self._items.get(item_id)
-        if not item:
-            return
+            if not item:
+                return
+            src_path = item.path
+            filename = item.filename
 
-        item.status = "running"
-        self._broadcast({"type": "item_status", "item_id": item.item_id,
+        snap = self._update_item(item_id, status="running")
+        if snap is None:  # cleared mid-flight
+            self._cleanup_upload(src_path)
+            return
+        self._broadcast({"type": "item_status", "item_id": item_id,
                          "status": "running"})
 
         try:
-            df = pd.read_csv(item.path)
+            df = pd.read_csv(src_path)
             df = _normalize_headers(df)
 
             if "Artist" not in df.columns:
                 raise RuntimeError("CSV missing 'Artist' column")
 
-            # Trim multi-spotify-links cells to first
             if "Spotify Links" in df.columns:
                 df["Spotify Links"] = df["Spotify Links"].apply(_first_link)
 
             input_columns = list(df.columns)
             total = len(df)
-            item.total = total
-            self._broadcast({"type": "item_total", "item_id": item.item_id,
+            self._update_item(item_id, total=total)
+            self._broadcast({"type": "item_total", "item_id": item_id,
                              "total": total})
 
             output_rows = []
             for i, row in df.iterrows():
+                # Cooperative cancel: if the user cleared the queue mid-run,
+                # stop processing this file.
+                with self._lock:
+                    if item_id not in self._items:
+                        break
+
                 artist = str(row.get("Artist", "")).strip()
-                cm_label = str(row.get("Associated Labels", "")).strip() if "Associated Labels" in df.columns else ""
+                cm_label = (
+                    str(row.get("Associated Labels", "")).strip()
+                    if "Associated Labels" in df.columns else ""
+                )
                 cm_first = ""
                 if "First Release Date" in df.columns:
                     cm_first = _parse_year(str(row.get("First Release Date", "")))
 
                 self._broadcast({
                     "type": "artist_start",
-                    "item_id": item.item_id,
+                    "item_id": item_id,
                     "index": int(i) + 1,
                     "artist": artist,
                 })
@@ -214,15 +272,18 @@ class JobManager:
                 out_row["Flag Reasons"] = audit.flag_reasons
                 output_rows.append(out_row)
 
-                item.processed = int(i) + 1
-                if audit.verdict == "CLEAN":
-                    item.clean += 1
-                else:
-                    item.flagged += 1
+                snap = self._bump_counters(
+                    item_id,
+                    processed=int(i) + 1,
+                    clean_inc=1 if audit.verdict == "CLEAN" else 0,
+                    flagged_inc=0 if audit.verdict == "CLEAN" else 1,
+                )
+                if snap is None:  # cleared mid-flight
+                    break
 
                 self._broadcast({
                     "type": "artist_done",
-                    "item_id": item.item_id,
+                    "item_id": item_id,
                     "index": int(i) + 1,
                     "artist": artist,
                     "verdict": audit.verdict,
@@ -230,34 +291,52 @@ class JobManager:
                     "earliest_year": audit.earliest_year,
                     "self_imprint": audit.likely_self_imprint,
                     "flag_reasons": audit.flag_reasons,
-                    "processed": item.processed,
-                    "total": item.total,
-                    "clean": item.clean,
-                    "flagged": item.flagged,
+                    "processed": snap["processed"],
+                    "total": snap["total"],
+                    "clean": snap["clean"],
+                    "flagged": snap["flagged"],
                 })
 
-            stem = Path(item.filename).stem
+            # If the item was removed during the loop, don't write output.
+            with self._lock:
+                still_there = item_id in self._items
+            if not still_there:
+                return
+
+            stem = Path(filename).stem
             out_path = OUTPUT_DIR / f"{stem}Output.xlsx"
             write_xlsx(output_rows, input_columns, out_path)
-            item.output_path = str(out_path)
-            item.status = "done"
-            self._broadcast({
-                "type": "item_done",
-                "item_id": item.item_id,
-                "output_path": item.output_path,
-                "clean": item.clean,
-                "flagged": item.flagged,
-                "total": item.total,
-            })
+
+            snap = self._update_item(item_id, output_path=str(out_path), status="done")
+            if snap is not None:
+                self._broadcast({
+                    "type": "item_done",
+                    "item_id": item_id,
+                    "output_path": snap["output_path"],
+                    "clean": snap["clean"],
+                    "flagged": snap["flagged"],
+                    "total": snap["total"],
+                })
 
         except Exception as e:
-            item.status = "error"
-            item.error = str(e)
+            self._update_item(item_id, status="error", error=str(e))
             self._broadcast({
                 "type": "item_error",
-                "item_id": item.item_id,
-                "error": item.error,
+                "item_id": item_id,
+                "error": str(e),
             })
+        finally:
+            self._cleanup_upload(src_path)
+
+    @staticmethod
+    def _cleanup_upload(src_path: str) -> None:
+        """Remove the uploaded CSV file. Best effort; never raises."""
+        if not src_path:
+            return
+        with contextlib.suppress(Exception):
+            p = Path(src_path)
+            if p.exists() and p.is_file():
+                p.unlink()
 
 
 # --- helpers ---
@@ -279,12 +358,6 @@ def _first_link(v) -> str:
         return ""
     s = str(v)
     return s.split(",")[0].strip()
-
-
-_MONTHS = {
-    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
-    "jul": 7, "aug": 8, "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dec": 12,
-}
 
 
 def _parse_year(s: str) -> str:
