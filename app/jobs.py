@@ -47,8 +47,13 @@ class JobItem:
     path: str
     total: int = 0
     processed: int = 0
+    # Legacy counters - kept so existing UI fields don't change shape.
     clean: int = 0
     flagged: int = 0
+    # New richer counters
+    keep: int = 0
+    review: int = 0
+    drop: int = 0
     status: str = "queued"  # queued | running | done | error
     output_path: str = ""
     error: str = ""
@@ -144,6 +149,9 @@ class JobManager:
             "processed": item.processed,
             "clean": item.clean,
             "flagged": item.flagged,
+            "keep": item.keep,
+            "review": item.review,
+            "drop": item.drop,
             "status": item.status,
             "output_path": item.output_path,
             "error": item.error,
@@ -162,8 +170,16 @@ class JobManager:
                 setattr(it, k, v)
             return self._item_dict(it)
 
-    def _bump_counters(self, item_id: str, processed: int, clean_inc: int,
-                       flagged_inc: int) -> Optional[dict]:
+    def _bump_counters(
+        self,
+        item_id: str,
+        processed: int,
+        clean_inc: int,
+        flagged_inc: int,
+        keep_inc: int = 0,
+        review_inc: int = 0,
+        drop_inc: int = 0,
+    ) -> Optional[dict]:
         """Atomic counter bump for one artist completing."""
         with self._lock:
             it = self._items.get(item_id)
@@ -172,6 +188,9 @@ class JobManager:
             it.processed = processed
             it.clean += clean_inc
             it.flagged += flagged_inc
+            it.keep += keep_inc
+            it.review += review_inc
+            it.drop += drop_inc
             return self._item_dict(it)
 
     # --- run ---
@@ -261,22 +280,48 @@ class JobManager:
 
                 audit = audit_artist(artist, cm_label, cm_first)
 
+                # Format per-label evaluations into a single human string for
+                # the Excel sheet AND for the SSE payload.
+                eval_strs = [
+                    f"[{ev.source}] {ev.label!r}: {ev.status} ({ev.reason})"
+                    for ev in audit.label_evaluations
+                ]
+
+                # Earliest-year informational note ("OLD_CATALOG: ...") is
+                # kept separate from the row's flag reasons under the new
+                # spec - old catalog is desirable for catalogue deals.
+                old_catalog_note = next(
+                    (n for n in audit.informational if n.startswith("OLD_CATALOG")),
+                    "",
+                )
+
                 out_row = {col: row.get(col, "") for col in input_columns}
+                out_row["Status"] = audit.status
+                out_row["Status Reason"] = audit.status_reason
+                out_row["Label Evaluations"] = eval_strs
                 out_row["Verdict"] = audit.verdict
                 out_row["Earliest Year"] = audit.earliest_year
+                out_row["Earliest Year Note"] = old_catalog_note
                 out_row["iTunes P-Line"] = audit.itunes_pline
                 out_row["iTunes Licensee"] = audit.itunes_licensee
                 out_row["Deezer Labels"] = audit.deezer_labels
                 out_row["Discogs Labels"] = audit.discogs_labels
-                out_row["Likely Self-Imprint"] = "yes" if audit.likely_self_imprint else ""
+                out_row["Informational Notes"] = audit.informational
                 out_row["Flag Reasons"] = audit.flag_reasons
                 output_rows.append(out_row)
 
+                # Bucket counters: KEEP/REVIEW/DROP plus legacy CLEAN/FLAGGED.
+                is_keep = audit.status == "KEEP"
+                is_review = audit.status == "REVIEW"
+                is_drop = audit.status.startswith("DROP_")
                 snap = self._bump_counters(
                     item_id,
                     processed=int(i) + 1,
-                    clean_inc=1 if audit.verdict == "CLEAN" else 0,
-                    flagged_inc=0 if audit.verdict == "CLEAN" else 1,
+                    clean_inc=1 if is_keep else 0,
+                    flagged_inc=0 if is_keep else 1,
+                    keep_inc=1 if is_keep else 0,
+                    review_inc=1 if is_review else 0,
+                    drop_inc=1 if is_drop else 0,
                 )
                 if snap is None:  # cleared mid-flight
                     break
@@ -286,6 +331,11 @@ class JobManager:
                     "item_id": item_id,
                     "index": int(i) + 1,
                     "artist": artist,
+                    "status": audit.status,
+                    "status_reason": audit.status_reason,
+                    "label_evaluations": eval_strs,
+                    "informational": audit.informational,
+                    # Legacy fields kept for the existing front-end:
                     "verdict": audit.verdict,
                     "pline": audit.itunes_pline,
                     "earliest_year": audit.earliest_year,
@@ -295,6 +345,9 @@ class JobManager:
                     "total": snap["total"],
                     "clean": snap["clean"],
                     "flagged": snap["flagged"],
+                    "keep": snap["keep"],
+                    "review": snap["review"],
+                    "drop": snap["drop"],
                 })
 
             # If the item was removed during the loop, don't write output.
@@ -315,6 +368,9 @@ class JobManager:
                     "output_path": snap["output_path"],
                     "clean": snap["clean"],
                     "flagged": snap["flagged"],
+                    "keep": snap["keep"],
+                    "review": snap["review"],
+                    "drop": snap["drop"],
                     "total": snap["total"],
                 })
 
