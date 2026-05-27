@@ -200,6 +200,7 @@ button.primary:hover { background: #00cc35; }
 }
 .line-clean { color: #00ff41; }
 .line-flagged { color: #ff7755; }
+.line-review { color: #ffcc00; }
 .line-info { color: #888; }
 .line-pline { color: #88ccff; padding-left: 16px; }
 .line-meta { color: #888; padding-left: 16px; }

@@ -236,11 +236,22 @@ function handleEvent(ev) {
         clean: ev.clean,
         flagged: ev.flagged,
       });
-      const cls = ev.verdict === "CLEAN" ? "line-clean" : "line-flagged";
-      logLine(`  -> ${ev.verdict}${ev.earliest_year ? "  (earliest " + ev.earliest_year + ")" : ""}`, cls);
+      // Prefer the new richer status (KEEP / REVIEW / DROP_MAJOR /
+      // DROP_LICENSED / DROP_THIRDPARTY). Fall back to the legacy verdict
+      // for older backends that don't send a status field.
+      const status = ev.status || ev.verdict || "";
+      const isClean = status === "KEEP" || status === "CLEAN";
+      const isReview = status === "REVIEW";
+      const cls = isClean ? "line-clean" : (isReview ? "line-review" : "line-flagged");
+      const yearTail = ev.earliest_year ? "  (earliest " + ev.earliest_year + ")" : "";
+      const reasonTail = ev.status_reason ? "  -- " + ev.status_reason : "";
+      logLine(`  -> ${status}${yearTail}${reasonTail}`, cls);
       if (ev.pline) logLine(`     P: ${ev.pline}`, "line-pline");
       if (ev.flag_reasons && ev.flag_reasons.length > 0) {
         for (const r of ev.flag_reasons) logLine(`     ! ${r}`, "line-meta");
+      }
+      if (ev.informational && ev.informational.length > 0) {
+        for (const n of ev.informational) logLine(`     i ${n}`, "line-info");
       }
       aggregate();
       break;

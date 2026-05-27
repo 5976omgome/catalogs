@@ -349,6 +349,20 @@ class JobManager:
                 if snap is None:  # cleared mid-flight
                     break
 
+                # Deduplicate flag reasons so a single label hit doesn't
+                # appear once per (owner, P-line) pair. We keep the first
+                # occurrence per (source-family, status, label) tuple.
+                seen_flags = set()
+                deduped_flag_reasons = []
+                for fr in audit.flag_reasons:
+                    # Normalize "iTunes (P-line):" / "iTunes (licensee):" /
+                    # "iTunes:" to a single bucket per outcome+label.
+                    fr_key = re.sub(r"^iTunes \([^)]+\):", "iTunes:", fr)
+                    if fr_key in seen_flags:
+                        continue
+                    seen_flags.add(fr_key)
+                    deduped_flag_reasons.append(fr)
+
                 self._broadcast({
                     "type": "artist_done",
                     "item_id": item_id,
@@ -363,7 +377,7 @@ class JobManager:
                     "pline": audit.itunes_pline,
                     "earliest_year": audit.earliest_year,
                     "self_imprint": audit.likely_self_imprint,
-                    "flag_reasons": audit.flag_reasons,
+                    "flag_reasons": deduped_flag_reasons,
                     "processed": snap["processed"],
                     "total": snap["total"],
                     "clean": snap["clean"],
