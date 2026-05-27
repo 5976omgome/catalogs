@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Catalog Audit</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>CATALOG AUDIT</h1>
+    <div class="pills">
+      <span class="pill" id="pill-itunes">iTunes: ready</span>
+      <span class="pill" id="pill-deezer">Deezer: ready</span>
+      <span class="pill" id="pill-discogs">Discogs: …</span>
+      <span class="pill" id="pill-ai">AI: …</span>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>API KEYS</h2>
+      <span class="card-hint" id="settings-storage-hint"></span>
+    </div>
+    <p class="card-help">
+      Keys are stored locally on this machine, never in the repo. Leave a
+      field blank to keep the saved value. Type a new value to replace it,
+      or just spaces to clear it.
+    </p>
+    <div class="settings-grid">
+      <label class="settings-row">
+        <span class="settings-name">Discogs token</span>
+        <span class="settings-status" id="settings-discogs-status">unset</span>
+        <input type="password" id="settings-discogs" autocomplete="off"
+               spellcheck="false" placeholder="paste token to set / leave blank to keep">
+      </label>
+      <label class="settings-row">
+        <span class="settings-name">Groq API key</span>
+        <span class="settings-status" id="settings-groq-status">unset</span>
+        <input type="password" id="settings-groq" autocomplete="off"
+               spellcheck="false" placeholder="paste key to set / leave blank to keep">
+      </label>
+      <label class="settings-row">
+        <span class="settings-name">Gemini API key</span>
+        <span class="settings-status" id="settings-gemini-status">unset</span>
+        <input type="password" id="settings-gemini" autocomplete="off"
+               spellcheck="false" placeholder="paste key to set / leave blank to keep">
+      </label>
+    </div>
+    <div class="row">
+      <button id="settings-save" class="primary">SAVE KEYS</button>
+      <button id="settings-clear" type="button">CLEAR ALL</button>
+      <span class="settings-feedback" id="settings-feedback"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>FILE QUEUE</h2>
+    <div id="dropzone" class="dropzone">
+      Drop CSV files here or
+      <button id="pick">browse</button>
+      <input type="file" id="file-input" accept=".csv" multiple hidden>
+    </div>
+    <ul id="queue"></ul>
+    <div class="row">
+      <button id="run" class="primary">RUN QUEUE</button>
+      <button id="clear">CLEAR</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>PROGRESS</h2>
+    <div class="progress-bar">
+      <div id="bar-fill" class="bar-fill"></div>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label" id="processed-label">— processed</span>
+      <span class="stat-pct" id="processed-pct">0%</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label" id="clean-label">— clean</span>
+      <span class="stat-pct" id="clean-pct">—</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>LIVE OUTPUT</h2>
+      <label class="toggle">
+        <input type="checkbox" id="filter-flagged">
+        <span>show only flagged</span>
+      </label>
+    </div>
+    <pre id="log"></pre>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
