@@ -139,12 +139,32 @@ def _derive_status(evaluations: List[LabelEvaluation]) -> tuple[str, str]:
     has_variant = "VARIANT" in statuses
     has_distrib = "DISTRIBUTOR" in statuses
 
+    # Chartmetric is the user's self-reported label field. It often differs
+    # from what's on the actual streaming-service P-line. The user's stated
+    # rule: "I need artists with matching P lines" — meaning the iTunes
+    # P-line is the source of truth. So if iTunes says VARIANT but
+    # Chartmetric is the ONLY source returning THIRDPARTY, we trust iTunes
+    # and KEEP the row (with a note).
     if has_third and has_variant:
-        third_labels = [e for e in evaluations if e.status == "THIRDPARTY"]
+        third = [e for e in evaluations if e.status == "THIRDPARTY"]
+        third_sources = {e.source for e in third}
+        variant_has_itunes = any(
+            e.status == "VARIANT" and e.source.startswith("iTunes")
+            for e in evaluations
+        )
+        if (
+            variant_has_itunes
+            and third_sources == {"Chartmetric"}
+        ):
+            return (
+                "KEEP",
+                "iTunes P-line is name variant; Chartmetric label "
+                f"'{third[0].label}' ignored (advisory only)",
+            )
         return (
             "REVIEW",
             "mixed: name variant on one platform, third-party on "
-            + ", ".join(sorted({e.source for e in third_labels})),
+            + ", ".join(sorted(third_sources)),
         )
 
     if has_third:

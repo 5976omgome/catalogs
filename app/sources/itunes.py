@@ -33,10 +33,93 @@ def _strip_pline(copyright_text: str) -> str:
     return s
 
 
+# Tokens that mark the end of one owner entity. When we see one of these
+# immediately before a separator (and / & / /), it's much more likely to be
+# a real joint-imprint boundary than part of a single artist name like
+# "Iron and Wine" or "Tegan and Sara".
+_ENTITY_TERMINATOR_RE = re.compile(
+    r"\b("
+    r"records?|recordings?|recording|productions?|production|"
+    r"music|musik|musique|musica|"
+    r"entertainment|ent\.?|"
+    r"ltd\.?|llc\.?|inc\.?|gmbh|s\.?a\.?|"
+    r"company|co\.?|"
+    r"label|labels|group|publishing|rights"
+    r")\s*$",
+    re.IGNORECASE,
+)
+
+# A bracketed annotation like '[dist. Tratore]' or '(distributed by X)'
+# indicates a distributor relationship for the preceding owner. We pull
+# these out as a separate source so the rule engine sees the distributor.
+_BRACKET_ANNOTATION_RE = re.compile(r"\s*\[\s*([^\]]+?)\s*\]\s*$")
+
+
+def _split_safely(text: str) -> List[str]:
+    """
+    Split a single owner string into multiple entities only when the boundary
+    is unambiguous:
+
+    * '/' always splits (Apple uses it for joint imprints).
+    * ',' splits ONLY when followed by ' ' and the right side starts with
+      a capital letter and the left side ends in an entity terminator.
+    * ' and ' / ' & ' split ONLY when the LEFT side ends in an entity
+      terminator like "Records" / "Music" / "Productions" / etc.
+
+    Without the terminator guard we'd shred artist names like "Iron and
+    Wine" into ["Iron", "Wine"], "Lulu and mathumela band" into ["Lulu",
+    "mathumela band"], etc. That was the source of the false-flag pattern
+    the user reported (P-line matches artist exactly, but a fragment of
+    the split fails the variant check).
+    """
+    if not text:
+        return []
+
+    parts: List[str] = []
+    # First split on '/' which is unambiguous in Apple P-lines.
+    for slash_chunk in re.split(r"\s*/\s*", text):
+        slash_chunk = slash_chunk.strip()
+        if not slash_chunk:
+            continue
+        # Now sub-split on ' and ' / ' & ' but only at safe boundaries.
+        sub_parts = _split_at_terminator_boundary(slash_chunk)
+        parts.extend(sub_parts)
+
+    return [p.strip(" ,.;-") for p in parts if p.strip()]
+
+
+def _split_at_terminator_boundary(s: str) -> List[str]:
+    """
+    Split on ' and ' / ' & ' only when the left side ends with an entity
+    terminator. Otherwise the separator is part of the entity name and we
+    keep the string whole.
+    """
+    # Find every separator candidate, decide for each whether it's a real
+    # boundary based on whether the left side ends with a terminator.
+    pattern = re.compile(r"\s+(?:and|&)\s+", re.IGNORECASE)
+    pieces = []
+    last_end = 0
+    for m in pattern.finditer(s):
+        left = s[last_end:m.start()]
+        if _ENTITY_TERMINATOR_RE.search(left):
+            pieces.append(left)
+            last_end = m.end()
+    pieces.append(s[last_end:])
+    return [p.strip() for p in pieces if p.strip()]
+
+
 def _extract_owners(copyright_text: str) -> Tuple[List[str], str, str]:
     """
     Returns (owners, licensee, raw_pline).
-    Owners are split on '/', '&', and 'and' between recognizable entity names.
+
+    Owners are extracted from the P-line with the goal of NOT shredding a
+    multi-word artist name. We split aggressively on '/' (Apple's joint-
+    imprint separator) and conservatively on ' and ' / ' & ' / ',' — only
+    when the left side looks like a complete entity (ends in Records /
+    Music / Productions / etc.).
+
+    Bracketed annotations like '[dist. Tratore]' are pulled out and added
+    as a separate owner so the rule engine sees the distributor.
     """
     if not copyright_text:
         return [], "", ""
@@ -81,11 +164,30 @@ def _extract_owners(copyright_text: str) -> Tuple[List[str], str, str]:
     # Strip Spanish "bajo" (= "under") prefix on remaining text
     main = re.sub(r"^\s*bajo\s+", "", main, flags=re.IGNORECASE)
 
-    # Split owners on /, &, and
-    parts = re.split(r"\s*/\s*|\s+&\s+|\s+and\s+", main)
-    parts = [p.strip(" ,.;-") for p in parts if p.strip()]
+    # Pull out '[dist. X]' / '[distributed by X]' annotations and treat them
+    # as a separate owner so the rule engine sees the distributor.
+    annotation_owners: List[str] = []
+    for _ in range(3):  # at most a few annotations
+        m = _BRACKET_ANNOTATION_RE.search(main)
+        if not m:
+            break
+        annotation = m.group(1).strip()
+        # Strip 'dist.' / 'distributed by' / 'mfd by' / 'mfd. by' prefixes.
+        cleaned = re.sub(
+            r"^(dist\.?\s*by|distributed\s+by|dist\.?|distributed|"
+            r"mfd\.?\s*by|mfd\.?|manufactured\s+and\s+distributed\s+by)\s+",
+            "",
+            annotation,
+            flags=re.IGNORECASE,
+        ).strip()
+        if cleaned:
+            annotation_owners.append(cleaned)
+        main = main[: m.start()].rstrip(" ,.;-")
 
-    owners = extra_owners + parts
+    # Conservative split on ',', ' and ', ' & ', '/'
+    parts = _split_safely(main)
+
+    owners = extra_owners + parts + annotation_owners
     # Dedupe preserving order
     seen = set()
     out = []
