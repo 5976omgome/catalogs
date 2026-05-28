@@ -57,6 +57,12 @@ class JobItem:
     status: str = "queued"  # queued | running | done | error
     output_path: str = ""
     error: str = ""
+    # Mid-run export support: we keep the partial output rows + the input
+    # column order in memory so /api/export_partial/<item_id> can build a
+    # fresh xlsx WHILE the run is still in progress. These are populated
+    # after each artist completes, under the manager lock.
+    partial_rows: List[dict] = field(default_factory=list)
+    input_columns: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -140,6 +146,29 @@ class JobManager:
     # Public alias - thread-safe, used by HTTP handlers.
     def snapshot(self) -> List[dict]:
         return self._snapshot()
+
+    def get_partial(self, item_id: str) -> Optional[dict]:
+        """
+        Return a thread-safe snapshot of an item's in-memory rows-so-far,
+        for the mid-run export endpoint. Returns None if the item is gone
+        or has no rows yet.
+        """
+        with self._lock:
+            it = self._items.get(item_id)
+            if it is None:
+                return None
+            if not it.partial_rows:
+                return None
+            return {
+                "filename": it.filename,
+                "status": it.status,
+                "processed": it.processed,
+                "total": it.total,
+                # Shallow copy of the row list is enough - row dicts are
+                # written once per artist and never mutated.
+                "rows": list(it.partial_rows),
+                "input_columns": list(it.input_columns),
+            }
 
     def _item_dict(self, item: JobItem) -> dict:
         # Caller must hold self._lock when item is owned by the manager.
@@ -310,6 +339,12 @@ class JobManager:
                     for ev in audit.label_evaluations
                 ]
 
+                # Per-source roll-up for the live log: one line per source
+                # (Chartmetric / iTunes / Deezer / Discogs) with that
+                # source's worst hit. Priority: MAJOR > LICENSED >
+                # THIRDPARTY > VARIANT > DISTRIBUTOR.
+                per_source = _summarize_per_source(audit.label_evaluations)
+
                 # Earliest-year informational note ("OLD_CATALOG: ...") is
                 # kept separate from the row's flag reasons under the new
                 # spec - old catalog is desirable for catalogue deals.
@@ -332,6 +367,15 @@ class JobManager:
                 out_row["Informational Notes"] = audit.informational
                 out_row["Flag Reasons"] = audit.flag_reasons
                 output_rows.append(out_row)
+
+                # Also stash on the JobItem so a mid-run export can read
+                # the rows-so-far. Copy by value (the dict is freshly built
+                # per artist, so output_rows can keep its own reference).
+                with self._lock:
+                    it = self._items.get(item_id)
+                    if it is not None:
+                        it.partial_rows = list(output_rows)
+                        it.input_columns = list(input_columns)
 
                 # Bucket counters: KEEP/REVIEW/DROP plus legacy CLEAN/FLAGGED.
                 is_keep = audit.status == "KEEP"
@@ -371,6 +415,7 @@ class JobManager:
                     "status": audit.status,
                     "status_reason": audit.status_reason,
                     "label_evaluations": eval_strs,
+                    "per_source": per_source,
                     "informational": audit.informational,
                     # Legacy fields kept for the existing front-end:
                     "verdict": audit.verdict,
@@ -462,6 +507,66 @@ def _parse_year(s: str) -> str:
     s = s.strip()
     m = re.search(r"(19|20)\d{2}", s)
     return m.group(0) if m else ""
+
+
+# Per-source priority for the live-log roll-up. Higher number wins when
+# a source has multiple hits across multiple releases.
+_SOURCE_PRIORITY = {
+    "MAJOR": 5,
+    "LICENSED": 4,
+    "THIRDPARTY": 3,
+    "VARIANT": 2,
+    "DISTRIBUTOR": 1,
+    "EMPTY": 0,
+}
+
+
+def _source_family(source: str) -> str:
+    """Collapse 'iTunes (P-line)' / 'iTunes (licensee)' / 'iTunes' into
+    a single 'iTunes' bucket so the per-source view shows one line per
+    real platform."""
+    if source.startswith("iTunes"):
+        return "iTunes"
+    return source
+
+
+def _summarize_per_source(evaluations) -> list:
+    """
+    Roll the per-(source, label) evaluations into one summary entry per
+    source family. The summary chooses the worst hit per source. Returns
+    a list of dicts in display order: Chartmetric, iTunes, Deezer,
+    Discogs (sources not present are skipped).
+    """
+    by_source: dict = {}
+    for ev in evaluations:
+        family = _source_family(ev.source)
+        cur = by_source.get(family)
+        if cur is None or _SOURCE_PRIORITY.get(ev.status, 0) > _SOURCE_PRIORITY.get(cur.status, 0):
+            by_source[family] = ev
+
+    order = ["Chartmetric", "iTunes", "Deezer", "Discogs"]
+    out = []
+    for family in order:
+        ev = by_source.get(family)
+        if ev is None:
+            continue
+        out.append({
+            "source": family,
+            "status": ev.status,
+            "label": ev.label,
+            "reason": ev.reason,
+        })
+    # Any unknown future source families: append at the end.
+    for family, ev in by_source.items():
+        if family in order:
+            continue
+        out.append({
+            "source": family,
+            "status": ev.status,
+            "label": ev.label,
+            "reason": ev.reason,
+        })
+    return out
 
 
 # Singleton

@@ -36,11 +36,32 @@ function logLine(text, cls = "line-info") {
   renderLog();
 }
 
+function sourceLineClass(status) {
+  // Color code the per-source verdict line.
+  if (status === "MAJOR" || status === "LICENSED" || status === "THIRDPARTY") {
+    return "line-flagged";
+  }
+  if (status === "VARIANT" || status === "DISTRIBUTOR") {
+    return "line-clean";
+  }
+  return "line-meta";
+}
+
 function renderLog() {
   const log = $("log");
   const visible = state.buffer.filter((l) => {
     if (!state.filterFlagged) return true;
-    return l.cls === "line-flagged" || l.cls.startsWith("line-pline") || l.cls.startsWith("line-meta");
+    // When "show only flagged" is on: keep flagged/review verdict lines,
+    // their P-line context, the per-source flagged sub-lines, and the
+    // [N] artist headers that introduce them. Drop clean verdict lines
+    // and the green per-source VARIANT/DISTRIBUTOR sub-lines.
+    return (
+      l.cls === "line-flagged" ||
+      l.cls === "line-review" ||
+      l.cls === "line-pline" ||
+      l.cls === "line-meta" ||
+      l.cls === "line-info"
+    );
   });
   log.innerHTML = visible.map((l) => `<span class="${l.cls}">${escapeHtml(l.text)}</span>`).join("\n");
   log.scrollTop = log.scrollHeight;
@@ -77,6 +98,19 @@ function renderQueue(items) {
     head.textContent = txt;
     li.appendChild(head);
 
+    if (it.status === "running" && (it.processed || 0) > 0) {
+      // Mid-run export: build an xlsx from the rows processed SO FAR.
+      // The button label calls this out so it's not confused with the
+      // final export below the run completes.
+      const tools = document.createElement("div");
+      tools.className = "qitem-tools";
+      tools.appendChild(makePartialExportLink(it, "keep",   `export keep so far (${it.keep || 0})`));
+      tools.appendChild(makePartialExportLink(it, "review", `export review so far (${it.review || 0})`));
+      tools.appendChild(makePartialExportLink(it, "drop",   `export drops so far (${it.drop || 0})`));
+      tools.appendChild(makePartialExportLink(it, "all",    `export all so far (${it.processed || 0})`));
+      li.appendChild(tools);
+    }
+
     if ((it.status === "done" || it.status === "stopped") && it.output_path) {
       const tools = document.createElement("div");
       tools.className = "qitem-tools";
@@ -90,6 +124,25 @@ function renderQueue(items) {
 
     ul.appendChild(li);
   }
+}
+
+function makePartialExportLink(item, kind, label) {
+  // Mid-run partial export. Disabled-look if the bucket is empty so the
+  // user doesn't trigger a 404 download attempt.
+  const a = document.createElement("a");
+  const empty = (
+    (kind === "keep"   && (item.keep   || 0) === 0) ||
+    (kind === "review" && (item.review || 0) === 0) ||
+    (kind === "drop"   && (item.drop   || 0) === 0) ||
+    (kind === "all"    && (item.processed || 0) === 0)
+  );
+  a.href = `/api/export_partial/${item.item_id}?filter=${encodeURIComponent(kind)}`;
+  a.textContent = label;
+  a.className = "qitem-link partial" + (empty ? " disabled" : "");
+  if (empty) {
+    a.addEventListener("click", (e) => e.preventDefault());
+  }
+  return a;
 }
 
 function makeExportLink(item, kind, label) {
@@ -235,6 +288,9 @@ function handleEvent(ev) {
         total: ev.total,
         clean: ev.clean,
         flagged: ev.flagged,
+        keep: ev.keep,
+        review: ev.review,
+        drop: ev.drop,
       });
       // Prefer the new richer status (KEEP / REVIEW / DROP_MAJOR /
       // DROP_LICENSED / DROP_THIRDPARTY). Fall back to the legacy verdict
@@ -247,7 +303,32 @@ function handleEvent(ev) {
       const reasonTail = ev.status_reason ? "  -- " + ev.status_reason : "";
       logLine(`  -> ${status}${yearTail}${reasonTail}`, cls);
       if (ev.pline) logLine(`     P: ${ev.pline}`, "line-pline");
-      if (ev.flag_reasons && ev.flag_reasons.length > 0) {
+      // Per-source verdict block: one line per source (Chartmetric /
+      // iTunes / Deezer / Discogs) with that source's worst hit.
+      if (ev.per_source && ev.per_source.length > 0) {
+        for (const s of ev.per_source) {
+          // Pad source name so the columns line up: "Chartmetric" is
+          // 11 chars, longest of the four. Pad to 12 for one space.
+          const name = (s.source + ":").padEnd(12, " ");
+          const verdictCls = sourceLineClass(s.status);
+          const labelText = s.label ? `'${s.label}'` : "";
+          // Compose a one-liner that's compact but readable.
+          let body;
+          if (s.status === "VARIANT" || s.status === "DISTRIBUTOR") {
+            body = `${s.status}  ${labelText}`;
+          } else if (s.status === "MAJOR") {
+            body = `MAJOR        ${labelText} -- ${s.reason}`;
+          } else if (s.status === "LICENSED") {
+            body = `LICENSED     ${labelText} -- ${s.reason}`;
+          } else if (s.status === "THIRDPARTY") {
+            body = `THIRD PARTY  ${labelText} -- ${s.reason}`;
+          } else {
+            body = `${s.status}  ${labelText}`;
+          }
+          logLine(`     ${name}${body}`, verdictCls);
+        }
+      } else if (ev.flag_reasons && ev.flag_reasons.length > 0) {
+        // Older backend without per_source: keep the deduped flat list.
         for (const r of ev.flag_reasons) logLine(`     ! ${r}`, "line-meta");
       }
       if (ev.informational && ev.informational.length > 0) {

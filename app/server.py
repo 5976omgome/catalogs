@@ -173,13 +173,16 @@ def create_app() -> Flask:
     @app.route("/api/export/<item_id>")
     def export(item_id):
         """
-        Export a filtered xlsx for an item that has already finished.
+        Export a filtered xlsx for an item that has already finished
+        (status 'done' or 'stopped'). For runs still in progress, use
+        /api/export_partial/<item_id> which builds an xlsx from rows
+        processed so far, without waiting for the file to complete.
+
         Query params:
           filter = keep | drop | review | all   (default: keep)
 
         Returns a freshly-built xlsx containing ONLY rows whose Status
-        column matches the filter. 'keep' is the default because that's
-        the slice of artists worth pursuing for licensing deals.
+        column matches the filter.
         """
         filter_kind = (request.args.get("filter", "keep") or "keep").strip().lower()
         if filter_kind not in {"keep", "drop", "review", "all"}:
@@ -196,7 +199,9 @@ def create_app() -> Flask:
                     src_filename = it.get("filename") or p.stem
                     break
         if src_path is None:
-            return jsonify({"error": "not found"}), 404
+            # Fall through to the partial export so a click on the
+            # mid-run buttons still works while status is 'running'.
+            return _export_partial_response(item_id, filter_kind)
 
         from .excel import filter_xlsx_by_status
 
@@ -206,8 +211,6 @@ def create_app() -> Flask:
             return jsonify({"error": str(e)}), 500
 
         if filtered_path is None or kept == 0:
-            # No matching rows. Return 200 + empty body? Better to surface
-            # a useful 404 with a note so the front-end can show a message.
             return jsonify({
                 "error": f"no rows matched filter '{filter_kind}'",
                 "kept": 0,
@@ -219,6 +222,61 @@ def create_app() -> Flask:
         )
         return send_file(
             str(filtered_path),
+            as_attachment=True,
+            download_name=download_name,
+        )
+
+    @app.route("/api/export_partial/<item_id>")
+    def export_partial(item_id):
+        """
+        Build a filtered xlsx from rows processed so far for an item that
+        is still running. Same query-string contract as /api/export.
+
+        Returns 404 if no rows have been processed yet, or if no rows
+        match the requested filter. The output reflects an instant in
+        time - hitting this endpoint twice in a row may return different
+        row counts as more artists complete.
+        """
+        filter_kind = (request.args.get("filter", "keep") or "keep").strip().lower()
+        if filter_kind not in {"keep", "drop", "review", "all"}:
+            return jsonify({"error": f"unknown filter '{filter_kind}'"}), 400
+        return _export_partial_response(item_id, filter_kind)
+
+    def _export_partial_response(item_id: str, filter_kind: str):
+        """Shared helper used by both /api/export (fallback) and
+        /api/export_partial (primary). Builds an xlsx in a tempfile from
+        the JobItem's in-memory partial_rows."""
+        partial = manager.get_partial(item_id)
+        if partial is None:
+            return jsonify({
+                "error": "no rows processed yet",
+                "kept": 0,
+            }), 404
+
+        from .excel import write_filtered_xlsx_from_rows
+
+        try:
+            tmp_path, kept = write_filtered_xlsx_from_rows(
+                rows=partial["rows"],
+                input_columns=partial["input_columns"],
+                filter_kind=filter_kind,
+                src_filename=partial["filename"],
+            )
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+        if tmp_path is None or kept == 0:
+            return jsonify({
+                "error": f"no rows matched filter '{filter_kind}' yet",
+                "kept": 0,
+                "processed": partial["processed"],
+                "total": partial["total"],
+            }), 404
+
+        stem = Path(partial["filename"]).stem if partial["filename"] else "audit"
+        download_name = f"{stem}-{filter_kind}-partial.xlsx"
+        return send_file(
+            str(tmp_path),
             as_attachment=True,
             download_name=download_name,
         )

@@ -137,6 +137,17 @@ button.primary:hover { background: #00cc35; }
   border-radius: 3px;
 }
 .qitem-link:hover { background: #1a2a1a; border-color: #00aa2a; }
+.qitem-link.partial {
+  color: #ffcc00;
+  border-color: #2a2a1a;
+}
+.qitem-link.partial:hover { background: #2a2a1a; border-color: #aa8a00; }
+.qitem-link.disabled {
+  color: #444;
+  border-color: #1a1a1a;
+  cursor: not-allowed;
+}
+.qitem-link.disabled:hover { background: transparent; border-color: #1a1a1a; }
 
 .row {
   display: flex;

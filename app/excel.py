@@ -117,6 +117,49 @@ _FILTER_STATUSES = {
 }
 
 
+def write_filtered_xlsx_from_rows(
+    rows: List[dict],
+    input_columns: List[str],
+    filter_kind: str,
+    src_filename: str = "",
+) -> Tuple[Optional[Path], int]:
+    """
+    Build a filtered xlsx in a tempfile from in-memory output rows.
+
+    Used by the mid-run export endpoint: rather than persist a partial
+    xlsx to disk every N artists, we keep the row dicts on the JobItem
+    and materialize a fresh xlsx on demand. The output uses the same
+    styling and row colors as the regular post-run writer, so a partial
+    export and a final export are visually identical.
+
+    Returns (tmp_path, kept_count). If no rows match the filter, returns
+    (None, 0) so the caller can surface a 404.
+    """
+    filter_kind = (filter_kind or "keep").strip().lower()
+    keep_statuses = _FILTER_STATUSES.get(filter_kind)
+    if keep_statuses is None:
+        raise ValueError(f"unknown filter '{filter_kind}'")
+
+    # Filter in memory.
+    filtered = [
+        r for r in rows
+        if (r.get("Status") or "").strip() in keep_statuses
+    ]
+    if not filtered:
+        return (None, 0)
+
+    stem = Path(src_filename).stem if src_filename else "audit"
+    tmp_dir = Path(tempfile.gettempdir())
+    out_path = tmp_dir / f"{stem}-{filter_kind}-partial.xlsx"
+
+    # Reuse the canonical writer so partial and final outputs are
+    # styled identically (header fill, row colors, freeze panes,
+    # autofilter, column widths). write_xlsx returns None and writes to
+    # disk; that's exactly what we want.
+    write_xlsx(filtered, input_columns, out_path)
+    return (out_path, len(filtered))
+
+
 def filter_xlsx_by_status(
     src_path: Path,
     filter_kind: str,
