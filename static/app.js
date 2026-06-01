@@ -21,6 +21,7 @@ async function fetchStatus() {
     setPill("pill-ai", aiText, aiOn);
     setPill("pill-itunes", "iTunes: ready", true);
     setPill("pill-deezer", "Deezer: ready", true);
+    setPill("pill-wiki", "Wikipedia: ready", true);
   } catch (e) {}
 }
 
@@ -307,9 +308,9 @@ function handleEvent(ev) {
       // iTunes / Deezer / Discogs) with that source's worst hit.
       if (ev.per_source && ev.per_source.length > 0) {
         for (const s of ev.per_source) {
-          // Pad source name so the columns line up: "Chartmetric" is
-          // 11 chars, longest of the four. Pad to 12 for one space.
-          const name = (s.source + ":").padEnd(12, " ");
+          // Pad source name so the columns line up: "Chartmetric:" is
+          // 12 chars, "Wikipedia:" is 10. Pad to 13 for alignment.
+          const name = (s.source + ":").padEnd(13, " ");
           const verdictCls = sourceLineClass(s.status);
           const labelText = s.label ? `'${s.label}'` : "";
           // Compose a one-liner that's compact but readable.

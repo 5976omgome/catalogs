@@ -32,7 +32,7 @@ from .labels import (
     match_major_family,
     normalize,
 )
-from .sources import deezer, discogs, itunes
+from .sources import deezer, discogs, itunes, wikipedia
 
 
 # Hard-fail status precedence: a single MAJOR or LICENSED beats everything.
@@ -72,6 +72,7 @@ class ArtistAudit:
     itunes_licensee: str = ""
     deezer_labels: List[str] = field(default_factory=list)
     discogs_labels: List[str] = field(default_factory=list)
+    wikipedia_labels: List[str] = field(default_factory=list)
     chartmetric_label: str = ""
     earliest_year: str = ""
     chartmetric_first_year: str = ""
@@ -218,6 +219,10 @@ def audit_artist(
         r["label"] for r in dc_releases if r.get("label", "").strip()
     ]
 
+    # Wikipedia / Wikidata: structured label data + parent-chain walk
+    wiki_results = wikipedia.get_labels(artist)
+    a.wikipedia_labels = [r["label"] for r in wiki_results if r.get("label")]
+
     # ---- 2. Build (source, label) pairs ----
     #
     # iTunes gives us multiple owners across multiple releases, plus an
@@ -249,12 +254,53 @@ def audit_artist(
     for label in a.discogs_labels:
         pairs.append(("Discogs", label))
 
+    # Wikipedia/Wikidata labels. If the parent-chain walk detected a major
+    # that our token list doesn't know about, we still want to flag it.
+    # We handle this by adding the label string to pairs (which goes through
+    # evaluate_label as normal), BUT we also check the chain result: if the
+    # chain found a major parent and evaluate_label didn't catch it via
+    # tokens alone, we inject a synthetic MAJOR evaluation directly.
+    for wiki_rec in wiki_results:
+        label = wiki_rec.get("label", "").strip()
+        if not label:
+            continue
+        pairs.append(("Wikipedia", label))
+
     cm = (chartmetric_label or "").strip()
     if cm and cm.lower() != "unknown label":
         pairs.append(("Chartmetric", cm))
 
     # ---- 3. Evaluate each pair ----
     a.label_evaluations = _evaluate_collected(artist, pairs)
+
+    # ---- 3b. Wikipedia parent-chain major detection ----
+    # If Wikidata's parent-org chain found a major owner on any label that
+    # evaluate_label() didn't already catch via our token list, inject a
+    # synthetic MAJOR evaluation. This catches obscure imprints like
+    # "Republic Records" -> Universal that might not be in MAJOR_FAMILIES.
+    for wiki_rec in wiki_results:
+        label = wiki_rec.get("label", "").strip()
+        major_family = wiki_rec.get("major_via_chain")
+        if not label or not major_family:
+            continue
+        # Check if we already have a MAJOR eval for this label from Wikipedia
+        already_major = any(
+            ev.source == "Wikipedia" and ev.label == label and ev.status == "MAJOR"
+            for ev in a.label_evaluations
+        )
+        if already_major:
+            continue
+        # The parent chain found a major, but our token list didn't. Add it.
+        a.label_evaluations.append(
+            LabelEvaluation(
+                source="Wikipedia",
+                label=label,
+                status="MAJOR",
+                reason=f"{major_family} family (via Wikidata parent chain)",
+                family=major_family,
+                matched_token=f"parent:{wiki_rec.get('major_chain_qid', '')}",
+            )
+        )
 
     # ---- 4. Earliest year (informational) ----
     candidates = [chartmetric_first_year]

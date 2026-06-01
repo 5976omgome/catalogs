@@ -364,6 +364,7 @@ class JobManager:
                 out_row["iTunes Licensee"] = audit.itunes_licensee
                 out_row["Deezer Labels"] = audit.deezer_labels
                 out_row["Discogs Labels"] = audit.discogs_labels
+                out_row["Wikipedia Labels"] = audit.wikipedia_labels
                 out_row["Informational Notes"] = audit.informational
                 out_row["Flag Reasons"] = audit.flag_reasons
                 output_rows.append(out_row)
@@ -544,7 +545,7 @@ def _summarize_per_source(evaluations) -> list:
         if cur is None or _SOURCE_PRIORITY.get(ev.status, 0) > _SOURCE_PRIORITY.get(cur.status, 0):
             by_source[family] = ev
 
-    order = ["Chartmetric", "iTunes", "Deezer", "Discogs"]
+    order = ["Chartmetric", "iTunes", "Deezer", "Discogs", "Wikipedia"]
     out = []
     for family in order:
         ev = by_source.get(family)
