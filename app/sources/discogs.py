@@ -3,6 +3,7 @@
 Reads the Discogs token live (per call) so a Save in the Settings UI
 takes effect immediately, without restarting the server.
 """
+import re
 import time
 from typing import List
 
@@ -30,6 +31,10 @@ def _get(url: str, params: dict = None, timeout: int = 10):
 
 
 def _find_artist_id_strict(artist_name: str):
+    """
+    Find Discogs artist ID. Exact normalized match first, then loose
+    token-overlap fallback for non-ASCII/diacritics differences.
+    """
     try:
         data = _get(f"{BASE}/database/search", {
             "q": artist_name, "type": "artist", "per_page": 10,
@@ -37,9 +42,21 @@ def _find_artist_id_strict(artist_name: str):
     except Exception:
         return None
     an = normalize(artist_name)
+    # Pass 1: exact
     for r in data.get("results", []):
         if normalize(r.get("title", "")) == an:
             return r.get("id")
+    # Pass 2: loose token-overlap (same logic as Deezer)
+    if len(artist_name) >= 4:
+        an_words = set(re.findall(r"[a-z0-9]{2,}", an))
+        for r in data.get("results", []):
+            dn = normalize(r.get("title", ""))
+            dn_words = set(re.findall(r"[a-z0-9]{2,}", dn))
+            if not dn_words or not an_words:
+                continue
+            overlap = an_words & dn_words
+            if len(overlap) >= max(1, len(an_words) * 0.6) and len(overlap) >= max(1, len(dn_words) * 0.6):
+                return r.get("id")
     return None
 
 

@@ -153,13 +153,32 @@ def _extract_owners(copyright_text: str) -> Tuple[List[str], str, str]:
         rest = pre_glyph_match.group(2).strip()
         # Strip leading "A " article and trailing words like "Release"
         prefix_clean = re.sub(r"^A\s+", "", prefix, flags=re.IGNORECASE)
-        prefix_clean = re.sub(r"\s+(Release|Records Release|Recording)$", "", prefix_clean, flags=re.IGNORECASE)
+        prefix_clean = re.sub(r"\s+(Release|Records?\s+Release|Recording)\.?$", "", prefix_clean, flags=re.IGNORECASE)
+        prefix_clean = prefix_clean.strip(" .,;")
         if prefix_clean:
             extra_owners.append(prefix_clean.strip())
         main = rest
     else:
-        # Strip ℗/© and year
-        main = re.sub(r"[℗©]\s*\d{4}\s*", "", main).strip()
+        # Strip ℗/© and year in all common formats:
+        #   ℗ 2024 Artist         (standard)
+        #   ℗2024 Artist          (no space after glyph)
+        #   ℗ (2024) Artist       (parenthesized year)
+        #   ℗(2024) Artist        (parenthesized, no space)
+        #   ℗ 2024 - Artist       (dash separator after year)
+        #   ℗ 2024- Artist        (dash attached to year)
+        #   (P) 2024 Artist       (ASCII fallback for ℗)
+        #   (C) 2024 Artist       (ASCII fallback for ©)
+        #   ℗ Esta compilación (P) 2024 Sony   (Spanish pattern)
+        # Order matters: try the most specific patterns first.
+        # Pattern: leading text like "Esta compilación (P) YYYY" or "This Compilation ℗ YYYY"
+        main = re.sub(
+            r"^.*?(?:esta\s+compilaci[oó]n|this\s+compilation)\s*(?:\(P\)|\(C\)|[℗©])\s*\(?\d{4}\)?\s*[-–—]?\s*",
+            "", main, flags=re.IGNORECASE
+        ).strip() or main
+        # Pattern: (P) YYYY or (C) YYYY at the start
+        main = re.sub(r"^\s*\([PCpc]\)\s*\(?\d{4}\)?\s*[-–—]?\s*", "", main).strip() or main
+        # Pattern: ℗/© optionally followed by space, optionally parenthesized year, optional dash
+        main = re.sub(r"[℗©]\s*\(?\d{4}\)?\s*[-–—]?\s*", "", main).strip()
 
     # Strip Spanish "bajo" (= "under") prefix on remaining text
     main = re.sub(r"^\s*bajo\s+", "", main, flags=re.IGNORECASE)

@@ -16,21 +16,49 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-# Order matters - this is the order the audit columns appear in the sheet
-# after the input CSV columns.
-AUDIT_COLS = [
-    "Status",                # KEEP / REVIEW / DROP_MAJOR / DROP_LICENSED / DROP_THIRDPARTY
-    "Status Reason",         # one-line plain English explanation
-    "Label Evaluations",     # per-(source, label) evaluation summary
-    "Verdict",               # legacy CLEAN / FLAGGED
+# Order matters - this is the EXACT column order the user wants in the output.
+# Status comes first, then key artist/source data, then audit metadata last.
+# Input columns not in this list are appended at the end (preserving any
+# extra Chartmetric fields the user might have).
+PREFERRED_COL_ORDER = [
+    "Status",
+    "Artist",
+    "Deezer Labels",
+    "iTunes P-Line",
+    "Wikipedia Labels",
+    "Discogs Labels",
+    "Associated Labels",      # This is the Chartmetric label column
+    "Spotify Links",
+    "Region",
+    "Genres",
+    "Spotify Monthly Listeners",
+    "Recent Momentum",
+    "First Release Date",
+    "Status Reason",
+    "Verdict",
+    "Label Evaluations",
     "Earliest Year",
-    "Earliest Year Note",    # informational old-catalog note (no flag)
+    "Earliest Year Note",
+    "iTunes Licensee",
+    "Informational Notes",
+    "Flag Reasons",
+]
+
+# Legacy constant kept for backwards compat with any code that imports it.
+AUDIT_COLS = [
+    "Status",
+    "Status Reason",
+    "Label Evaluations",
+    "Verdict",
+    "Earliest Year",
+    "Earliest Year Note",
     "iTunes P-Line",
     "iTunes Licensee",
     "Deezer Labels",
     "Discogs Labels",
-    "Informational Notes",   # AI bridge note, OLD_CATALOG note
-    "Flag Reasons",          # legacy
+    "Wikipedia Labels",
+    "Informational Notes",
+    "Flag Reasons",
 ]
 
 _GREEN = PatternFill("solid", start_color="E6F4EA")
@@ -54,7 +82,33 @@ def write_xlsx(rows: List[dict], input_columns: List[str], out_path: Path) -> No
     thin = Side(style="thin", color="D0D0D0")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    headers = list(input_columns) + AUDIT_COLS
+    # Build the final column order:
+    # 1. Start with PREFERRED_COL_ORDER (only columns that actually have data)
+    # 2. Append any remaining input/audit columns not in the preferred list
+    all_keys = set()
+    for row in rows:
+        all_keys.update(row.keys())
+    all_keys.update(input_columns)
+    all_keys.update(AUDIT_COLS)
+
+    headers = []
+    used = set()
+    # First: preferred order (only if column exists in data)
+    for col in PREFERRED_COL_ORDER:
+        if col in all_keys:
+            headers.append(col)
+            used.add(col)
+    # Second: remaining input columns in their original order
+    for col in input_columns:
+        if col not in used:
+            headers.append(col)
+            used.add(col)
+    # Third: remaining audit columns
+    for col in AUDIT_COLS:
+        if col not in used:
+            headers.append(col)
+            used.add(col)
+
     ws.append(headers)
     for ci, _ in enumerate(headers, 1):
         c = ws.cell(row=1, column=ci)
@@ -79,7 +133,7 @@ def write_xlsx(rows: List[dict], input_columns: List[str], out_path: Path) -> No
 
     widths = {
         "Artist": 24,
-        "Status": 14,
+        "Status": 16,
         "Status Reason": 50,
         "Label Evaluations": 70,
         "Verdict": 11,
@@ -89,10 +143,16 @@ def write_xlsx(rows: List[dict], input_columns: List[str], out_path: Path) -> No
         "iTunes Licensee": 22,
         "Deezer Labels": 28,
         "Discogs Labels": 28,
+        "Wikipedia Labels": 28,
         "Informational Notes": 50,
         "Flag Reasons": 60,
         "Associated Labels": 22,
         "Spotify Links": 36,
+        "Genres": 30,
+        "Region": 16,
+        "Spotify Monthly Listeners": 18,
+        "Recent Momentum": 14,
+        "First Release Date": 16,
     }
     for ci, h in enumerate(headers, 1):
         ws.column_dimensions[get_column_letter(ci)].width = widths.get(h, 16)

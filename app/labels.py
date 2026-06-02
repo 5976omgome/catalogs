@@ -352,6 +352,7 @@ def is_name_variant(artist: str, label: str) -> bool:
 # hard FLAG even when called a "distributor".
 
 NEUTRAL_DISTRIBUTORS: List[str] = [
+    # Major DIY platforms
     "distrokid",
     "tunecore",
     "cdbaby", "cd baby",
@@ -366,7 +367,17 @@ NEUTRAL_DISTRIBUTORS: List[str] = [
     "awal",
     "horus music",
     "octiive",
+    "freshly squeezed",
+    "too lost",
+    "vydia",
+    "level music",
+    "onerpm",
+    "believe digital",
+    "the orchard",  # acts as pure distributor for many indie self-releases
+    "kobalt",       # pure admin/distribution for many self-released artists
+    # Generic "independent" placeholder
     "independent",
+    # European / regional distributors
     "recordjet",
     "igroovemusic.com", "igroovemusic",
     "imusician",
@@ -375,14 +386,45 @@ NEUTRAL_DISTRIBUTORS: List[str] = [
     "musichub",
     "tratore",
     "altafonte",
-    "ingrooves",       # technically Universal-owned, but acts as a pure
-                       # distributor here. If you want to disqualify, move
-                       # to the majors list above.
+    "ingrooves",
+    # Latin / Brazilian distributors
+    "oni musica", "onimusic",
+    "fuga",
+    "idol distribution",
+    "kontor new media",
+    "zebralution",
+    "finetunes",
+    "digdis",
+    "parlophone label group",  # sometimes used as pure distro metadata
+    # Asian distributors
+    "kakao entertainment",
+    "genie music",
+    "pony canyon",
+    "avex",
+    # Aggregator placeholders
+    "label engine",
+    "catapult",
+    "foundation media",
+    "spinnup",
+    "empire",          # acts as distributor for many self-released artists
+    "audiomack",
+    "soundrop",
+    "soundon",
+    "awa llc",
+    # Metadata placeholders written by distributors
+    "usp digital",
+    "digital natives",
+    "integral music",
+    "wp digital",
 ]
 
-# Strings of the form "1234567 Records DK" (DistroKid placeholder for
-# numeric label IDs).
-_NUMERIC_DISTRO_RE = re.compile(r"^\s*\d{4,}\s+records\s+dk\d?\s*$", re.I)
+# Strings of the form "1234567 Records DK" / "1234567 Records DK2" (DistroKid
+# placeholder for numeric label IDs). Also catch bare numeric IDs like
+# "7240173 Records DK" and shorter variants.
+_NUMERIC_DISTRO_RE = re.compile(r"^\s*\d{3,}\s+records?\s+dk\d{0,2}\s*$", re.I)
+
+# Some distributors write the label as just a bare number or "NNNNN" format
+_BARE_NUMERIC_LABEL_RE = re.compile(r"^\s*\d{5,}\s*$")
 
 
 def is_neutral_distributor(label: str) -> bool:
@@ -393,6 +435,8 @@ def is_neutral_distributor(label: str) -> bool:
         return False
     text = label.lower().strip()
     if _NUMERIC_DISTRO_RE.match(text):
+        return True
+    if _BARE_NUMERIC_LABEL_RE.match(text):
         return True
     for needle in NEUTRAL_DISTRIBUTORS:
         if needle in text:

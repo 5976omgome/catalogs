@@ -1,4 +1,5 @@
 """Deezer API - free, no auth. Returns label per album."""
+import re
 import time
 from typing import List
 
@@ -19,14 +20,35 @@ def _get(url: str, params: dict = None, timeout: int = 10):
 
 
 def _find_artist_id_strict(artist_name: str):
+    """
+    Find the Deezer artist ID. Tries exact normalized match first, then
+    falls back to a looser token-overlap match to handle non-English names,
+    diacritics, and minor spelling differences between Chartmetric and Deezer.
+    """
     try:
         data = _get(f"{BASE}/search/artist", {"q": artist_name, "limit": 10})
     except Exception:
         return None
     an = normalize(artist_name)
+    # Pass 1: exact normalized match
     for a in data.get("data", []):
         if normalize(a.get("name", "")) == an:
             return a.get("id")
+    # Pass 2: loose match — at least 60% token overlap in both directions.
+    # This catches cases like "Hélio Ziskind" vs "Helio Ziskind" or
+    # "Křesťanská" vs "Krestanska" after diacritics are stripped.
+    an_tokens = set(an)  # character-level for short names
+    if len(artist_name) >= 4:
+        an_words = set(re.findall(r"[a-z0-9]{2,}", an))
+        for a in data.get("data", []):
+            dn = normalize(a.get("name", ""))
+            dn_words = set(re.findall(r"[a-z0-9]{2,}", dn))
+            if not dn_words or not an_words:
+                continue
+            # Both directions: how much of artist is in deezer, and vice versa
+            overlap = an_words & dn_words
+            if len(overlap) >= max(1, len(an_words) * 0.6) and len(overlap) >= max(1, len(dn_words) * 0.6):
+                return a.get("id")
     return None
 
 
