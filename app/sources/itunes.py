@@ -240,12 +240,39 @@ def get_releases(artist_name: str, limit: int = 5) -> List[dict]:
     results = data.get("results", [])
     an = normalize(artist_name)
 
-    # Strict name match - only keep results where iTunes artistName matches
+    # Name matching strategy:
+    # 1. Exact normalized match (best)
+    # 2. The normalized artist name is a substring of the result's
+    #    normalized artist name (catches "Frost & Lavrushkin" when
+    #    searching for "Lavrushkin")
+    # 3. The result's normalized artist name is a substring of the
+    #    query (catches partial matches)
+    # 4. Token-overlap fallback: if 60%+ of the query's word-tokens
+    #    appear in the result (catches diacritics, reorderings)
+    #
+    # The old check `an in ra.split()` was useless because normalize()
+    # strips ALL spaces, so split() always produces a single token.
+    an_words = set(re.findall(r"[a-z0-9]{2,}", an))
+
     matched = []
     for r in results:
         ra = normalize(r.get("artistName", ""))
-        if ra == an or an in ra.split() or ra in an.split():
+        # Exact
+        if ra == an:
             matched.append(r)
+            continue
+        # Substring containment (catches featured credits like "X & Artist")
+        if an in ra or ra in an:
+            matched.append(r)
+            continue
+        # Token overlap for diacritics/spelling differences
+        if an_words and len(an_words) >= 2:
+            ra_words = set(re.findall(r"[a-z0-9]{2,}", ra))
+            if ra_words:
+                overlap = an_words & ra_words
+                if len(overlap) >= max(1, len(an_words) * 0.6):
+                    matched.append(r)
+                    continue
 
     if not matched:
         cache.set_(key, [])
@@ -305,7 +332,9 @@ def get_earliest_year(artist_name: str) -> str:
     an = normalize(artist_name)
     years = []
     for r in data.get("results", []):
-        if normalize(r.get("artistName", "")) != an:
+        ra = normalize(r.get("artistName", ""))
+        # Same matching logic as get_releases: exact, substring, or token overlap
+        if ra != an and an not in ra and ra not in an:
             continue
         rd = r.get("releaseDate", "")
         if rd and len(rd) >= 4 and rd[:4].isdigit():

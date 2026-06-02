@@ -518,6 +518,16 @@ function wireUI() {
 
   $("settings-save").addEventListener("click", saveSettings);
   $("settings-clear").addEventListener("click", clearAllSettings);
+  $("clear-cache").addEventListener("click", async () => {
+    if (!confirm("Clear all cached API lookups? Artists will be re-queried from scratch on the next run.")) return;
+    try {
+      const r = await fetch("/api/cache/clear", { method: "POST" });
+      const j = await r.json();
+      logLine(`[CACHE CLEARED] ${j.deleted || 0} entries deleted. Next run will re-query all APIs fresh.`, "line-info");
+    } catch (e) {
+      logLine(`[ERROR] cache clear failed: ${e}`, "line-flagged");
+    }
+  });
   // Submit on Enter from any of the three password inputs
   for (const f of SETTINGS_FIELDS) {
     $(f.inputId).addEventListener("keydown", (e) => {

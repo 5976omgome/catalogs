@@ -152,6 +152,23 @@ def create_app() -> Flask:
         manager.clear()
         return jsonify({"ok": True})
 
+    @app.route("/api/cache/clear", methods=["POST"])
+    def clear_cache():
+        """Clear ALL cached API lookups. Forces re-query of every artist
+        on the next run. Use after code changes that improve matching."""
+        from . import cache as _cache
+        count = _cache.clear_all()
+        return jsonify({"ok": True, "deleted": count})
+
+    @app.route("/api/cache/clear_empty", methods=["POST"])
+    def clear_empty_cache():
+        """Clear only empty/negative cached results. Keeps real label data
+        intact but forces re-lookup of artists that previously returned
+        'no data' from any source."""
+        from . import cache as _cache
+        count = _cache.clear_empty()
+        return jsonify({"ok": True, "deleted": count})
+
     @app.route("/api/queue/remove", methods=["POST"])
     def remove_item():
         body = request.get_json(silent=True) or {}
