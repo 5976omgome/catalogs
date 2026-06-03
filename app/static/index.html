@@ -17,28 +17,16 @@
   </header>
 
   <main>
-    <section class="card" id="card-keys">
-      <header class="card-head">
-        <h2>API KEYS</h2>
-        <button id="btn-toggle-keys" class="ghost">EDIT</button>
+    <section class="card collapsible" id="card-keys">
+      <header class="card-head" data-collapse="keys-body">
+        <h2>API</h2>
+        <button class="ghost collapse-btn">\u25BC</button>
       </header>
-      <div class="keys-body" id="keys-body" style="display:none">
-        <div class="keys-grid two-col">
-          <label>
-            <span>GROQ</span>
-            <input id="key-groq" type="password" placeholder="paste key">
-            <small id="prev-groq"></small>
-          </label>
-          <label>
-            <span>GEMINI</span>
-            <input id="key-gemini" type="password" placeholder="paste key">
-            <small id="prev-gemini"></small>
-          </label>
-          <label>
-            <span>GENIUS</span>
-            <input id="key-genius" type="password" placeholder="paste token">
-            <small id="prev-genius"></small>
-          </label>
+      <div class="card-body" id="keys-body">
+        <div class="keys-grid">
+          <label><span>GROQ</span><input id="key-groq" type="password" placeholder="paste key"><small id="prev-groq"></small></label>
+          <label><span>GEMINI</span><input id="key-gemini" type="password" placeholder="paste key"><small id="prev-gemini"></small></label>
+          <label><span>GENIUS</span><input id="key-genius" type="password" placeholder="paste token"><small id="prev-genius"></small></label>
         </div>
         <div class="keys-actions">
           <button id="btn-save-keys" class="primary">SAVE</button>
@@ -48,33 +36,37 @@
       </div>
     </section>
 
-    <section class="card">
-      <header class="card-head">
+    <section class="card collapsible" id="card-queue">
+      <header class="card-head" data-collapse="queue-body">
         <h2>QUEUE</h2>
         <div class="row">
-          <label class="filebtn">
-            <input type="file" id="file-input" accept=".csv,.tsv" multiple>
-            <span>+ CSV</span>
-          </label>
+          <label class="filebtn"><input type="file" id="file-input" accept=".csv,.tsv" multiple><span>+ CSV</span></label>
           <button id="btn-run" class="primary">RUN</button>
           <button id="btn-stop" class="warn">STOP</button>
           <button id="btn-export-all" class="ghost">EXPORT</button>
           <button id="btn-clear" class="ghost">CLEAR</button>
         </div>
+        <button class="ghost collapse-btn">\u25BC</button>
       </header>
-      <ul id="queue" class="queue"></ul>
+      <div class="card-body" id="queue-body">
+        <ul id="queue" class="queue"></ul>
+      </div>
     </section>
 
-    <section class="card grow" id="feeds-section">
+    <section class="card grow" id="card-feeds">
       <header class="card-head">
-        <h2>LIVE FEEDS</h2>
-        <span class="counter" id="counter-global"></span>
+        <h2 id="feeds-title">FEED</h2>
+        <div class="row" id="global-filters">
+          <span class="ftoggle f-drop on" id="gf-drop">FLAGGED</span>
+          <span class="ftoggle f-review on" id="gf-review">REVIEW</span>
+          <span class="ftoggle f-keep on" id="gf-keep">CLEAN</span>
+          <span class="ftoggle f-socials on" id="gf-socials">SOCIALS</span>
+          <span class="ftoggle f-debug off" id="gf-debug">DEBUG</span>
+        </div>
       </header>
       <div id="feeds-grid" class="feeds-grid cols-1">
         <div class="feed-panel" id="system-console">
-          <div class="feed-header">
-            <span class="feed-title">SYSTEM</span>
-          </div>
+          <div class="feed-header"><span class="feed-title">SYSTEM</span></div>
           <div class="feed-log" id="sys-log"></div>
         </div>
       </div>
