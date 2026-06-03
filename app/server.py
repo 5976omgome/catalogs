@@ -665,14 +665,15 @@ def _geni_worker(item):
                     contact["youtube"] = socials["youtube"]
 
             # --- Email scraping (free, no API key) ---
-            # Try to find website + scrape emails from it
+            # Waterfall: website → Facebook → YouTube description
             from app.sources import email_scraper
 
             website_url = None
+            email_found = ""
 
             # Strategy 1: Try artist IG handle as domain
             ig_handle = socials.get("instagram") if socials else None
-            if ig_handle and not website_url:
+            if ig_handle:
                 website_url = email_scraper.find_artist_website(ig_handle)
 
             # Strategy 2: Scrape emails from website if found
@@ -680,7 +681,22 @@ def _geni_worker(item):
                 contact["website"] = website_url
                 email_result = email_scraper.scrape_website_emails(website_url)
                 if email_result and email_result.get("emails"):
-                    contact["email"] = email_result["emails"][0]  # best email
+                    email_found = email_result["emails"][0]
+
+            # Strategy 3: Scrape Facebook page for email
+            if not email_found and socials and socials.get("facebook"):
+                fb_email = email_scraper.scrape_facebook_email(socials["facebook"])
+                if fb_email:
+                    email_found = fb_email
+
+            # Strategy 4: Scrape YouTube description for email
+            if not email_found:
+                yt_email = email_scraper.scrape_youtube_description(artist_name)
+                if yt_email:
+                    email_found = yt_email
+
+            if email_found:
+                contact["email"] = email_found
 
             item["_contacts"].append(contact)
             item["processed"] = i + 1

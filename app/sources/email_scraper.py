@@ -234,3 +234,141 @@ def find_artist_website(instagram: Optional[str] = None) -> Optional[str]:
             continue
 
     return None
+
+
+
+def scrape_facebook_email(fb_handle: str) -> Optional[str]:
+    """Scrape email from a Facebook page's About/info section.
+
+    Many artist pages publicly display their contact email in the page info.
+    We fetch the public Facebook page and scan for email patterns.
+
+    Returns the first valid email found, or None.
+    """
+    if not fb_handle:
+        return None
+
+    # Normalize — could be a full URL or just a handle
+    if fb_handle.startswith("http"):
+        fb_url = fb_handle.rstrip("/")
+    else:
+        fb_url = f"https://www.facebook.com/{fb_handle.strip().lstrip('/')}"
+
+    cache_key = f"fb_email:{fb_handle}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached if cached else None
+
+    try:
+        # Try the About page (most likely to have email)
+        about_url = fb_url + "/about"
+
+        _rate_limit()
+        html = None
+        for url in [about_url, fb_url]:
+            try:
+                r = _s.get(
+                    url,
+                    timeout=8,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Accept": "text/html,application/xhtml+xml",
+                        "Accept-Language": "en-US,en;q=0.9",
+                    },
+                    allow_redirects=True,
+                )
+                if r.status_code == 200:
+                    html = r.text[:150000]
+                    break
+            except Exception:
+                continue
+
+        if not html:
+            cache.put(cache_key, "")
+            return None
+
+        # Extract emails from the page
+        emails = _extract_emails_from_html(html)
+
+        # Filter out Facebook's own emails
+        emails = [e for e in emails if "facebook.com" not in e and "fb.com" not in e]
+
+        if emails:
+            print(f"[email] ✓ FB '{fb_handle}' → {emails[0]}", flush=True)
+            cache.put(cache_key, emails[0])
+            return emails[0]
+
+        cache.put(cache_key, "")
+        return None
+
+    except Exception as e:
+        print(f"[email] FB scrape error '{fb_handle}': {e}", flush=True)
+        cache.put(cache_key, "")
+        return None
+
+
+def scrape_youtube_description(artist_name: str) -> Optional[str]:
+    """Scrape email from a YouTube channel's description/about section.
+
+    YouTube hides the main contact email behind a CAPTCHA, but many artists
+    also put their booking/management email in their channel description
+    which IS publicly visible in the page source.
+
+    Returns the first valid email found, or None.
+    """
+    if not artist_name:
+        return None
+
+    cache_key = f"yt_email:{artist_name.lower().strip()}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached if cached else None
+
+    try:
+        # Search YouTube for the artist's channel via their about page
+        # We use YouTube's channel search URL which returns HTML with description
+        search_query = artist_name.replace(" ", "+")
+        search_url = f"https://www.youtube.com/results?search_query={search_query}&sp=EgIQAg%3D%3D"
+
+        _rate_limit()
+        r = _s.get(
+            search_url,
+            timeout=10,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+            allow_redirects=True,
+        )
+
+        if r.status_code != 200:
+            cache.put(cache_key, "")
+            return None
+
+        html = r.text[:200000]
+
+        # YouTube embeds channel data in JSON within the page
+        # Look for email patterns in the raw page source
+        # The description text is in the initial data JSON
+        emails = _extract_emails_from_html(html)
+
+        # Filter out YouTube/Google emails
+        emails = [e for e in emails if
+                  "youtube.com" not in e and
+                  "google.com" not in e and
+                  "googleapis.com" not in e and
+                  "ytimg.com" not in e]
+
+        if emails:
+            print(f"[email] ✓ YT '{artist_name}' → {emails[0]}", flush=True)
+            cache.put(cache_key, emails[0])
+            return emails[0]
+
+        cache.put(cache_key, "")
+        return None
+
+    except Exception as e:
+        print(f"[email] YT scrape error '{artist_name}': {e}", flush=True)
+        cache.put(cache_key, "")
+        return None
