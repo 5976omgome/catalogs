@@ -78,7 +78,7 @@ async function refreshStatus(){
     if(s.gemini_set)sys("✓ Gemini ready.","ok");
     if(s.genius_set)sys("✓ Genius ready.","ok");
     sys("✓ iTunes + Deezer ready.","ok");
-    sys("Ignite Scout ready.","info");
+    sys("Virtual Scout ready.","info");
   }catch(e){sys("Server connection failed: "+e.message,"bad")}
 }
 
@@ -330,7 +330,7 @@ async function handleFbSubmit(){
 }
 
 document.addEventListener("DOMContentLoaded",()=>{
-  sys("Ignite Scout starting\u2026","info");
+  sys("Virtual Scout starting\u2026","info");
   initGlobalFilters();
   initCollapsible();
   initFeedback();

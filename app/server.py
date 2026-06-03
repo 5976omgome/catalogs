@@ -276,7 +276,7 @@ def api_feedback():
         "---",
         f"category: {category}",
         f"date: {now.isoformat()}",
-        f"platform: IGNITE SCOUT",
+        f"platform: IGNITE VIRTUAL SCOUT",
         f"version: v5.0.0",
         f"ai_enhanced: {str(ai_enhanced).lower()}",
         "---",
@@ -320,10 +320,10 @@ def api_feedback_clean():
         return jsonify({"error": "Groq API key not configured. Add it in the API panel."}), 400
 
     category_context = {
-        "BUG": "This is a bug report for IGNITE SCOUT, a Flask-based catalog intelligence platform. It processes CSV artist exports through iTunes, Deezer, Genius, Chartmetric, Groq, and Gemini APIs to verify catalog ownership for licensing/buyout opportunities.",
-        "IDEA": "This is a feature idea for IGNITE SCOUT, a Flask-based catalog intelligence platform that processes CSV artist exports through multiple APIs to verify catalog ownership.",
-        "OTHER": "This is general feedback for IGNITE SCOUT, a Flask-based catalog intelligence platform.",
-    }.get(category, "This is feedback for IGNITE SCOUT.")
+        "BUG": "This is a bug report for IGNITE: VIRTUAL SCOUT, a Flask-based catalog intelligence platform. It processes CSV artist exports through iTunes, Deezer, Genius, Chartmetric, Groq, and Gemini APIs to verify catalog ownership for licensing/buyout opportunities.",
+        "IDEA": "This is a feature idea for IGNITE: VIRTUAL SCOUT, a Flask-based catalog intelligence platform that processes CSV artist exports through multiple APIs to verify catalog ownership.",
+        "OTHER": "This is general feedback for IGNITE: VIRTUAL SCOUT, a Flask-based catalog intelligence platform.",
+    }.get(category, "This is feedback for IGNITE: VIRTUAL SCOUT.")
 
     system_prompt = f"""You are an expert prompt engineer. Your job is to take raw user feedback and transform it into a perfectly structured, actionable prompt that Claude (Opus) can immediately research and act on.
 
