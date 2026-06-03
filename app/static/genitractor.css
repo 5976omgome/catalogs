@@ -50,7 +50,7 @@ body{display:flex;flex-direction:column;height:100vh}
   display:flex;align-items:center;justify-content:space-between;
   padding:var(--s4) var(--s6);
   border-bottom:2px solid var(--carbon);
-  position:sticky;top:0;z-index:100;
+  position:sticky;top:0;z-index:100;flex-shrink:0;
   background:#fff;
 }
 .brand-group{display:flex;align-items:center;gap:var(--s3)}
@@ -85,7 +85,7 @@ body{display:flex;flex-direction:column;height:100vh}
    STICKY QUEUE BAR
    ============================================================================ */
 .queue-bar{
-  position:sticky;top:57px;z-index:90;
+  position:sticky;top:57px;z-index:90;flex-shrink:0;
   background:#fff;border-bottom:2px solid var(--carbon);
   padding:var(--s2) var(--s6);
 }
@@ -179,7 +179,7 @@ main{
   max-width:1440px;margin:0 auto;width:100%;
   padding:var(--s4) var(--s6) var(--s4);
   display:flex;flex-direction:column;gap:var(--s3);
-  flex:1;overflow:hidden;
+  flex:1;min-height:0;overflow:hidden;
 }
 
 /* Cards */
@@ -188,11 +188,8 @@ main{
   overflow:hidden;transition:border-color .2s var(--ease);
 }
 .card.grow{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-/* Collapsed feed card stops growing so freed space is reclaimed + footer fills it */
+/* Collapsed feed card stops growing so freed space is reclaimed cleanly */
 .card.grow.is-collapsed{flex:0 0 auto}
-/* When the feed is collapsed, the footer expands to absorb the freed space */
-#card-feeds.is-collapsed ~ .powered-footer{flex:1 1 auto;display:flex;align-items:center}
-#card-feeds.is-collapsed ~ .powered-footer .footer-inner{width:100%}
 .card-head{
   display:flex;align-items:center;justify-content:space-between;
   padding:var(--s3) var(--s4);border-bottom:1px solid var(--dust);
@@ -217,7 +214,7 @@ main{
 
 /* Feeds grid */
 .feeds-grid{
-  padding:var(--s3);flex:1;overflow-y:auto;
+  padding:var(--s3);flex:1;overflow-y:auto;overflow-x:hidden;
 }
 .feeds-grid.cols-1{display:block}
 
@@ -245,17 +242,17 @@ main{
 .ablock .src-vals .empty{color:#666;font-style:italic;font-size:11px}
 
 /* ============================================================================
-   FOOTER
+   FOOTER — full-width bar, flush to screen edges
    ============================================================================ */
-.powered-footer{margin-top:auto;padding:var(--s3) var(--s6);border-top:2px solid var(--carbon);background:#fff;width:100%;flex-shrink:0}
-.footer-inner{max-width:1440px;margin:0 auto;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:var(--s4);flex-wrap:wrap}
-.footer-left{display:flex;align-items:center;gap:var(--s4)}
-.footer-label{font-size:8px;font-weight:600;letter-spacing:.35em;color:var(--graphite)}
-.footer-logos{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap}
-.footer-logos .logo-link{display:flex;align-items:center;opacity:.6;transition:opacity .3s var(--ease);filter:brightness(0)}
-.footer-logos .logo-link:hover{opacity:1}
-.footer-logos .logo-link img{height:16px;width:auto}
-.footer-credit{font-size:9px;font-weight:500;letter-spacing:.12em;color:var(--graphite)}
+.powered-footer{width:100%;flex-shrink:0;padding:var(--s2) var(--s6);border-top:2px solid var(--carbon);background:#fff}
+.footer-inner{max-width:1440px;margin:0 auto;width:100%;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:var(--s4)}
+.footer-left{display:flex;align-items:center;gap:var(--s4);min-width:0}
+.footer-label{font-size:8px;font-weight:700;letter-spacing:.3em;color:var(--graphite);white-space:nowrap}
+.footer-logos{display:flex;align-items:center;gap:var(--s4)}
+.footer-logos .logo-link{display:flex;align-items:center;opacity:.55;transition:opacity .25s var(--ease),transform .25s var(--ease);filter:brightness(0)}
+.footer-logos .logo-link:hover{opacity:1;transform:translateY(-2px)}
+.footer-logos .logo-link img{height:15px;width:auto;display:block}
+.footer-credit{font-size:9px;font-weight:500;letter-spacing:.12em;color:var(--graphite);white-space:nowrap}
 
 /* ============================================================================
    MODALS
@@ -309,7 +306,7 @@ main{
 
 /* --- KEYFRAMES --- */
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-@keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+@keyframes feedIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes slideDown{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:translateY(0)}}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
@@ -376,7 +373,7 @@ button.warn:hover:not(:disabled){box-shadow:0 4px 12px rgba(192,57,43,.1)}
 .queue .stat.done{animation:fadeUp .3s var(--ease) both}
 
 /* --- ARTIST BLOCKS --- */
-.ablock{animation:slideIn .3s var(--ease) both}
+.ablock{animation:feedIn .28s var(--ease) both;will-change:transform,opacity}
 .ablock:hover{border-left-color:var(--gold);transition:border-color .15s var(--ease)}
 
 /* --- COLLAPSE/EXPAND --- */

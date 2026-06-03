@@ -71,7 +71,7 @@ body{display:flex;flex-direction:column;height:100vh}
   display:flex;align-items:center;justify-content:space-between;
   padding:var(--s4) var(--s6);
   border-bottom:1px solid var(--border);
-  position:sticky;top:0;z-index:100;
+  position:sticky;top:0;z-index:100;flex-shrink:0;
   background:rgba(12,14,18,.88);
   backdrop-filter:blur(24px) saturate(160%);
   -webkit-backdrop-filter:blur(24px) saturate(160%);
@@ -129,14 +129,14 @@ main{
   max-width:1440px;margin:0 auto;width:100%;
   padding:var(--s4) var(--s6) var(--s4);
   display:flex;flex-direction:column;gap:var(--s3);
-  flex:1;overflow:hidden;
+  flex:1;min-height:0;overflow:hidden;
 }
 
 /* ============================================================================
    STICKY QUEUE BAR
    ============================================================================ */
 .queue-bar{
-  position:sticky;top:49px;z-index:90;
+  position:sticky;top:49px;z-index:90;flex-shrink:0;
   background:rgba(18,21,26,.92);
   backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   border-bottom:1px solid var(--border);
@@ -190,12 +190,9 @@ main{
 .card.grow{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 /* Feed body must flex to fill the card so it scrolls internally AND collapses cleanly */
 #feeds-body{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-/* When the feed card is collapsed it must stop growing so the freed space is
-   reclaimed and the footer rises to fill it (instead of a big empty card). */
+/* When the feed card is collapsed it stops growing so the freed space is
+   reclaimed (the page background shows through cleanly below the cards). */
 .card.grow.is-collapsed{flex:0 0 auto}
-/* When the feed is collapsed, the footer expands to absorb the freed space */
-#card-feeds.is-collapsed ~ .powered-footer{flex:1 1 auto;display:flex;align-items:center}
-#card-feeds.is-collapsed ~ .powered-footer .footer-inner{width:100%}
 .card-head{
   display:flex;align-items:center;justify-content:space-between;
   padding:var(--s3) var(--s4);
@@ -336,7 +333,7 @@ button:disabled{opacity:.35;cursor:not-allowed}
 .feed-header .feed-pct{font-size:9px;font-weight:700;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
 
 .feed-log{
-  flex:1;overflow-y:auto;padding:var(--s3);
+  flex:1;overflow-y:auto;overflow-x:hidden;padding:var(--s3);
   font-family:ui-monospace,"SF Mono","Menlo","Cascadia Code",monospace;
   font-size:10px;line-height:1.6;white-space:pre-wrap;word-break:break-word;
 }
@@ -394,40 +391,37 @@ button:disabled{opacity:.35;cursor:not-allowed}
 .counter{font-size:9px;font-weight:600;padding:3px var(--s2);border-radius:var(--r-full);background:var(--bg-surface);color:var(--text-tertiary);font-variant-numeric:tabular-nums}
 
 /* ============================================================================
-   POWERED BY FOOTER
+   POWERED BY FOOTER — full-width bar, flush to screen edges
    ============================================================================ */
 .powered-footer{
-  margin-top:auto;
-  padding:var(--s3) var(--s6);
+  width:100%;flex-shrink:0;
+  padding:var(--s2) var(--s6);
   border-top:1px solid var(--border);
-  background:var(--bg);
-  flex-shrink:0;
+  background:var(--bg-elevated);
 }
 .footer-inner{
-  max-width:1440px;margin:0 auto;
+  max-width:1440px;margin:0 auto;width:100%;
   display:flex;flex-direction:row;align-items:center;justify-content:space-between;
-  gap:var(--s4);flex-wrap:wrap;
+  gap:var(--s4);
 }
-.footer-left{display:flex;align-items:center;gap:var(--s4)}
+.footer-left{display:flex;align-items:center;gap:var(--s4);min-width:0}
 .footer-label{
-  font-size:8px;font-weight:600;letter-spacing:.35em;
-  color:var(--text-quaternary);
+  font-size:8px;font-weight:700;letter-spacing:.3em;
+  color:var(--text-quaternary);white-space:nowrap;
 }
 .footer-logos{
   display:flex;align-items:center;gap:var(--s4);
-  flex-wrap:wrap;
 }
 .footer-logos .logo-link{
   display:flex;align-items:center;
-  opacity:.4;transition:opacity .3s var(--ease),transform .3s var(--ease);
-  filter:grayscale(100%) brightness(0.8);
+  opacity:.45;transition:opacity .25s var(--ease),transform .25s var(--ease),filter .25s var(--ease);
+  filter:grayscale(100%) brightness(0.85);
 }
 .footer-logos .logo-link:hover{opacity:1;filter:grayscale(0%) brightness(1);transform:translateY(-2px)}
-.footer-logos .logo-link img{height:16px;width:auto;display:block}
-.footer-dot{width:3px;height:3px;border-radius:50%;background:var(--slate);opacity:.3}
+.footer-logos .logo-link img{height:15px;width:auto;display:block}
 .footer-credit{
   font-size:9px;font-weight:500;letter-spacing:.12em;
-  color:var(--text-quaternary);
+  color:var(--text-quaternary);white-space:nowrap;
 }
 
 /* ============================================================================
@@ -537,7 +531,7 @@ button:disabled{opacity:.35;cursor:not-allowed}
 
 /* --- KEYFRAMES --- */
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-@keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+@keyframes feedIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes slideDown{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:translateY(0)}}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
@@ -555,8 +549,7 @@ button:disabled{opacity:.35;cursor:not-allowed}
 .card{animation:fadeUp .45s var(--ease) both}
 .card:nth-child(1){animation-delay:.12s}
 .card:nth-child(2){animation-delay:.2s}
-.card:nth-child(3){animation-delay:.28s}
-.powered-footer{animation:fadeUp .5s var(--ease) .35s both}
+.powered-footer{animation:fadeUp .5s var(--ease) .3s both}
 
 /* --- BUTTONS — smooth press + lift + glow --- */
 button{transition:all .2s var(--ease);will-change:transform,box-shadow}
@@ -617,7 +610,7 @@ button.warn:hover:not(:disabled){box-shadow:0 4px 12px rgba(255,214,186,.15)}
 .feed-panel:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.12);border-color:var(--teal)}
 
 /* --- ARTIST BLOCKS — staggered slide-in --- */
-.ablock{animation:slideIn .3s var(--ease) both}
+.ablock{animation:feedIn .28s var(--ease) both;will-change:transform,opacity}
 .ablock:hover{border-left-color:var(--teal);transition:border-color .15s var(--ease)}
 
 /* --- PROGRESS BAR — shimmer + smooth width --- */
