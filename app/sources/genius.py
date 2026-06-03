@@ -4,17 +4,34 @@ Requires a free Client Access Token from https://genius.com/api-clients
 Returns: instagram, twitter, facebook handles when available.
 Uses shared Session for FD safety.
 
-NOTE: Genius does NOT provide YouTube URLs in artist data.
-YouTube column is populated from other sources or left empty.
+RATE LIMITING: Genius free tier allows ~5 req/sec. We use a global
+lock + sleep to ensure we never exceed this across all worker threads.
 """
 import re
 import time
+import threading
 from typing import Optional, Dict
 
 from app.sources._http import ai_session as _s
 from app import config, cache
 
 _BASE = "https://api.genius.com"
+
+# Global rate limiter — max 1 Genius request per 0.25s across all threads
+_genius_lock = threading.Lock()
+_last_request_time = 0.0
+_MIN_INTERVAL = 0.25  # 4 requests/second max (well under Genius limit)
+
+
+def _rate_limit():
+    """Ensure minimum interval between Genius API calls globally."""
+    global _last_request_time
+    with _genius_lock:
+        now = time.time()
+        elapsed = now - _last_request_time
+        if elapsed < _MIN_INTERVAL:
+            time.sleep(_MIN_INTERVAL - elapsed)
+        _last_request_time = time.time()
 
 
 def _normalize(s: str) -> str:
@@ -40,6 +57,9 @@ def get_socials(artist: str) -> Optional[Dict[str, str]]:
     headers = {"Authorization": f"Bearer {key}"}
 
     try:
+        # Rate limit before each API call
+        _rate_limit()
+
         # Search for artist (Genius search returns songs, we extract artist from them)
         r = _s.get(
             f"{_BASE}/search",
@@ -51,15 +71,24 @@ def get_socials(artist: str) -> Optional[Dict[str, str]]:
             print(f"[genius] 401 Unauthorized — token may be invalid", flush=True)
             return None
         if r.status_code == 429:
-            print(f"[genius] 429 Rate limited for '{artist}'", flush=True)
-            return None
+            # Back off and retry once after 2 seconds
+            time.sleep(2.0)
+            _rate_limit()
+            r = _s.get(
+                f"{_BASE}/search",
+                params={"q": artist, "per_page": 10},
+                headers=headers,
+                timeout=10,
+            )
+            if r.status_code == 429:
+                print(f"[genius] 429 Rate limited for '{artist}' (after retry)", flush=True)
+                return None
         r.raise_for_status()
 
         data = r.json()
         hits = data.get("response", {}).get("hits", [])
 
         if not hits:
-            print(f"[genius] No search results for '{artist}'", flush=True)
             cache.put(cache_key, {})
             return None
 
@@ -73,46 +102,48 @@ def get_socials(artist: str) -> Optional[Dict[str, str]]:
             primary = result.get("primary_artist", {})
             if primary:
                 name = _normalize(primary.get("name", ""))
-                # Match: exact, substring in either direction
                 if name == an or an in name or name in an:
                     artist_id = primary.get("id")
                     artist_match_name = primary.get("name", "")
                     break
 
         if not artist_id:
-            # Try looser matching — first result's primary artist
             first_hit = hits[0].get("result", {}).get("primary_artist", {})
             if first_hit:
                 first_name = _normalize(first_hit.get("name", ""))
-                # Only use first result if names share significant overlap
                 if len(an) >= 3 and (an[:3] in first_name or first_name[:3] in an):
                     artist_id = first_hit.get("id")
                     artist_match_name = first_hit.get("name", "")
 
         if not artist_id:
-            print(f"[genius] No artist match for '{artist}' in {len(hits)} hits", flush=True)
             cache.put(cache_key, {})
             return None
 
-        time.sleep(0.15)  # Be polite to rate limits
+        # Rate limit before second API call
+        _rate_limit()
 
         # Get full artist object with social links
-        # text_format=plain ensures all fields are returned
         r2 = _s.get(
             f"{_BASE}/artists/{artist_id}",
             params={"text_format": "plain"},
             headers=headers,
             timeout=10,
         )
+        if r2.status_code == 429:
+            time.sleep(2.0)
+            _rate_limit()
+            r2 = _s.get(
+                f"{_BASE}/artists/{artist_id}",
+                params={"text_format": "plain"},
+                headers=headers,
+                timeout=10,
+            )
         if r2.status_code != 200:
-            print(f"[genius] Artist fetch failed ({r2.status_code}) for '{artist}' (id={artist_id})", flush=True)
             cache.put(cache_key, {})
             return None
 
         artist_data = r2.json().get("response", {}).get("artist", {})
-
         if not artist_data:
-            print(f"[genius] Empty artist data for '{artist}' (id={artist_id})", flush=True)
             cache.put(cache_key, {})
             return None
 
@@ -129,9 +160,7 @@ def get_socials(artist: str) -> Optional[Dict[str, str]]:
             socials["facebook"] = fb.strip()
 
         if socials:
-            print(f"[genius] ✓ Found socials for '{artist}' → {list(socials.keys())}", flush=True)
-        else:
-            print(f"[genius] Artist '{artist}' found (matched: '{artist_match_name}') but no socials on profile", flush=True)
+            print(f"[genius] \u2713 '{artist}' \u2192 {list(socials.keys())}", flush=True)
 
         cache.put(cache_key, socials if socials else {})
         return socials if socials else None
