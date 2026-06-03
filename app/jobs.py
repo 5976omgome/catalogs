@@ -1,8 +1,9 @@
 """Job manager — queue CSV files, process artists, broadcast SSE events.
 
 Key features:
-- Incremental xlsx writes every 5 artists (export always has something)
-- Cooperative stop (finishes current artist, writes partial output)
+- PARALLEL artist processing within each CSV (4 concurrent workers)
+- Incremental xlsx writes every 25 artists (export always has something)
+- Cooperative stop (finishes current artists, writes partial output)
 - Error recovery (crashes don't lose already-processed rows)
 - Thread-safe counter mutations
 - Tolerant CSV header matching
@@ -12,6 +13,7 @@ import threading
 import time
 import traceback
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 from queue import Queue, Full
@@ -20,6 +22,11 @@ from typing import Optional, List
 import pandas as pd
 
 from app import config, audit as audit_mod, excel
+
+# Number of artists to process simultaneously within one CSV.
+# 4 is safe for rate limits: iTunes (no limit), Deezer (50/5s = 10/s),
+# Discogs (60/min = 1/s per thread with 4 threads = fine with internal sleeps)
+PARALLEL_WORKERS = 4
 
 
 # ---------------------------------------------------------------------------
@@ -249,18 +256,14 @@ class JobManager:
             if col not in df.columns:
                 df[col] = pd.Series([""] * total, dtype="object")
 
-        # Process each artist
+        # Process each artist IN PARALLEL
         cancelled = False
-        for idx, row in df.iterrows():
-            if self._stop_requested:
-                cancelled = True
-                break
 
+        def _audit_one(idx, row):
+            """Audit a single artist — runs inside ThreadPoolExecutor."""
             artist = str(row.get(artist_col, "")).strip()
             if not artist:
-                with self._lock:
-                    item.processed += 1
-                continue
+                return idx, None
 
             # Get Chartmetric label and first release year
             cm_label = ""
@@ -275,7 +278,6 @@ class JobManager:
                     cm_year = _parse_date_year(row[col])
                     break
 
-            # Run the audit
             try:
                 a = audit_mod.audit_artist(
                     artist=artist,
@@ -288,70 +290,138 @@ class JobManager:
                 a.status = "REVIEW"
                 a.status_reason = f"Audit error: {e}"
 
-            # Write results to dataframe (str coercion for pandas compat)
-            df.at[idx, "Status"] = str(a.status)
-            df.at[idx, "Status Reason"] = str(a.status_reason)
-            df.at[idx, "Earliest Year"] = str(a.earliest_year or "")
-            df.at[idx, "AI Note"] = str(a.ai_note)
+            return idx, a
 
-            # Build per-source label summaries
-            itunes_labels = []
-            deezer_labels = []
-            discogs_labels = []
-            for ev in a.evaluations:
-                entry = f"{ev.label} [{ev.classification}]"
-                if ev.source == "iTunes":
-                    itunes_labels.append(entry)
-                elif ev.source == "Deezer":
-                    deezer_labels.append(entry)
-                elif ev.source == "Discogs":
-                    discogs_labels.append(entry)
+        # Submit artists to the thread pool in batches
+        with ThreadPoolExecutor(max_workers=PARALLEL_WORKERS) as executor:
+            futures = {}
+            row_iter = df.iterrows()
+            submitted = 0
+            completed = 0
 
-            df.at[idx, "iTunes Labels"] = str(" | ".join(itunes_labels) if itunes_labels else "")
-            df.at[idx, "Deezer Labels"] = str(" | ".join(deezer_labels) if deezer_labels else "")
-            df.at[idx, "Discogs Labels"] = str(" | ".join(discogs_labels) if discogs_labels else "")
+            # Submit initial batch
+            for _ in range(min(PARALLEL_WORKERS * 2, total)):
+                try:
+                    idx, row = next(row_iter)
+                    future = executor.submit(_audit_one, idx, row)
+                    futures[future] = idx
+                    submitted += 1
+                except StopIteration:
+                    break
 
-            # Update counters
-            with self._lock:
-                item.processed += 1
-                if a.status == "KEEP":
-                    item.keep += 1
-                elif a.status == "REVIEW":
-                    item.review += 1
-                else:
-                    item.drop += 1
+            # Process completed futures and submit new ones
+            while futures:
+                if self._stop_requested:
+                    cancelled = True
+                    # Cancel pending futures
+                    for f in futures:
+                        f.cancel()
+                    break
 
-            # Build per-source payload for SSE
-            sources_payload = {"iTunes": [], "Deezer": [], "Discogs": [], "Chartmetric": []}
-            for ev in a.evaluations:
-                if ev.source in sources_payload:
-                    sources_payload[ev.source].append({
-                        "label": ev.label,
-                        "classification": ev.classification,
-                        "title": ev.title or "",
-                        "year": ev.year,
+                # Wait for at least one to complete
+                done_futures = []
+                for f in list(futures):
+                    if f.done():
+                        done_futures.append(f)
+
+                if not done_futures:
+                    time.sleep(0.05)
+                    continue
+
+                for future in done_futures:
+                    del futures[future]
+                    completed += 1
+
+                    try:
+                        idx, a = future.result()
+                    except Exception as e:
+                        print(f"[worker-error] {e}\n{traceback.format_exc()}", flush=True)
+                        with self._lock:
+                            item.processed += 1
+                        continue
+
+                    if a is None:
+                        # Empty artist name, skip
+                        with self._lock:
+                            item.processed += 1
+                        continue
+
+                    artist = a.artist
+
+                    # Write results to dataframe (str coercion for pandas compat)
+                    df.at[idx, "Status"] = str(a.status)
+                    df.at[idx, "Status Reason"] = str(a.status_reason)
+                    df.at[idx, "Earliest Year"] = str(a.earliest_year or "")
+                    df.at[idx, "AI Note"] = str(a.ai_note)
+
+                    # Build per-source label summaries
+                    itunes_labels = []
+                    deezer_labels = []
+                    discogs_labels = []
+                    for ev in a.evaluations:
+                        entry = f"{ev.label} [{ev.classification}]"
+                        if ev.source == "iTunes":
+                            itunes_labels.append(entry)
+                        elif ev.source == "Deezer":
+                            deezer_labels.append(entry)
+                        elif ev.source == "Discogs":
+                            discogs_labels.append(entry)
+
+                    df.at[idx, "iTunes Labels"] = str(" | ".join(itunes_labels) if itunes_labels else "")
+                    df.at[idx, "Deezer Labels"] = str(" | ".join(deezer_labels) if deezer_labels else "")
+                    df.at[idx, "Discogs Labels"] = str(" | ".join(discogs_labels) if discogs_labels else "")
+
+                    # Update counters
+                    with self._lock:
+                        item.processed += 1
+                        if a.status == "KEEP":
+                            item.keep += 1
+                        elif a.status == "REVIEW":
+                            item.review += 1
+                        else:
+                            item.drop += 1
+
+                    # Build per-source payload for SSE
+                    sources_payload = {"iTunes": [], "Deezer": [], "Discogs": [], "Chartmetric": []}
+                    for ev in a.evaluations:
+                        if ev.source in sources_payload:
+                            sources_payload[ev.source].append({
+                                "label": ev.label,
+                                "classification": ev.classification,
+                                "title": ev.title or "",
+                                "year": ev.year,
+                            })
+
+                    self._broadcast({
+                        "type": "artist_done",
+                        "item_id": item.id,
+                        "artist": artist,
+                        "status": a.status,
+                        "status_reason": a.status_reason,
+                        "sources": sources_payload,
+                        "earliest_year": a.earliest_year,
+                        "ai_note": a.ai_note,
+                        "processed": item.processed,
+                        "total": item.total,
+                        "keep": item.keep,
+                        "review": item.review,
+                        "drop": item.drop,
                     })
 
-            self._broadcast({
-                "type": "artist_done",
-                "item_id": item.id,
-                "artist": artist,
-                "status": a.status,
-                "status_reason": a.status_reason,
-                "sources": sources_payload,
-                "earliest_year": a.earliest_year,
-                "ai_note": a.ai_note,
-                "processed": item.processed,
-                "total": item.total,
-                "keep": item.keep,
-                "review": item.review,
-                "drop": item.drop,
-            })
+                    # Incremental xlsx write every 25 artists
+                    if item.processed % 25 == 0 or item.processed == item.total:
+                        self._write_partial(item, df)
 
-            # Incremental xlsx write every 25 artists (balance between
-            # export availability and not thrashing the disk with rewrites)
-            if item.processed % 25 == 0 or item.processed == item.total:
-                self._write_partial(item, df)
+                # Submit more work if available
+                if not cancelled:
+                    while len(futures) < PARALLEL_WORKERS * 2:
+                        try:
+                            idx, row = next(row_iter)
+                            future = executor.submit(_audit_one, idx, row)
+                            futures[future] = idx
+                            submitted += 1
+                        except StopIteration:
+                            break
 
         # Final write
         self._write_partial(item, df)
