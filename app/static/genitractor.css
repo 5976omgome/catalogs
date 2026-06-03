@@ -186,6 +186,8 @@ main{
   overflow:hidden;transition:border-color .2s var(--ease);
 }
 .card.grow{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+/* Collapsed feed card stops growing so freed space is reclaimed + footer fills it */
+.card.grow.is-collapsed{flex:0 0 auto}
 .card-head{
   display:flex;align-items:center;justify-content:space-between;
   padding:var(--s3) var(--s4);border-bottom:1px solid var(--dust);
@@ -240,13 +242,14 @@ main{
 /* ============================================================================
    FOOTER
    ============================================================================ */
-.powered-footer{margin-top:auto;padding:var(--s8) var(--s6) var(--s6);border-top:2px solid var(--carbon);background:#fff;width:100%}
-.footer-inner{max-width:1440px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:var(--s5)}
+.powered-footer{margin-top:auto;padding:var(--s3) var(--s6);border-top:2px solid var(--carbon);background:#fff;width:100%;flex-shrink:0}
+.footer-inner{max-width:1440px;margin:0 auto;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:var(--s4);flex-wrap:wrap}
+.footer-left{display:flex;align-items:center;gap:var(--s4)}
 .footer-label{font-size:8px;font-weight:600;letter-spacing:.35em;color:var(--graphite)}
-.footer-logos{display:flex;align-items:center;gap:var(--s6)}
+.footer-logos{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap}
 .footer-logos .logo-link{display:flex;align-items:center;opacity:.6;transition:opacity .3s var(--ease);filter:brightness(0)}
 .footer-logos .logo-link:hover{opacity:1}
-.footer-logos .logo-link img{height:20px;width:auto}
+.footer-logos .logo-link img{height:16px;width:auto}
 .footer-credit{font-size:9px;font-weight:500;letter-spacing:.12em;color:var(--graphite)}
 
 /* ============================================================================

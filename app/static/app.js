@@ -97,18 +97,20 @@ function initCollapsible(){
     head.addEventListener("click",e=>{
       if(e.target.closest(".ftoggle")||e.target.closest("#global-filters")||e.target.closest("button:not(.collapse-btn)")||e.target.closest("label")||e.target.closest("input"))return;
       const body=document.getElementById(head.dataset.collapse);
+      const card=head.closest(".card");
       const btn=head.querySelector(".collapse-btn");
       const isCollapsed=body.classList.contains("collapsed");
       if(isCollapsed){
         body.classList.remove("collapsed");
         body.style.maxHeight=body.scrollHeight+"px";
         if(btn)btn.textContent="\u25BC";
-        setTimeout(()=>{body.style.maxHeight=""},350);
+        setTimeout(()=>{body.style.maxHeight="";if(card)card.classList.remove("is-collapsed")},350);
       }else{
         body.style.maxHeight=body.scrollHeight+"px";
         body.offsetHeight;// force reflow
         body.classList.add("collapsed");
         body.style.maxHeight="0";
+        if(card)card.classList.add("is-collapsed");
         if(btn)btn.textContent="\u25B6";
       }
     });

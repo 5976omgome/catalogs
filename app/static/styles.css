@@ -187,6 +187,9 @@ main{
 }
 .card:hover{border-color:var(--border-hover)}
 .card.grow{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+/* When the feed card is collapsed it must stop growing so the freed space is
+   reclaimed and the footer rises to fill it (instead of a big empty card). */
+.card.grow.is-collapsed{flex:0 0 auto}
 .card-head{
   display:flex;align-items:center;justify-content:space-between;
   padding:var(--s3) var(--s4);
@@ -388,22 +391,25 @@ button:disabled{opacity:.35;cursor:not-allowed}
    POWERED BY FOOTER
    ============================================================================ */
 .powered-footer{
-  margin-top:var(--s10);
-  padding:var(--s8) var(--s6) var(--s6);
+  margin-top:auto;
+  padding:var(--s3) var(--s6);
   border-top:1px solid var(--border);
   background:var(--bg);
+  flex-shrink:0;
 }
 .footer-inner{
   max-width:1440px;margin:0 auto;
-  display:flex;flex-direction:column;align-items:center;gap:var(--s5);
+  display:flex;flex-direction:row;align-items:center;justify-content:space-between;
+  gap:var(--s4);flex-wrap:wrap;
 }
+.footer-left{display:flex;align-items:center;gap:var(--s4)}
 .footer-label{
   font-size:8px;font-weight:600;letter-spacing:.35em;
   color:var(--text-quaternary);
 }
 .footer-logos{
-  display:flex;align-items:center;gap:var(--s6);
-  flex-wrap:wrap;justify-content:center;
+  display:flex;align-items:center;gap:var(--s4);
+  flex-wrap:wrap;
 }
 .footer-logos .logo-link{
   display:flex;align-items:center;
@@ -411,11 +417,11 @@ button:disabled{opacity:.35;cursor:not-allowed}
   filter:grayscale(100%) brightness(0.8);
 }
 .footer-logos .logo-link:hover{opacity:1;filter:grayscale(0%) brightness(1);transform:translateY(-2px)}
-.footer-logos .logo-link img{height:20px;width:auto;display:block}
+.footer-logos .logo-link img{height:16px;width:auto;display:block}
 .footer-dot{width:3px;height:3px;border-radius:50%;background:var(--slate);opacity:.3}
 .footer-credit{
   font-size:9px;font-weight:500;letter-spacing:.12em;
-  color:var(--text-quaternary);margin-top:var(--s2);
+  color:var(--text-quaternary);
 }
 
 /* ============================================================================
