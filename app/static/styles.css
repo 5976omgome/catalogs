@@ -87,9 +87,8 @@ html,body{
 .feed-stats{display:flex;align-items:center;gap:var(--s2);margin-left:var(--s3)}
 .clock{font-size:11px;font-weight:600;font-family:ui-monospace,"SF Mono",monospace;color:var(--text-tertiary);letter-spacing:.04em;font-variant-numeric:tabular-nums;margin-left:var(--s3)}
 .timer{font-size:11px;font-weight:700;font-family:ui-monospace,"SF Mono",monospace;color:var(--frost);letter-spacing:.04em;font-variant-numeric:tabular-nums}
-.stat-slots{font-size:9px;font-weight:700;letter-spacing:.06em;padding:var(--s1) 8px;border-radius:var(--r-full);background:var(--bg-surface);color:var(--text-tertiary);font-family:ui-monospace,"SF Mono",monospace}
-.stat-pct{font-size:9px;font-weight:700;letter-spacing:.06em;padding:var(--s1) 8px;border-radius:var(--r-full);background:var(--green-soft);color:var(--teal);border:1px solid var(--green-border);font-family:ui-monospace,"SF Mono",monospace}
-.stat-clean{font-size:9px;font-weight:700;letter-spacing:.06em;padding:var(--s1) 8px;border-radius:var(--r-full);background:var(--blue-soft);color:var(--frost);border:1px solid var(--blue-border);font-family:ui-monospace,"SF Mono",monospace}
+.stat-pct{font-size:9px;font-weight:700;letter-spacing:.06em;padding:var(--s1) 8px;border-radius:var(--r-full);background:var(--green-soft);color:var(--teal);border:1px solid var(--green-border);font-family:ui-monospace,"SF Mono",monospace;cursor:pointer;user-select:none;transition:all .15s var(--ease)}
+.stat-pct:hover{transform:scale(1.05);box-shadow:0 0 8px rgba(137,176,174,.2)}
 
 /* Clickable pills for API key entry */
 .pill.clickable{cursor:pointer;transition:all .2s var(--ease)}

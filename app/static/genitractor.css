@@ -143,10 +143,12 @@ button.ghost:hover:not(:disabled){border-color:var(--carbon);color:var(--carbon)
 
 /* Stats */
 .timer{font-size:11px;font-weight:700;font-family:ui-monospace,"SF Mono",monospace;color:var(--carbon);font-variant-numeric:tabular-nums}
-.stat-slots,.stat-pct{
+.stat-pct{
   font-size:9px;font-weight:700;padding:var(--s1) 8px;border-radius:var(--r-full);
   background:var(--carbon);color:#fff;font-family:ui-monospace,"SF Mono",monospace;
+  cursor:pointer;user-select:none;transition:all .15s var(--ease);
 }
+.stat-pct:hover{transform:scale(1.05)}
 
 /* Queue list */
 .queue{list-style:none;padding:0;margin:var(--s2) 0 0;max-height:80px;overflow-y:auto;overflow-x:hidden}
@@ -203,9 +205,14 @@ main{
 /* Feeds grid */
 .feeds-grid{
   padding:var(--s3);flex:1;min-height:180px;max-height:calc(100vh - 340px);overflow-y:auto;
-  background:var(--carbon);border-radius:0 0 var(--r-lg) var(--r-lg);
 }
 .feeds-grid.cols-1{display:block}
+
+/* Dark feed body (collapses properly) */
+#feeds-body{
+  background:var(--carbon);
+  border-radius:0 0 var(--r-lg) var(--r-lg);
+}
 
 /* Artist contact blocks */
 .ablock{

@@ -30,26 +30,22 @@ function stopTimer(){
 }
 
 let _totalArtists=0;
+let _statShowFraction=false;
 
 function updateStats(){
-  let running=0;
-  Object.values(qState).forEach(li=>{
-    const stat=li.querySelector(".stat");
-    if(stat&&stat.classList.contains("running"))running++;
-  });
-  $("stat-slots").textContent=running+"/4";
-
   let allProcessed=0,allKeep=0;
   Object.values(feeds).forEach(f=>{
     allKeep+=f.counts.keep||0;
     allProcessed+=(f.counts.keep||0)+(f.counts.review||0)+(f.counts.drop||0);
   });
 
-  const pct=_totalArtists>0?Math.floor(100*allProcessed/_totalArtists):0;
-  $("stat-pct").textContent=pct+"%";
-
-  const cleanPct=allProcessed>0?Math.floor(100*allKeep/allProcessed):0;
-  $("stat-clean").textContent=cleanPct+"% CLEAN";
+  const el=$("stat-pct");
+  if(_statShowFraction){
+    el.textContent=allProcessed+"/"+(_totalArtists||allProcessed);
+  }else{
+    const pct=_totalArtists>0?Math.floor(100*allProcessed/_totalArtists):0;
+    el.textContent=pct+"% TOTAL";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -490,6 +486,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   initToolsDropdown();
   initCrossToolBar();
   $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
+  $("stat-pct").addEventListener("click",()=>{_statShowFraction=!_statShowFraction;updateStats()});
   $("btn-run").addEventListener("click",()=>{fetch("/api/queue/start",{method:"POST"});sys("RUN","info");startTimer()});
   $("btn-stop").addEventListener("click",()=>{showConfirm("Stop all running jobs?","This will halt processing. Do you also want to clear the queue?",()=>{fetch("/api/queue/stop",{method:"POST"});sys("STOP","warn");stopTimer()})});
   $("btn-export-all").addEventListener("click",()=>{showConfirm("Export all results?","This will merge all finished outputs into one file.",()=>dl($("btn-export-all"),"/api/export_all","AllCombinedOutput.xlsx"))});

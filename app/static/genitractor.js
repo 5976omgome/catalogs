@@ -168,11 +168,16 @@ function renderItem(item){
 }
 
 let totalProcessed=0,totalArtists=0,totalFound=0;
+let _statShowFraction=false;
 
 function updateStats(){
-  // stat-pct shows % of artists where we found at least 1 contact
-  const foundPct=totalProcessed>0?Math.floor(100*totalFound/totalProcessed):0;
-  $("stat-pct").textContent=foundPct+"% FOUND";
+  const el=$("stat-pct");
+  if(_statShowFraction){
+    el.textContent=totalFound+"/"+totalProcessed;
+  }else{
+    const foundPct=totalProcessed>0?Math.floor(100*totalFound/totalProcessed):0;
+    el.textContent=foundPct+"% FOUND";
+  }
 }
 
 function addContactToFeed(ev){
@@ -270,6 +275,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   sys("Genitractor starting\u2026","info");
   initClock();initCollapsible();initKeyModal();initConfirmModal();initToolsDropdown();initFeedback();initCrossToolBar();
   $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
+  $("stat-pct").addEventListener("click",()=>{_statShowFraction=!_statShowFraction;updateStats()});
   $("btn-run").addEventListener("click",()=>{fetch("/api/genitractor/start",{method:"POST"});sys("RUN","info");startTimer()});
   $("btn-stop").addEventListener("click",()=>{showConfirm("Stop extraction?","This will halt Genius lookups.",()=>{fetch("/api/genitractor/stop",{method:"POST"});sys("STOP","warn");stopTimer()})});
   $("btn-export-all").addEventListener("click",()=>{showConfirm("Export contacts?","This will download all found contacts as CSV.",()=>{window.location.href="/api/genitractor/export"})});
