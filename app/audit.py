@@ -223,6 +223,21 @@ def audit_artist(
     wiki_results = wikipedia.get_labels(artist)
     a.wikipedia_labels = [r["label"] for r in wiki_results if r.get("label")]
 
+    # Surface deal history as informational notes when dates are available
+    for wr in wiki_results:
+        if wr.get("start_year") or wr.get("end_year"):
+            period = ""
+            if wr.get("start_year") and wr.get("end_year"):
+                period = f"{wr['start_year']}–{wr['end_year']}"
+            elif wr.get("start_year"):
+                period = f"{wr['start_year']}–present"
+            elif wr.get("end_year"):
+                period = f"?–{wr['end_year']}"
+            major_note = f" ({wr['major_via_chain']} family)" if wr.get("major_via_chain") else ""
+            a.informational.append(
+                f"WIKI_DEAL: {wr['label']}{major_note} [{period}]"
+            )
+
     # ---- 2. Build (source, label) pairs ----
     #
     # iTunes gives us multiple owners across multiple releases, plus an

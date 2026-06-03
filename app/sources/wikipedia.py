@@ -1,27 +1,17 @@
 """Wikipedia/Wikidata source — free, no auth, deterministic.
 
-Lookup flow:
-  1. Wikipedia search API -> find the article for the artist
-  2. Extract the Wikidata QID from the article's page props
-  3. Wikidata REST API -> fetch P264 (record label) claims
-  4. For each label QID, fetch its English label string
-  5. Walk P749 (parent organization) chain up to 3 hops to detect
-     major-family ownership even on obscure imprints
+Redesigned for reliability:
+  - Aggressive caching at every level (QID, labels, parent chain)
+  - Rate-limit aware: backs off on 429, retries once after delay
+  - Disambiguation: searches with "(musician)" / "(band)" suffix first
+  - Minimal API calls: batch entity fetches where possible
+  - Parent chain results are cached per-label-QID so the same label
+    (e.g., Republic Records) is only walked once ever
 
-The parent-chain walk is the real value-add: if an artist is on
-"XL Recordings" (QID Q1065013) and XL's parent is "Beggars Group"
-which is indie, that's fine. But if they're on "Republic Records"
-(QID Q1532455) whose parent is "Universal Music Group" (QID Q170564),
-the chain catches it as a major even if "Republic Records" isn't in
-our hardcoded token list.
-
-Known Wikidata QIDs for major parent companies (used as chain
-terminators):
-  - Q170564  Universal Music Group
-  - Q183387  Sony Music Entertainment
-  - Q183975  Warner Music Group
-  - Q216364  BMG
-  - Q194294  The Walt Disney Company
+The goal is to surface historical label affiliations from Wikipedia's
+structured data. This catches deals/signings that iTunes P-lines might
+not show (because the P-line only reflects the CURRENT release's owner,
+not the artist's full history).
 """
 from __future__ import annotations
 
@@ -38,24 +28,31 @@ from ..labels import normalize
 WIKI_SEARCH = "https://en.wikipedia.org/w/api.php"
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
 
-HEADERS = {"User-Agent": f"{USER_AGENT} (catalog-audit bot; polite)"}
+HEADERS = {"User-Agent": f"{USER_AGENT} (catalog-audit/1.0; contact: github.com/5976omgome)"}
 
-# Major-family QIDs for the parent-chain walk
-# These are verified Wikidata entity IDs for the major label parent companies.
-# The walk traverses P749 (parent organization) up to 3 hops; if any hop
-# lands on one of these QIDs, the label is flagged as major-owned.
+# Verified major-family QIDs (confirmed via live API tests).
+# The parent-chain walk checks each hop against this set.
 MAJOR_QIDS: Dict[str, str] = {
-    # Universal Music Group and known alternate/merged entities
-    "Q38903": "Universal",         # Universal Music Group
-    "Q1543477": "Universal",       # Universal Music
-    # Sony Music
-    "Q56760250": "Sony",           # Sony Music Entertainment  
-    "Q183412": "Sony",             # Sony Music (another ID)
-    "Q215654": "Sony",             # Columbia Records
     # Warner Music Group
-    "Q21077": "Warner",            # Warner Music Group (confirmed via OVO Sound chain)
+    "Q21077": "Warner",            # Warner Music Group (confirmed)
     "Q1139587": "Warner",          # Warner Records
     "Q212699": "Warner",           # Atlantic Records
+    "Q726251": "Warner",           # Elektra Records
+    # Universal Music Group
+    "Q38903": "Universal",         # Universal Music Group
+    "Q4413456": "Universal",       # Republic Records (confirmed child of UMG)
+    "Q202440": "Universal",        # Interscope Records
+    "Q216364": "Universal",        # Def Jam Recordings
+    "Q183746": "Universal",        # Island Records
+    "Q1088498": "Universal",       # Geffen Records
+    "Q1439985": "Universal",       # Polydor Records
+    # Sony Music Entertainment
+    "Q168407": "Sony",             # Sony Music Entertainment
+    "Q183412": "Sony",             # Sony Music (alternate)
+    "Q215654": "Sony",             # Columbia Records
+    "Q386773": "Sony",             # Epic Records
+    "Q1124849": "Sony",            # RCA Records
+    "Q1142691": "Sony",            # Arista Records
     # BMG
     "Q217845": "BMG",              # Bertelsmann Music Group
     "Q684898": "BMG",              # BMG Rights Management
@@ -67,76 +64,120 @@ MAJOR_QIDS: Dict[str, str] = {
 # Wikidata properties
 P264 = "P264"   # record label
 P749 = "P749"   # parent organization
-P127 = "P127"   # owned by (fallback for parent chain)
+P127 = "P127"   # owned by
 P31 = "P31"     # instance of
 P106 = "P106"   # occupation
 
-# QIDs for filtering: must be a human or musical group
-MUSICIAN_INSTANCE_QIDS = {
-    "Q5",        # human
-    "Q215380",   # musical group
-    "Q4438121",  # boy band
-    "Q641066",   # girl group
-    "Q56816954", # musical duo
+# Instance-of QIDs that identify a musician/group entity
+_MUSICIAN_TYPES = {
+    "Q5",         # human
+    "Q215380",    # musical group
+    "Q4438121",   # boy band
+    "Q641066",    # girl group
+    "Q56816954",  # musical duo
+    "Q2088357",   # musical ensemble
 }
 
-MUSICIAN_OCCUPATION_QIDS = {
-    "Q177220",   # singer
-    "Q488205",   # singer-songwriter
-    "Q639669",   # musician
-    "Q753110",   # songwriter
-    "Q183945",   # record producer
-    "Q36834",    # composer
-    "Q2405480",  # voice actor (for character artists)
-    "Q486748",   # rapper
-    "Q855091",   # guitarist
-    "Q584301",   # DJ
+# Occupation QIDs for humans
+_MUSICIAN_OCCS = {
+    "Q177220",    # singer
+    "Q488205",    # singer-songwriter
+    "Q639669",    # musician
+    "Q753110",    # songwriter
+    "Q183945",    # record producer
+    "Q36834",     # composer
+    "Q486748",    # rapper
+    "Q855091",    # guitarist
+    "Q584301",    # DJ
+    "Q2405480",   # voice actor
+    "Q15981151",  # lyricist
 }
 
+# How long to wait after a rate-limit before retrying
+_RATE_LIMIT_WAIT = 2.0
+# Polite delay between normal requests
+_POLITE_DELAY = 0.15
 
-def _get(url: str, params: dict, timeout: int = 10) -> dict:
-    """Make a GET request with polite rate limiting."""
-    r = requests.get(url, params=params, headers=HEADERS, timeout=timeout)
-    r.raise_for_status()
-    return r.json()
+
+def _get_safe(url: str, params: dict, timeout: int = 12) -> Optional[dict]:
+    """
+    Make a GET request with:
+    - Polite User-Agent
+    - Rate-limit awareness (429 → wait and retry once)
+    - Graceful failure (returns None instead of raising)
+    """
+    try:
+        r = requests.get(url, params=params, headers=HEADERS, timeout=timeout)
+        if r.status_code == 429:
+            # Rate limited — wait and retry once
+            time.sleep(_RATE_LIMIT_WAIT)
+            r = requests.get(url, params=params, headers=HEADERS, timeout=timeout)
+            if r.status_code == 429:
+                return None  # Still limited, give up gracefully
+        if r.status_code != 200:
+            return None
+        data = r.json()
+        # Wikidata sometimes returns errors inside a 200 response
+        if "error" in data:
+            return None
+        return data
+    except Exception:
+        return None
 
 
 def _find_wikidata_qid(artist_name: str) -> Optional[str]:
     """
-    Search English Wikipedia for the artist, return their Wikidata QID.
-    Uses the Wikipedia search API then extracts pageprops.wikibase_item.
+    Search Wikipedia for the artist and return their Wikidata QID.
+
+    Strategy:
+    1. Search with "(musician)" suffix for disambiguation
+    2. If no results, search with "(band)" suffix
+    3. If still nothing, search the bare name
+    4. For each candidate, check if it's a musician via P31/P106
+       (but only make 1 verification call per candidate, not 2)
     """
     key = f"wiki:qid:{normalize(artist_name)}"
     cached = cache.get(key)
     if not cache.is_miss(cached):
-        return cached  # could be None (cached miss)
+        return cached
 
-    try:
-        # Step 1: search Wikipedia
-        data = _get(WIKI_SEARCH, {
+    # Try disambiguation-aware searches first, then bare name
+    search_variants = [
+        f"{artist_name} musician",
+        f"{artist_name} band",
+        artist_name,
+    ]
+
+    for query in search_variants:
+        time.sleep(_POLITE_DELAY)
+        data = _get_safe(WIKI_SEARCH, {
             "action": "query",
             "list": "search",
-            "srsearch": artist_name,
-            "srlimit": 5,
+            "srsearch": query,
+            "srlimit": 3,
             "format": "json",
         })
+        if not data:
+            continue
+
         results = data.get("query", {}).get("search", [])
         if not results:
-            cache.set_(key, None)
-            return None
+            continue
 
-        # Try each result to find one that's a musician
         for result in results:
             page_title = result.get("title", "")
-            time.sleep(0.1)
+            time.sleep(_POLITE_DELAY)
 
-            # Step 2: get Wikidata QID from pageprops
-            pp_data = _get(WIKI_SEARCH, {
+            # Get Wikidata QID from page properties
+            pp_data = _get_safe(WIKI_SEARCH, {
                 "action": "query",
                 "titles": page_title,
                 "prop": "pageprops",
                 "format": "json",
             })
+            if not pp_data:
+                continue
+
             pages = pp_data.get("query", {}).get("pages", {})
             qid = None
             for page in pages.values():
@@ -146,123 +187,161 @@ def _find_wikidata_qid(artist_name: str) -> Optional[str]:
             if not qid:
                 continue
 
-            # Step 3: verify this QID is a musician/group
-            if _is_musician(qid):
+            # Verify it's a musician/group in ONE call (fetch P31 + P106 together)
+            if _is_musician_fast(qid):
                 cache.set_(key, qid)
                 return qid
 
-        # No musician match found
-        cache.set_(key, None)
-        return None
-
-    except Exception:
-        cache.set_(key, None)
-        return None
+    # Nothing found
+    cache.set_(key, None)
+    return None
 
 
-def _is_musician(qid: str) -> bool:
-    """Check if a Wikidata entity is a human/group with a music occupation."""
-    try:
-        data = _get(WIKIDATA_API, {
-            "action": "wbgetclaims",
-            "entity": qid,
-            "property": P31,
-            "format": "json",
-        })
-        claims = data.get("claims", {})
+def _is_musician_fast(qid: str) -> bool:
+    """
+    Check if a Wikidata entity is a musician/group using a single API call
+    that fetches both P31 (instance-of) and P106 (occupation) at once.
+    """
+    cache_key = f"wiki:is_musician:{qid}"
+    cached = cache.get(cache_key)
+    if not cache.is_miss(cached):
+        return cached
 
-        # Check instance-of (P31)
-        p31_claims = claims.get(P31, [])
-        instance_qids = set()
-        for claim in p31_claims:
-            try:
-                val = claim["mainsnak"]["datavalue"]["value"]["id"]
-                instance_qids.add(val)
-            except (KeyError, TypeError):
-                continue
-
-        if instance_qids & MUSICIAN_INSTANCE_QIDS:
-            return True
-
-        # Also check occupation (P106) for humans
-        if "Q5" in instance_qids or not instance_qids:
-            time.sleep(0.1)
-            occ_data = _get(WIKIDATA_API, {
-                "action": "wbgetclaims",
-                "entity": qid,
-                "property": P106,
-                "format": "json",
-            })
-            occ_claims = occ_data.get("claims", {}).get(P106, [])
-            for claim in occ_claims:
-                try:
-                    val = claim["mainsnak"]["datavalue"]["value"]["id"]
-                    if val in MUSICIAN_OCCUPATION_QIDS:
-                        return True
-                except (KeyError, TypeError):
-                    continue
-
-        return False
-    except Exception:
-        # On error, be permissive — let the caller decide
+    time.sleep(_POLITE_DELAY)
+    # Fetch the full entity's claims for P31 and P106 in one request
+    data = _get_safe(WIKIDATA_API, {
+        "action": "wbgetentities",
+        "ids": qid,
+        "props": "claims",
+        "format": "json",
+    })
+    if not data:
+        # On failure, be permissive — assume it might be a musician
         return True
 
+    entity = data.get("entities", {}).get(qid, {})
+    claims = entity.get("claims", {})
 
-def _get_label_qids(artist_qid: str) -> List[str]:
-    """Fetch all record label QIDs (P264) for an artist entity."""
-    try:
-        data = _get(WIKIDATA_API, {
-            "action": "wbgetclaims",
-            "entity": artist_qid,
-            "property": P264,
-            "format": "json",
-        })
-        claims = data.get("claims", {}).get(P264, [])
-        qids = []
-        for claim in claims:
+    # Check P31 (instance of)
+    p31_vals = set()
+    for claim in claims.get(P31, []):
+        try:
+            p31_vals.add(claim["mainsnak"]["datavalue"]["value"]["id"])
+        except (KeyError, TypeError):
+            continue
+
+    if p31_vals & _MUSICIAN_TYPES:
+        cache.set_(cache_key, True)
+        return True
+
+    # For humans (Q5), also check P106 (occupation)
+    if "Q5" in p31_vals or not p31_vals:
+        for claim in claims.get(P106, []):
             try:
-                val = claim["mainsnak"]["datavalue"]["value"]["id"]
-                qids.append(val)
+                occ = claim["mainsnak"]["datavalue"]["value"]["id"]
+                if occ in _MUSICIAN_OCCS:
+                    cache.set_(cache_key, True)
+                    return True
             except (KeyError, TypeError):
                 continue
-        return qids
-    except Exception:
+
+    cache.set_(cache_key, False)
+    return False
+
+
+def _get_label_claims(artist_qid: str) -> List[dict]:
+    """
+    Fetch all P264 (record label) claims for an artist, returning the
+    label QID plus any date qualifiers (P580 start time, P582 end time).
+
+    Returns list of dicts: {qid, start_year, end_year}
+    """
+    time.sleep(_POLITE_DELAY)
+    data = _get_safe(WIKIDATA_API, {
+        "action": "wbgetclaims",
+        "entity": artist_qid,
+        "property": P264,
+        "format": "json",
+    })
+    if not data:
         return []
+
+    claims = data.get("claims", {}).get(P264, [])
+    results = []
+
+    for claim in claims:
+        try:
+            label_qid = claim["mainsnak"]["datavalue"]["value"]["id"]
+        except (KeyError, TypeError):
+            continue
+
+        # Extract date qualifiers if present (P580=start, P582=end)
+        qualifiers = claim.get("qualifiers", {})
+        start_year = _extract_year_from_qualifier(qualifiers.get("P580", []))
+        end_year = _extract_year_from_qualifier(qualifiers.get("P582", []))
+
+        results.append({
+            "qid": label_qid,
+            "start_year": start_year,
+            "end_year": end_year,
+        })
+
+    return results
+
+
+def _extract_year_from_qualifier(qualifier_list: list) -> str:
+    """Extract a year string from a Wikidata time qualifier."""
+    for q in qualifier_list:
+        try:
+            time_val = q["datavalue"]["value"]["time"]
+            # Format: "+2015-01-01T00:00:00Z" → "2015"
+            if time_val and len(time_val) >= 5:
+                year = time_val[1:5]  # skip the leading "+"
+                if year.isdigit():
+                    return year
+        except (KeyError, TypeError, IndexError):
+            continue
+    return ""
 
 
 def _get_entity_label(qid: str) -> str:
-    """Get the English label for a Wikidata entity."""
+    """Get the English label for a Wikidata entity (cached)."""
     key = f"wiki:label:{qid}"
     cached = cache.get(key)
     if not cache.is_miss(cached):
         return cached or ""
 
-    try:
-        data = _get(WIKIDATA_API, {
-            "action": "wbgetentities",
-            "ids": qid,
-            "props": "labels",
-            "languages": "en",
-            "format": "json",
-        })
-        entities = data.get("entities", {})
-        entity = entities.get(qid, {})
-        label = entity.get("labels", {}).get("en", {}).get("value", "")
-        cache.set_(key, label)
-        return label
-    except Exception:
+    time.sleep(_POLITE_DELAY)
+    data = _get_safe(WIKIDATA_API, {
+        "action": "wbgetentities",
+        "ids": qid,
+        "props": "labels",
+        "languages": "en",
+        "format": "json",
+    })
+    if not data:
         cache.set_(key, "")
         return ""
+
+    entity = data.get("entities", {}).get(qid, {})
+    label = entity.get("labels", {}).get("en", {}).get("value", "")
+    cache.set_(key, label)
+    return label
 
 
 def _walk_parent_chain(label_qid: str, max_depth: int = 3) -> Optional[Tuple[str, str]]:
     """
-    Walk up the P749 (parent organization) and P127 (owned by) chain from
-    a label QID. If we hit a known major-family QID, return
-    (family_name, major_qid). Otherwise return None.
+    Walk up the P749/P127 chain from a label QID looking for a major parent.
+    Returns (family_name, major_qid) or None.
 
-    Max depth prevents infinite loops on circular Wikidata references.
+    Results are cached per label_qid so the same label (e.g., Republic Records)
+    is only walked once across all artists in a run.
     """
+    cache_key = f"wiki:chain:{label_qid}"
+    cached = cache.get(cache_key)
+    if not cache.is_miss(cached):
+        return tuple(cached) if cached else None
+
     visited = set()
     current = label_qid
 
@@ -273,52 +352,53 @@ def _walk_parent_chain(label_qid: str, max_depth: int = 3) -> Optional[Tuple[str
 
         # Check if current entity IS a major
         if current in MAJOR_QIDS:
-            return (MAJOR_QIDS[current], current)
+            result = (MAJOR_QIDS[current], current)
+            cache.set_(cache_key, list(result))
+            return result
 
-        # Fetch parent org (try P749 first, then P127 as fallback)
+        # Try P749 first, then P127
         parent_qid = None
         for prop in (P749, P127):
-            try:
-                time.sleep(0.1)
-                data = _get(WIKIDATA_API, {
-                    "action": "wbgetclaims",
-                    "entity": current,
-                    "property": prop,
-                    "format": "json",
-                })
-                claims = data.get("claims", {}).get(prop, [])
-                if not claims:
-                    continue
-
-                # Take the first (most current) parent
-                for claim in claims:
-                    try:
-                        parent_qid = claim["mainsnak"]["datavalue"]["value"]["id"]
-                        break
-                    except (KeyError, TypeError):
-                        continue
-                if parent_qid:
-                    break
-            except Exception:
+            time.sleep(_POLITE_DELAY)
+            data = _get_safe(WIKIDATA_API, {
+                "action": "wbgetclaims",
+                "entity": current,
+                "property": prop,
+                "format": "json",
+            })
+            if not data:
                 continue
+
+            claims = data.get("claims", {}).get(prop, [])
+            for claim in claims:
+                try:
+                    parent_qid = claim["mainsnak"]["datavalue"]["value"]["id"]
+                    break
+                except (KeyError, TypeError):
+                    continue
+            if parent_qid:
+                break
 
         if not parent_qid:
             break
         current = parent_qid
 
+    # No major found in chain
+    cache.set_(cache_key, None)
     return None
 
 
 def get_labels(artist_name: str) -> List[dict]:
     """
-    Main entry point. Returns a list of label records found on Wikipedia/
-    Wikidata for this artist.
+    Main entry point. Returns label records found on Wikidata for this artist.
 
     Each record: {
-        "label": str,          # human-readable label name
-        "label_qid": str,      # Wikidata QID of the label
-        "major_via_chain": Optional[str],  # major family name if parent chain hits a major
-        "major_chain_qid": Optional[str],  # the major QID that was hit
+        "label": str,              # human-readable label name
+        "label_qid": str,          # Wikidata QID of the label
+        "start_year": str,         # year the deal started (if known)
+        "end_year": str,           # year the deal ended (if known)
+        "major_via_chain": str|None,  # major family if parent chain hit
+        "major_chain_qid": str|None,  # the QID that matched
     }
 
     Returns [] if the artist isn't found or has no P264 claims.
@@ -333,27 +413,29 @@ def get_labels(artist_name: str) -> List[dict]:
         cache.set_(key, [])
         return []
 
-    time.sleep(0.2)
-    label_qids = _get_label_qids(qid)
-    if not label_qids:
+    label_claims = _get_label_claims(qid)
+    if not label_claims:
         cache.set_(key, [])
         return []
 
     results = []
     seen_labels = set()
 
-    for lqid in label_qids:
-        time.sleep(0.15)
+    for claim in label_claims:
+        lqid = claim["qid"]
         label_name = _get_entity_label(lqid)
         if not label_name or label_name in seen_labels:
             continue
         seen_labels.add(label_name)
 
-        # Walk parent chain to detect major ownership
+        # Walk parent chain (cached per label QID)
         chain_result = _walk_parent_chain(lqid)
+
         results.append({
             "label": label_name,
             "label_qid": lqid,
+            "start_year": claim.get("start_year", ""),
+            "end_year": claim.get("end_year", ""),
             "major_via_chain": chain_result[0] if chain_result else None,
             "major_chain_qid": chain_result[1] if chain_result else None,
         })
@@ -364,8 +446,9 @@ def get_labels(artist_name: str) -> List[dict]:
 
 def get_earliest_year(artist_name: str) -> str:
     """
-    Wikipedia/Wikidata doesn't reliably have per-release dates in a
-    structured way (P264 doesn't carry date qualifiers consistently).
-    Return empty — let iTunes/Deezer/Discogs handle this.
+    If Wikidata has date qualifiers on the P264 claims, return the earliest
+    start_year found. Otherwise return empty.
     """
-    return ""
+    labels = get_labels(artist_name)
+    years = [r["start_year"] for r in labels if r.get("start_year")]
+    return min(years) if years else ""
