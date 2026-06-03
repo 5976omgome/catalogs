@@ -336,6 +336,16 @@ def is_name_variant(artist: str, label: str) -> bool:
     if len(a_tokens) == 1 and len(l_tokens) >= 2 and l_tokens[-1] == a_tokens[0]:
         return True
 
+    # (d) artist core appears as a contiguous token subsequence inside the
+    # label core. Handles "Kay One" inside "Prince Kay One GmbH" (stripped
+    # to "prince kay one"). The artist tokens must appear in order and
+    # adjacent within the label tokens.
+    if len(a_tokens) >= 2 and len(l_tokens) > len(a_tokens):
+        for start in range(len(l_tokens) - len(a_tokens) + 1):
+            window = l_tokens[start:start + len(a_tokens)]
+            if _tokens_equal_loose(window, a_tokens):
+                return True
+
     return False
 
 

@@ -256,12 +256,19 @@ def audit_artist(
         lic = (rel.get("licensee") or "").strip()
         if lic:
             pairs.append(("iTunes (licensee)", lic))
-        # Also evaluate the raw P-line so a "distributed by ..." clause
-        # buried inside the copyright text triggers DROP_LICENSED even when
-        # the parsed owners look harmless.
+        # Check the raw P-line ONLY for licensing clauses that the owner
+        # extraction might have missed. Do NOT evaluate it as a general
+        # label string — the ℗/year prefix makes it fail name-variant
+        # checks and produces false THIRDPARTY hits (the bug that caused
+        # Leoncito Alado, Ed Helms, Mikecrack to get REVIEW instead of KEEP).
         pline = (rel.get("pline") or "").strip()
         if pline:
-            pairs.append(("iTunes (P-line)", pline))
+            from .labels import find_licensing_clause, match_major_family
+            lic = find_licensing_clause(pline)
+            if lic:
+                pairs.append(("iTunes (P-line)", pline))
+            elif match_major_family(pline):
+                pairs.append(("iTunes (P-line)", pline))
 
     for label in a.deezer_labels:
         pairs.append(("Deezer", label))
