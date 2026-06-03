@@ -42,12 +42,24 @@ def get_releases(artist: str, limit: int = 15) -> List[Dict]:
 
         # Filter to artist name match
         an = _normalize(artist)
+        an_tokens = set(an.split()) if len(an) > 3 else {an}
         matched = []
         for item in data:
             item_artist = _normalize(item.get("artistName", ""))
-            # Require strong match: normalized contains or equals
-            if an == item_artist or an in item_artist or item_artist in an:
+            # Exact normalized match
+            if an == item_artist:
                 matched.append(item)
+                continue
+            # Substring containment (either direction)
+            if len(an) > 3 and (an in item_artist or item_artist in an):
+                matched.append(item)
+                continue
+            # Token overlap for multi-word names (all artist tokens must appear)
+            if len(an_tokens) >= 2:
+                ia_tokens = set(item_artist.split())
+                if an_tokens.issubset(ia_tokens) or ia_tokens.issubset(an_tokens):
+                    matched.append(item)
+                    continue
 
         # Sort by release date descending (newest first)
         matched.sort(

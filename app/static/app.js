@@ -7,8 +7,8 @@ const $=id=>document.getElementById(id);
 async function refreshStatus(){
   try{
     const r=await fetch("/api/status");const s=await r.json();
-    $("pill-itunes").className="pill ok";
-    $("pill-deezer").className="pill ok";
+    $("pill-itunes").className="pill ok";$("pill-itunes").textContent="iTunes";
+    $("pill-deezer").className="pill ok";$("pill-deezer").textContent="Deezer";
     const pa=$("pill-ai");
     const ok=s.groq_set||s.gemini_set;
     let t="ai off";
@@ -16,6 +16,12 @@ async function refreshStatus(){
     else if(s.groq_set)t="groq";
     else if(s.gemini_set)t="gemini";
     pa.textContent=t;pa.className="pill "+(ok?"ok":"");
+    // Genius pill — add dynamically if not present
+    let pg=document.getElementById("pill-genius");
+    if(!pg){pg=document.createElement("span");pg.id="pill-genius";pg.className="pill";
+      document.querySelector(".pills").append(pg)}
+    pg.textContent=s.genius_set?"genius":"genius off";
+    pg.className="pill "+(s.genius_set?"ok":"");
   }catch(e){}
 }
 

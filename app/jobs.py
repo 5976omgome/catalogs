@@ -81,7 +81,7 @@ class JobItem:
     _stop: bool = field(default=False, repr=False)
     use_gemini: bool = field(default=True)   # Whether AI bridge runs for this item
     verbose: bool = field(default=False)      # Whether to emit debug events
-    use_genius: bool = field(default=False)   # Whether to pull socials from Genius
+    use_genius: bool = field(default=True)    # Pull socials from Genius (always on when key exists)
 
     def to_dict(self) -> dict:
         return {
