@@ -69,23 +69,17 @@ async function refreshStatus(){
     const r=await fetch("/api/status");const s=await r.json();
     $("pill-itunes").className="pill ok";
     $("pill-deezer").className="pill ok";
-    const pa=$("pill-ai");
-    const ok=s.groq_set||s.gemini_set;
-    let t="AI OFF";
-    if(s.groq_set&&s.gemini_set)t="GROQ+GEMINI";
-    else if(s.groq_set)t="GROQ";
-    else if(s.gemini_set)t="GEMINI";
-    pa.textContent=t;pa.className="pill "+(ok?"ok":"");
-    let pg=document.getElementById("pill-genius");
-    if(!pg){pg=document.createElement("span");pg.id="pill-genius";pg.className="pill";document.querySelector(".pills").append(pg)}
-    pg.textContent=s.genius_set?"GENIUS":"GENIUS OFF";pg.className="pill "+(s.genius_set?"ok":"");
-    if(!s.genius_set)sys("\u26a0 Genius token not configured \u2014 socials will not be pulled.","warn");
-    if(!ok)sys("\u26a0 No AI keys configured \u2014 AI bridge disabled.","warn");
-    if(s.genius_set)sys("\u2713 Genius API ready.","ok");
-    if(ok)sys("\u2713 AI bridge ready ("+t+").","ok");
-    sys("\u2713 iTunes + Deezer ready.","ok");
-    sys("Ready. Drop CSV files and click RUN.","info");
-  }catch(e){sys("Failed to connect: "+e.message,"bad")}
+    $("pill-groq").className="pill "+(s.groq_set?"ok":"off");
+    $("pill-gemini").className="pill "+(s.gemini_set?"ok":"off");
+    $("pill-genius").className="pill "+(s.genius_set?"ok":"off");
+    if(!s.genius_set)sys("⚠ Genius not configured — socials disabled.","warn");
+    if(!s.groq_set&&!s.gemini_set)sys("⚠ No AI keys — bridge disabled.","warn");
+    if(s.groq_set)sys("✓ Groq ready.","ok");
+    if(s.gemini_set)sys("✓ Gemini ready.","ok");
+    if(s.genius_set)sys("✓ Genius ready.","ok");
+    sys("✓ iTunes + Deezer ready.","ok");
+    sys("Ignite Scout ready.","info");
+  }catch(e){sys("Server connection failed: "+e.message,"bad")}
 }
 
 // ---------------------------------------------------------------------------
@@ -263,7 +257,7 @@ async function uploadFile(file){const fd=new FormData();fd.append("file",file);
   if(!r.ok){const e=await r.json().catch(()=>({error:"failed"}));sys("Upload error: "+(e.error||""),"bad")}}
 
 document.addEventListener("DOMContentLoaded",()=>{
-  sys("Catalog Audit v4 starting\u2026","info");
+  sys("Ignite Scout starting\u2026","info");
   initGlobalFilters();
   initCollapsible();
   $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
