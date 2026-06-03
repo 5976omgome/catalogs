@@ -1,42 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 72" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none">
   <defs>
-    <linearGradient id="ig-teal" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#bee3db"/>
-      <stop offset="50%" stop-color="#89b0ae"/>
-      <stop offset="100%" stop-color="#556b6e"/>
-    </linearGradient>
-    <linearGradient id="ig-frost" x1="0%" y1="0%" x2="0%" y2="100%">
+    <linearGradient id="ig-grad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#faf9f9"/>
-      <stop offset="40%" stop-color="#dde5e3"/>
+      <stop offset="45%" stop-color="#bee3db"/>
       <stop offset="100%" stop-color="#89b0ae"/>
     </linearGradient>
-    <linearGradient id="ig-flame" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#ffd6ba"/>
-      <stop offset="50%" stop-color="#89b0ae"/>
-      <stop offset="100%" stop-color="#bee3db"/>
-    </linearGradient>
   </defs>
-  <!-- I -->
-  <rect x="8" y="8" width="10" height="56" rx="2" fill="url(#ig-frost)"/>
-  <rect x="2" y="8" width="22" height="7" rx="2" fill="url(#ig-frost)"/>
-  <rect x="2" y="57" width="22" height="7" rx="2" fill="url(#ig-frost)"/>
-  <!-- G -->
-  <path d="M38 36 C38 20 49 8 65 8 C77 8 84 15 86 20 L79 24 C77 20 73 15 65 15 C53 15 47 24 47 36 C47 48 53 57 65 57 C74 57 79 52 79 44 L79 41 L65 41 L65 34 L88 34 L88 44 C88 57 77 64 65 64 C49 64 38 52 38 36Z" fill="url(#ig-frost)"/>
-  <!-- N with flame -->
-  <rect x="100" y="8" width="10" height="56" rx="2" fill="url(#ig-frost)"/>
-  <rect x="144" y="8" width="10" height="56" rx="2" fill="url(#ig-frost)"/>
-  <!-- Flame diagonal -->
-  <path d="M118 58 C115 50 119 42 124 35 C126 32 125 28 122 26 C125 27 129 32 129 36 C131 31 134 25 131 18 C137 25 140 34 136 42 C138 38 140 33 138 28 C143 35 143 46 137 53 C133 58 126 60 123 60 C121 60 119 59 118 58Z" fill="url(#ig-flame)"/>
-  <!-- I -->
-  <rect x="164" y="8" width="10" height="56" rx="2" fill="url(#ig-frost)"/>
-  <rect x="158" y="8" width="22" height="7" rx="2" fill="url(#ig-frost)"/>
-  <rect x="158" y="57" width="22" height="7" rx="2" fill="url(#ig-frost)"/>
-  <!-- T -->
-  <rect x="190" y="8" width="36" height="7" rx="2" fill="url(#ig-frost)"/>
-  <rect x="203" y="8" width="10" height="56" rx="2" fill="url(#ig-frost)"/>
-  <!-- E -->
-  <rect x="238" y="8" width="10" height="56" rx="2" fill="url(#ig-frost)"/>
-  <rect x="238" y="8" width="30" height="7" rx="2" fill="url(#ig-frost)"/>
-  <rect x="238" y="32" width="24" height="6" rx="2" fill="url(#ig-frost)"/>
-  <rect x="238" y="57" width="30" height="7" rx="2" fill="url(#ig-frost)"/>
+  <text x="100" y="36" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="38" font-weight="bold" letter-spacing="6" fill="url(#ig-grad)">IGNITE</text>
 </svg>
