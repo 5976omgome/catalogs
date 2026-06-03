@@ -377,20 +377,15 @@ class JobManager:
                     df.at[idx, "iTunes Labels"] = str(" | ".join(itunes_labels) if itunes_labels else "")
                     df.at[idx, "Deezer Labels"] = str(" | ".join(deezer_labels) if deezer_labels else "")
 
-                    # Genius socials → export column
+                    # Genius socials → separate columns with full links
                     if socials:
-                        social_parts = []
                         if socials.get("instagram"):
-                            social_parts.append(f"IG: @{socials['instagram']}")
-                        if socials.get("twitter"):
-                            social_parts.append(f"X: @{socials['twitter']}")
+                            df.at[idx, "Instagram"] = f"https://instagram.com/{socials['instagram']}"
                         if socials.get("facebook"):
-                            social_parts.append(f"FB: {socials['facebook']}")
+                            df.at[idx, "Facebook"] = f"https://facebook.com/{socials['facebook']}"
                         if socials.get("youtube"):
-                            social_parts.append(f"YT: {socials['youtube']}")
-                        df.at[idx, "Genius Socials"] = str(" | ".join(social_parts))
-                    else:
-                        df.at[idx, "Genius Socials"] = ""
+                            yt = socials["youtube"]
+                            df.at[idx, "YouTube"] = yt if yt.startswith("http") else f"https://youtube.com/{yt}"
 
                     with self._lock:
                         item.processed += 1

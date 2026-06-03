@@ -31,7 +31,9 @@ AUDIT_COLUMNS = [
     "Status Reason",
     "iTunes Labels",
     "Deezer Labels",
-    "Genius Socials",
+    "Instagram",
+    "YouTube",
+    "Facebook",
     "Earliest Year",
     "AI Note",
 ]
@@ -42,7 +44,8 @@ _WIDTHS = {
     "Spotify Monthly Listeners": 16, "Associated Labels": 22,
     "Recent Momentum": 13, "Status": 14, "Status Reason": 52,
     "iTunes Labels": 40, "Deezer Labels": 32,
-    "Earliest Year": 12, "AI Note": 30, "Genius Socials": 44,
+    "Earliest Year": 12, "AI Note": 30,
+    "Instagram": 36, "YouTube": 44, "Facebook": 36,
 }
 
 
