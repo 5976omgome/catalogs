@@ -3,38 +3,24 @@
 Raw requests.get() creates a new connection pool per call. On macOS with
 a 256 FD limit, 100+ artists × 7 calls each = crash.
 
-Sessions reuse a single urllib3.PoolManager. We mount a custom adapter
-with a larger pool (pool_connections=20, pool_maxsize=20) to handle
-concurrent requests across multiple CSVs without bottlenecking.
+Sessions reuse a single urllib3.PoolManager. We increase pool_maxsize
+to handle concurrent requests across multiple CSVs without bottlenecking.
 """
 import requests
 from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
-# Larger pool to handle 4 CSVs × 4 parallel artists = up to 16 concurrent requests
-_POOL_CONNECTIONS = 20
-_POOL_MAXSIZE = 20
 
-# Retry only on connection errors and 429/503, with short backoff
-_RETRY = Retry(
-    total=1,
-    backoff_factor=0.3,
-    status_forcelist=[429, 503],
-    allowed_methods=["GET"],
-    raise_on_status=False,
-)
+class _LargePoolAdapter(HTTPAdapter):
+    """HTTPAdapter with a bigger connection pool."""
+
+    def __init__(self):
+        super().__init__(pool_connections=20, pool_maxsize=20)
 
 
 def _make_session() -> requests.Session:
-    """Create a session with a larger connection pool to avoid bottlenecks."""
     s = requests.Session()
-    adapter = HTTPAdapter(
-        pool_connections=_POOL_CONNECTIONS,
-        pool_maxsize=_POOL_MAXSIZE,
-        max_retries=_RETRY,
-    )
-    s.mount("https://", adapter)
-    s.mount("http://", adapter)
+    s.mount("https://", _LargePoolAdapter())
+    s.mount("http://", _LargePoolAdapter())
     return s
 
 
