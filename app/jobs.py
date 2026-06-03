@@ -380,9 +380,14 @@ class JobManager:
                     # Genius socials → separate columns with full links
                     if socials:
                         if socials.get("instagram"):
-                            df.at[idx, "Instagram"] = f"https://instagram.com/{socials['instagram']}"
+                            handle = socials["instagram"].lstrip("@")
+                            df.at[idx, "Instagram"] = f"https://instagram.com/{handle}"
                         if socials.get("facebook"):
-                            df.at[idx, "Facebook"] = f"https://facebook.com/{socials['facebook']}"
+                            fb = socials["facebook"]
+                            if fb.startswith("http"):
+                                df.at[idx, "Facebook"] = fb
+                            else:
+                                df.at[idx, "Facebook"] = f"https://facebook.com/{fb}"
                         if socials.get("youtube"):
                             yt = socials["youtube"]
                             df.at[idx, "YouTube"] = yt if yt.startswith("http") else f"https://youtube.com/{yt}"
