@@ -75,7 +75,10 @@ html,body{
   backdrop-filter:blur(24px) saturate(160%);
   -webkit-backdrop-filter:blur(24px) saturate(160%);
 }
-.brand-group{display:flex;flex-direction:column;gap:1px}
+.brand-group{display:flex;align-items:center;gap:var(--s3)}
+.brand-logo{height:28px;width:auto;filter:brightness(0) invert(.85) sepia(.3) saturate(.6) hue-rotate(130deg);opacity:.85;transition:opacity .3s var(--ease)}
+.brand-logo:hover{opacity:1}
+.brand-text{display:flex;flex-direction:column;gap:1px}
 .brand{font-size:13px;font-weight:800;letter-spacing:.16em;color:var(--snow)}
 .brand-sub{font-size:8px;font-weight:500;letter-spacing:.28em;color:var(--teal);opacity:.7}
 .pills{display:flex;gap:var(--s2)}
@@ -91,6 +94,7 @@ html,body{
 }
 .pill.ok{color:var(--teal);border-color:var(--green-border);background:var(--green-soft)}
 .pill.off{color:var(--text-quaternary);border-color:var(--border);background:transparent}
+.pill-divider{width:1px;height:18px;background:var(--border);margin:0 var(--s1);flex-shrink:0}
 
 /* ============================================================================
    LAYOUT
