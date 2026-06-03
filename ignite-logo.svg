@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 80" fill="none">
+  <defs>
+    <linearGradient id="goldAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e0c068;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#c8a04a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8a6d2a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="whiteShine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#e8e8e8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#cccccc;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- I -->
+  <rect x="10" y="10" width="12" height="60" fill="url(#whiteShine)"/>
+  <rect x="4" y="10" width="24" height="8" fill="url(#whiteShine)"/>
+  <rect x="4" y="62" width="24" height="8" fill="url(#whiteShine)"/>
+  <!-- G -->
+  <path d="M45 40 C45 22, 58 10, 76 10 C90 10, 98 18, 100 24 L92 28 C90 24, 85 18, 76 18 C62 18, 55 28, 55 40 C55 52, 62 62, 76 62 C86 62, 92 56, 92 48 L92 44 L76 44 L76 36 L102 36 L102 48 C102 62, 90 70, 76 70 C58 70, 45 58, 45 40Z" fill="url(#whiteShine)"/>
+  <!-- N (with flame as the middle stroke) -->
+  <rect x="115" y="10" width="12" height="60" fill="url(#whiteShine)"/>
+  <rect x="165" y="10" width="12" height="60" fill="url(#whiteShine)"/>
+  <!-- Flame shape for N diagonal -->
+  <path d="M133 65 C130 55, 135 45, 140 38 C142 35, 141 30, 138 28 C142 30, 146 35, 146 40 C148 35, 152 28, 148 20 C155 28, 158 38, 154 48 C156 44, 158 38, 156 32 C162 40, 162 52, 155 60 C150 66, 142 68, 138 68 C136 68, 134 67, 133 65Z" fill="url(#goldAccent)"/>
+  <!-- I -->
+  <rect x="190" y="10" width="12" height="60" fill="url(#whiteShine)"/>
+  <rect x="184" y="10" width="24" height="8" fill="url(#whiteShine)"/>
+  <rect x="184" y="62" width="24" height="8" fill="url(#whiteShine)"/>
+  <!-- T -->
+  <rect x="220" y="10" width="40" height="8" fill="url(#whiteShine)"/>
+  <rect x="234" y="10" width="12" height="60" fill="url(#whiteShine)"/>
+  <!-- E -->
+  <rect x="272" y="10" width="12" height="60" fill="url(#whiteShine)"/>
+  <rect x="272" y="10" width="32" height="8" fill="url(#whiteShine)"/>
+  <rect x="272" y="36" width="26" height="7" fill="url(#whiteShine)"/>
+  <rect x="272" y="62" width="32" height="8" fill="url(#whiteShine)"/>
+</svg>
