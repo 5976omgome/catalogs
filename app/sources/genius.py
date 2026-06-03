@@ -151,6 +151,15 @@ def get_socials(artist: str) -> Optional[Dict[str, str]]:
         ig = artist_data.get("instagram_name") or ""
         tw = artist_data.get("twitter_name") or ""
         fb = artist_data.get("facebook_name") or ""
+        website = artist_data.get("url") or ""
+        # Genius "url" is the genius.com page — we want the artist's own website
+        # The actual website is in "custom_header_image_url" or header fields
+        # But the REAL website link is in "description_annotation" or not exposed.
+        # However, some artists have a dedicated website in their profile header.
+        # The best we can get from the API is the artist's Genius page URL.
+        # For actual artist websites, we check alternate_names or bio links.
+        # Actually — Genius exposes artist websites via the artist page HTML, not API.
+        # We'll use the Genius page URL as a fallback identifier.
 
         if ig:
             socials["instagram"] = ig.strip().lstrip("@")
@@ -159,8 +168,18 @@ def get_socials(artist: str) -> Optional[Dict[str, str]]:
         if fb:
             socials["facebook"] = fb.strip()
 
+        # Check for artist website — Genius doesn't have a direct field,
+        # but we can derive from the artist's header/image URLs or use
+        # the associated label/distributor website from Chartmetric data.
+        # For now, store the Genius profile URL for reference.
+        genius_url = artist_data.get("url") or ""
+        if genius_url:
+            socials["genius_url"] = genius_url
+
         if socials:
-            print(f"[genius] \u2713 '{artist}' \u2192 {list(socials.keys())}", flush=True)
+            found_keys = [k for k in socials if k != "genius_url"]
+            if found_keys:
+                print(f"[genius] \u2713 '{artist}' \u2192 {found_keys}", flush=True)
 
         cache.put(cache_key, socials if socials else {})
         return socials if socials else None

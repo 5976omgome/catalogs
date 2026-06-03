@@ -545,9 +545,9 @@ def geni_export():
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Artist Name", "Instagram", "Facebook", "YouTube"])
+    writer.writerow(["Artist Name", "Instagram", "Facebook", "YouTube", "Website", "Email"])
     for c in all_contacts:
-        writer.writerow([c.get("artist", ""), c.get("instagram", ""), c.get("facebook", ""), c.get("youtube", "")])
+        writer.writerow([c.get("artist", ""), c.get("instagram", ""), c.get("facebook", ""), c.get("youtube", ""), c.get("website", ""), c.get("email", "")])
 
     output.seek(0)
     return Response(
@@ -653,7 +653,7 @@ def _geni_worker(item):
             _time.sleep(2.0)
 
             socials = genius.get_socials(artist_name)
-            contact = {"artist": artist_name, "instagram": "", "facebook": "", "youtube": ""}
+            contact = {"artist": artist_name, "instagram": "", "facebook": "", "youtube": "", "website": "", "email": ""}
 
             if socials:
                 if socials.get("instagram"):
@@ -664,6 +664,24 @@ def _geni_worker(item):
                 if socials.get("youtube"):
                     contact["youtube"] = socials["youtube"]
 
+            # --- Email scraping (free, no API key) ---
+            # Try to find website + scrape emails from it
+            from app.sources import email_scraper
+
+            website_url = None
+
+            # Strategy 1: Try artist IG handle as domain
+            ig_handle = socials.get("instagram") if socials else None
+            if ig_handle and not website_url:
+                website_url = email_scraper.find_artist_website(ig_handle)
+
+            # Strategy 2: Scrape emails from website if found
+            if website_url:
+                contact["website"] = website_url
+                email_result = email_scraper.scrape_website_emails(website_url)
+                if email_result and email_result.get("emails"):
+                    contact["email"] = email_result["emails"][0]  # best email
+
             item["_contacts"].append(contact)
             item["processed"] = i + 1
 
@@ -672,6 +690,8 @@ def _geni_worker(item):
                 "item_id": item["id"],
                 "artist": artist_name,
                 "socials": socials,
+                "website": contact["website"],
+                "email": contact["email"],
                 "processed": item["processed"],
                 "total": item["total"],
             })

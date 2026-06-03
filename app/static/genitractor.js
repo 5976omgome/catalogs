@@ -184,28 +184,39 @@ function addContactToFeed(ev){
   const nm=document.createElement("span");nm.className="aname";nm.textContent=ev.artist;
   const badge=document.createElement("span");
   const hasSocials=ev.socials&&(ev.socials.instagram||ev.socials.facebook||ev.socials.youtube);
-  badge.className="badge "+(hasSocials?"found":"empty");
-  badge.textContent=hasSocials?"FOUND":"NONE";
+  const hasEmail=!!ev.email;
+  const hasWebsite=!!ev.website;
+  const hasAnything=hasSocials||hasEmail||hasWebsite;
+  badge.className="badge "+(hasAnything?"found":"empty");
+  badge.textContent=hasAnything?(hasEmail?"EMAIL":"FOUND"):"NONE";
   head.append(nm,badge);block.append(head);
 
   const socials=ev.socials||{};
   const rows=[
     ["IG",socials.instagram?"https://instagram.com/"+socials.instagram:""],
     ["FB",socials.facebook?(socials.facebook.startsWith("http")?socials.facebook:"https://facebook.com/"+socials.facebook):""],
-    ["YT",socials.youtube||""]
+    ["YT",socials.youtube||""],
+    ["WEB",ev.website||""],
+    ["EMAIL",ev.email||""]
   ];
   for(const[label,url] of rows){
     const row=document.createElement("div");row.className="src";
     const lbl=document.createElement("div");lbl.className="src-name";lbl.textContent=label;
     const vals=document.createElement("div");vals.className="src-vals";
-    if(url){const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";a.textContent=url;vals.append(a)}
+    if(url){
+      if(label==="EMAIL"){
+        const a=document.createElement("a");a.href="mailto:"+url;a.textContent=url;vals.append(a);
+      }else{
+        const a=document.createElement("a");a.href=url;a.target="_blank";a.rel="noopener";a.textContent=url;vals.append(a);
+      }
+    }
     else{const s=document.createElement("span");s.className="empty";s.textContent="\u2014";vals.append(s)}
     row.append(lbl,vals);block.append(row);
   }
   grid.append(block);grid.scrollTop=grid.scrollHeight;
 
   totalProcessed++;updateStats();
-  sys(`${hasSocials?"\u2713":"\u2014"} ${ev.artist}`,hasSocials?"ok":"");
+  sys(`${hasAnything?"\u2713":"\u2014"} ${ev.artist}${hasEmail?" \u2709":""}`,hasAnything?"ok":"");
 }
 
 // ---------------------------------------------------------------------------
