@@ -69,6 +69,7 @@ def get_socials(artist: str) -> Optional[Dict[str, str]]:
         ig = artist_data.get("instagram_name", "")
         tw = artist_data.get("twitter_name", "")
         fb = artist_data.get("facebook_name", "")
+        yt = artist_data.get("youtube_url", "")
 
         if ig:
             socials["instagram"] = ig
@@ -76,6 +77,8 @@ def get_socials(artist: str) -> Optional[Dict[str, str]]:
             socials["twitter"] = tw
         if fb:
             socials["facebook"] = fb
+        if yt:
+            socials["youtube"] = yt
 
         cache.put(cache_key, socials if socials else {})
         return socials if socials else None

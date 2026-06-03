@@ -210,11 +210,19 @@ function addArtistToFeed(ev){
 
   if(ev.status_reason){const reason=document.createElement("div");reason.className="reason";
     reason.innerHTML='<span class="arrow">\u2192</span>'+ev.status_reason.replace(/</g,"&lt;");block.append(reason)}
-  if(ev.socials&&gFilters.socials){const soc=document.createElement("div");soc.className="socials";const parts=[];
-    if(ev.socials.instagram)parts.push("IG: @"+ev.socials.instagram);
-    if(ev.socials.twitter)parts.push("X: @"+ev.socials.twitter);
-    if(ev.socials.facebook)parts.push("FB: "+ev.socials.facebook);
-    if(parts.length)soc.textContent=parts.join(" \u00b7 ");block.append(soc)}
+  // Genius socials — render as a proper source row alongside Chartmetric/iTunes/Deezer
+  if(gFilters.socials){
+    const row=document.createElement("div");row.className="src";
+    const lbl=document.createElement("div");lbl.className="src-name";lbl.textContent="GENIUS";
+    const vals=document.createElement("div");vals.className="src-vals";
+    if(ev.socials&&(ev.socials.instagram||ev.socials.twitter||ev.socials.facebook||ev.socials.youtube)){
+      if(ev.socials.instagram){const a=document.createElement("a");a.href="https://instagram.com/"+ev.socials.instagram;a.target="_blank";a.rel="noopener";a.className="social-link";a.textContent="IG: @"+ev.socials.instagram;vals.append(a)}
+      if(ev.socials.twitter){const a=document.createElement("a");a.href="https://x.com/"+ev.socials.twitter;a.target="_blank";a.rel="noopener";a.className="social-link";a.textContent="X: @"+ev.socials.twitter;vals.append(a)}
+      if(ev.socials.facebook){const a=document.createElement("a");a.href="https://facebook.com/"+ev.socials.facebook;a.target="_blank";a.rel="noopener";a.className="social-link";a.textContent="FB: "+ev.socials.facebook;vals.append(a)}
+      if(ev.socials.youtube){const a=document.createElement("a");a.href=ev.socials.youtube;a.target="_blank";a.rel="noopener";a.className="social-link";a.textContent="YT: "+ev.socials.youtube.replace(/https?:\/\/(www\.)?youtube\.com\/?/,"");vals.append(a)}
+    }else{const e=document.createElement("span");e.className="empty";e.textContent="\u2014";vals.append(e)}
+    row.append(lbl,vals);block.append(row)
+  }
   if(ev.debug&&gFilters.debug){const dbg=document.createElement("div");dbg.className="debug-info";
     dbg.textContent=ev.debug.steps.join(" | ");block.append(dbg)}
 

@@ -303,6 +303,13 @@ button:disabled{opacity:.35;cursor:not-allowed}
 .sysline.warn{color:var(--peach)}
 
 /* Socials + Debug */
+.social-link{
+  display:inline-block;font-size:9px;color:var(--frost);
+  text-decoration:none;margin-right:var(--s2);padding:2px 6px;
+  border-radius:3px;background:var(--blue-soft);border:1px solid var(--blue-border);
+  transition:all .15s var(--ease);cursor:pointer;
+}
+.social-link:hover{background:rgba(190,227,219,.15);color:var(--snow);border-color:var(--frost)}
 .socials{font-size:9px;color:var(--frost);margin-top:var(--s1)}
 .debug-info{font-size:8px;color:var(--text-quaternary);margin-top:2px;padding:3px var(--s2);background:rgba(255,255,255,.015);border-radius:3px;font-family:ui-monospace,"SF Mono",monospace}
 .counter{font-size:9px;font-weight:600;padding:3px var(--s2);border-radius:var(--r-full);background:var(--bg-surface);color:var(--text-tertiary);font-variant-numeric:tabular-nums}
