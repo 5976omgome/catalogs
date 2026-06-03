@@ -640,6 +640,8 @@ def _geni_worker(item):
         item["_contacts"] = []
         _geni_broadcast({"type": "item_started", "item": _geni_item_dict(item)})
 
+        from app.sources import email_scraper
+
         for i, artist_name in enumerate(artists):
             if _geni_stop_flags.get(item["id"]):
                 item["status"] = "stopped"
@@ -650,9 +652,7 @@ def _geni_worker(item):
                 item["processed"] = i + 1
                 continue
 
-            # Rate limit: 1 request per 2 seconds
-            _time.sleep(2.0)
-
+            # Genius lookup (rate limiter handles pacing internally)
             socials = genius.get_socials(artist_name)
             contact = {"artist": artist_name, "instagram": "", "facebook": "", "youtube": "", "website": "", "email": ""}
 
@@ -665,39 +665,16 @@ def _geni_worker(item):
                 if socials.get("youtube"):
                     contact["youtube"] = socials["youtube"]
 
-            # --- Email scraping (free, no API key) ---
-            # Waterfall: website → Facebook → YouTube description
-            from app.sources import email_scraper
-
-            website_url = None
-            email_found = ""
-
-            # Strategy 1: Try artist IG handle as domain
+            # --- Email scraping (only if Genius found an IG handle) ---
+            # Skip entirely if no socials — no leads to follow
             ig_handle = socials.get("instagram") if socials else None
             if ig_handle:
                 website_url = email_scraper.find_artist_website(ig_handle)
-
-            # Strategy 2: Scrape emails from website if found
-            if website_url:
-                contact["website"] = website_url
-                email_result = email_scraper.scrape_website_emails(website_url)
-                if email_result and email_result.get("emails"):
-                    email_found = email_result["emails"][0]
-
-            # Strategy 3: Scrape Facebook page for email
-            if not email_found and socials and socials.get("facebook"):
-                fb_email = email_scraper.scrape_facebook_email(socials["facebook"])
-                if fb_email:
-                    email_found = fb_email
-
-            # Strategy 4: Scrape YouTube description for email
-            if not email_found:
-                yt_email = email_scraper.scrape_youtube_description(artist_name)
-                if yt_email:
-                    email_found = yt_email
-
-            if email_found:
-                contact["email"] = email_found
+                if website_url:
+                    contact["website"] = website_url
+                    email_result = email_scraper.scrape_website_emails(website_url)
+                    if email_result and email_result.get("emails"):
+                        contact["email"] = email_result["emails"][0]
 
             item["_contacts"].append(contact)
             item["processed"] = i + 1
