@@ -30,18 +30,13 @@ function stopTimer(){
 }
 
 function updateStats(){
-  // Count running items (slots used)
-  const queueEl=$("queue");
-  const items=queueEl?queueEl.querySelectorAll("li"):[];
-  let running=0,totalProcessed=0,totalArtists=0,totalKeep=0;
-  // We track from the qState
+  let running=0;
   Object.values(qState).forEach(li=>{
     const stat=li.querySelector(".stat");
     if(stat&&stat.classList.contains("running"))running++;
   });
   $("stat-slots").textContent=running+"/4";
 
-  // Calculate totals from all feeds
   let allProcessed=0,allTotal=0,allKeep=0;
   Object.values(feeds).forEach(f=>{
     allKeep+=f.counts.keep||0;
@@ -49,8 +44,6 @@ function updateStats(){
     allProcessed+=total;
   });
 
-  // Total % finished (across all items)
-  // We need total artists from queue items
   let queueTotal=0;
   Object.values(qState).forEach(li=>{
     const c=li.querySelector(".counts");
@@ -59,9 +52,11 @@ function updateStats(){
   const pct=queueTotal>0?Math.floor(100*allProcessed/queueTotal):0;
   $("stat-pct").textContent=pct+"%";
 
-  // % clean (KEEP out of all processed)
   const cleanPct=allProcessed>0?Math.floor(100*allKeep/allProcessed):0;
   $("stat-clean").textContent=cleanPct+"% CLEAN";
+
+  // Feed progress: processed/total
+  $("feed-progress").textContent=allProcessed+"/"+(queueTotal||allProcessed);
 }
 
 // ---------------------------------------------------------------------------
@@ -354,6 +349,26 @@ async function uploadFile(file){const fd=new FormData();fd.append("file",file);
   if(!r.ok){const e=await r.json().catch(()=>({error:"failed"}));sys("Upload error: "+(e.error||""),"bad")}}
 
 // ---------------------------------------------------------------------------
+// CONFIRM MODAL
+// ---------------------------------------------------------------------------
+let _confirmCallback=null;
+
+function initConfirmModal(){
+  const modal=$("confirm-modal"),close=$("confirm-close"),yes=$("confirm-yes"),no=$("confirm-no");
+  close.addEventListener("click",()=>modal.classList.remove("open"));
+  no.addEventListener("click",()=>modal.classList.remove("open"));
+  modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.remove("open")});
+  yes.addEventListener("click",()=>{modal.classList.remove("open");if(_confirmCallback)_confirmCallback()});
+}
+
+function showConfirm(title,msg,cb){
+  $("confirm-title").textContent=title;
+  $("confirm-msg").textContent=msg;
+  _confirmCallback=cb;
+  $("confirm-modal").classList.add("open");
+}
+
+// ---------------------------------------------------------------------------
 // GENIUS SEPARATE PASS
 // ---------------------------------------------------------------------------
 async function startGeniusPass(){
@@ -457,13 +472,13 @@ document.addEventListener("DOMContentLoaded",()=>{
   initGlobalFilters();
   initCollapsible();
   initFeedback();
+  initKeyModal();
+  initConfirmModal();
   $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
   $("btn-run").addEventListener("click",()=>{fetch("/api/queue/start",{method:"POST"});sys("RUN","info");startTimer()});
-  $("btn-stop").addEventListener("click",()=>{fetch("/api/queue/stop",{method:"POST"});sys("STOP","warn");stopTimer()});
-  $("btn-export-all").addEventListener("click",()=>dl($("btn-export-all"),"/api/export_all","AllCombinedOutput.xlsx"));
+  $("btn-stop").addEventListener("click",()=>{showConfirm("Stop all running jobs?","This will halt processing. Do you also want to clear the queue?",()=>{fetch("/api/queue/stop",{method:"POST"});sys("STOP","warn");stopTimer()})});
+  $("btn-export-all").addEventListener("click",()=>{showConfirm("Export all results?","This will merge all finished outputs into one file.",()=>dl($("btn-export-all"),"/api/export_all","AllCombinedOutput.xlsx"))});
   $("btn-genius").addEventListener("click",startGeniusPass);
   $("btn-genius-stop").addEventListener("click",stopGeniusPass);
-  $("btn-clear").addEventListener("click",()=>{fetch("/api/queue/clear",{method:"POST"});Object.keys(feeds).forEach(id=>removeFeed(id));sys("Cleared.","info")});
-  initKeyModal();
   startStream();refreshStatus();
 });

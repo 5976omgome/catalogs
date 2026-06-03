@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- STICKY TOP BAR — always visible -->
   <header class="topbar">
     <div class="brand-group">
       <img src="logos/ignite.svg" alt="IGNITE" class="brand-logo">
@@ -27,26 +28,27 @@
     </div>
   </header>
 
-  <main>
-    <section class="card collapsible" id="card-queue">
-      <header class="card-head" data-collapse="queue-body">
-        <h2>QUEUE</h2>
-        <div class="row">
-          <label class="filebtn"><input type="file" id="file-input" accept=".csv,.tsv" multiple><span>+ CSV</span></label>
-          <button id="btn-run" class="primary">RUN</button>
-          <button id="btn-stop" class="warn">STOP</button>
-          <button id="btn-export-all" class="ghost">EXPORT</button>
-          <button id="btn-genius" class="ghost">GENIUS</button>
-          <button id="btn-genius-stop" class="ghost" style="display:none">STOP GENIUS</button>
-          <button id="btn-clear" class="ghost">CLEAR</button>
-        </div>
-        <button class="ghost collapse-btn">&#9660;</button>
-      </header>
-      <div class="card-body" id="queue-body">
-        <ul id="queue" class="queue"></ul>
-      </div>
-    </section>
+  <!-- STICKY QUEUE CONTROLS — always visible below topbar -->
+  <nav class="queue-bar">
+    <div class="queue-controls">
+      <label class="filebtn"><input type="file" id="file-input" accept=".csv,.tsv" multiple><span>ADD</span></label>
+      <button id="btn-run" class="primary">RUN</button>
+      <button id="btn-genius" class="ghost">GENIUS RERUN</button>
+      <button id="btn-genius-stop" class="ghost" style="display:none">STOP GENIUS</button>
+      <button id="btn-stop" class="warn">STOP</button>
+      <button id="btn-export-all" class="ghost">EXPORT</button>
+    </div>
+    <div class="queue-stats">
+      <span class="timer" id="timer">00:00</span>
+      <span class="stat-slots" id="stat-slots">0/4</span>
+      <span class="stat-pct" id="stat-pct">0%</span>
+      <span class="stat-clean" id="stat-clean">0% CLEAN</span>
+    </div>
+    <ul id="queue" class="queue"></ul>
+  </nav>
 
+  <!-- SCROLLABLE CONTENT -->
+  <main>
     <section class="card collapsible" id="card-system">
       <header class="card-head" data-collapse="sys-body">
         <h2>SYSTEM</h2>
@@ -60,12 +62,7 @@
     <section class="card grow collapsible" id="card-feeds">
       <header class="card-head" data-collapse="feeds-body">
         <h2 id="feeds-title">FEED</h2>
-        <div class="feed-stats">
-          <span class="timer" id="timer">00:00</span>
-          <span class="stat-slots" id="stat-slots">0/4</span>
-          <span class="stat-pct" id="stat-pct">0%</span>
-          <span class="stat-clean" id="stat-clean">0% CLEAN</span>
-        </div>
+        <div class="feed-progress" id="feed-progress">0/0</div>
         <div class="row" id="global-filters">
           <span class="ftoggle f-drop on" id="gf-drop">FLAGGED</span>
           <span class="ftoggle f-review on" id="gf-review">REVIEW</span>
@@ -85,31 +82,38 @@
     <div class="footer-inner">
       <div class="footer-label">POWERED BY</div>
       <div class="footer-logos">
-        <a href="https://kiro.dev/" target="_blank" rel="noopener" class="logo-link" title="Kiro — AI IDE">
-          <img src="logos/kiro.svg" alt="Kiro" height="22">
-        </a>
+        <a href="https://kiro.dev/" target="_blank" rel="noopener" class="logo-link" title="Kiro"><img src="logos/kiro.svg" alt="Kiro" height="22"></a>
         <span class="footer-dot"></span>
-        <a href="https://chartmetric.com/features/developer-api" target="_blank" rel="noopener" class="logo-link" title="Chartmetric API">
-          <img src="logos/chartmetric.svg" alt="Chartmetric" height="20">
-        </a>
+        <a href="https://chartmetric.com/features/developer-api" target="_blank" rel="noopener" class="logo-link" title="Chartmetric"><img src="logos/chartmetric.svg" alt="Chartmetric" height="20"></a>
         <span class="footer-dot"></span>
-        <a href="https://performance-partners.apple.com/search-api" target="_blank" rel="noopener" class="logo-link" title="iTunes Search API">
-          <img src="logos/itunes.svg" alt="iTunes" height="22">
-        </a>
+        <a href="https://performance-partners.apple.com/search-api" target="_blank" rel="noopener" class="logo-link" title="iTunes"><img src="logos/itunes.svg" alt="iTunes" height="22"></a>
         <span class="footer-dot"></span>
-        <a href="https://developers.deezer.com/api" target="_blank" rel="noopener" class="logo-link" title="Deezer API">
-          <img src="logos/deezer.svg" alt="Deezer" height="20">
-        </a>
+        <a href="https://developers.deezer.com/api" target="_blank" rel="noopener" class="logo-link" title="Deezer"><img src="logos/deezer.svg" alt="Deezer" height="20"></a>
         <span class="footer-dot"></span>
-        <a href="https://docs.genius.com/" target="_blank" rel="noopener" class="logo-link" title="Genius API">
-          <img src="logos/genius.svg" alt="Genius" height="18">
-        </a>
+        <a href="https://docs.genius.com/" target="_blank" rel="noopener" class="logo-link" title="Genius"><img src="logos/genius.svg" alt="Genius" height="18"></a>
       </div>
       <div class="footer-credit">IGNITE THE LABEL &middot; Q2 2026</div>
     </div>
   </footer>
 
-  <!-- API Key Modal (triggered by clicking red pill) -->
+  <!-- Confirm Modal (Stop/Export) -->
+  <div class="modal-overlay" id="confirm-modal">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <h2 id="confirm-title">Confirm</h2>
+        <button class="ghost modal-close" id="confirm-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-msg" class="confirm-msg">Are you sure?</p>
+        <div class="confirm-actions">
+          <button class="primary" id="confirm-yes">YES</button>
+          <button class="ghost" id="confirm-no">NO</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Key Modal -->
   <div class="modal-overlay" id="key-modal">
     <div class="modal modal-sm">
       <div class="modal-head">
