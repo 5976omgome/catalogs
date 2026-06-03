@@ -9,11 +9,20 @@ concurrent requests across multiple CSVs without bottlenecking.
 """
 import requests
 from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # Larger pool to handle 4 CSVs × 4 parallel artists = up to 16 concurrent requests
 _POOL_CONNECTIONS = 20
 _POOL_MAXSIZE = 20
-_MAX_RETRIES = 2
+
+# Retry only on connection errors and 429/503, with short backoff
+_RETRY = Retry(
+    total=1,
+    backoff_factor=0.3,
+    status_forcelist=[429, 503],
+    allowed_methods=["GET"],
+    raise_on_status=False,
+)
 
 
 def _make_session() -> requests.Session:
@@ -22,7 +31,7 @@ def _make_session() -> requests.Session:
     adapter = HTTPAdapter(
         pool_connections=_POOL_CONNECTIONS,
         pool_maxsize=_POOL_MAXSIZE,
-        max_retries=_MAX_RETRIES,
+        max_retries=_RETRY,
     )
     s.mount("https://", adapter)
     s.mount("http://", adapter)
