@@ -77,8 +77,9 @@ body{display:flex;flex-direction:column;height:100vh}
   -webkit-backdrop-filter:blur(24px) saturate(160%);
 }
 .brand-group{display:flex;align-items:center;gap:var(--s3)}
-.brand-logo{height:28px;width:auto;filter:brightness(0) invert(.85) sepia(.3) saturate(.6) hue-rotate(130deg);opacity:.85;transition:opacity .3s var(--ease)}
-.brand-logo:hover{opacity:1}
+.brand-logo-link{display:inline-flex;align-items:center;text-decoration:none;line-height:0}
+.brand-logo{height:28px;width:auto;filter:brightness(0) invert(.85) sepia(.3) saturate(.6) hue-rotate(130deg);opacity:.85;transition:opacity .3s var(--ease),transform .3s var(--ease)}
+.brand-logo:hover{opacity:1;transform:scale(1.04)}
 .brand-text{display:flex;flex-direction:column;gap:1px}
 .brand{font-size:13px;font-weight:800;letter-spacing:.16em;color:var(--snow)}
 .brand-sub{font-size:8px;font-weight:500;letter-spacing:.28em;color:var(--teal);opacity:.7}
@@ -88,10 +89,10 @@ body{display:flex;flex-direction:column;height:100vh}
 .feed-stats{display:flex;align-items:center;gap:var(--s2);margin-left:var(--s3)}
 .clock{font-size:11px;font-weight:600;font-family:ui-monospace,"SF Mono",monospace;color:var(--text-tertiary);letter-spacing:.04em;font-variant-numeric:tabular-nums;margin-left:var(--s3)}
 .timer{font-size:11px;font-weight:700;font-family:ui-monospace,"SF Mono",monospace;color:var(--frost);letter-spacing:.04em;font-variant-numeric:tabular-nums}
-.stat-pct{font-size:9px;font-weight:700;letter-spacing:.06em;padding:var(--s1) 8px;border-radius:var(--r-full);background:var(--green-soft);color:var(--teal);border:1px solid var(--green-border);font-family:ui-monospace,"SF Mono",monospace;cursor:pointer;user-select:none;transition:all .15s var(--ease)}
-.stat-pct:hover{transform:scale(1.05);box-shadow:0 0 8px rgba(137,176,174,.2)}
-.stat-clean{font-size:9px;font-weight:700;letter-spacing:.06em;padding:var(--s1) 8px;border-radius:var(--r-full);background:var(--blue-soft);color:var(--frost);border:1px solid var(--blue-border);font-family:ui-monospace,"SF Mono",monospace;cursor:pointer;user-select:none;transition:all .15s var(--ease)}
-.stat-clean:hover{transform:scale(1.05);box-shadow:0 0 8px rgba(190,227,219,.2)}
+.stat-pct{font-size:9px;font-weight:700;letter-spacing:.06em;padding:var(--s1) 8px;border-radius:var(--r-full);background:var(--blue-soft);color:var(--frost);border:1px solid var(--blue-border);font-family:ui-monospace,"SF Mono",monospace;cursor:pointer;user-select:none;transition:all .15s var(--ease)}
+.stat-pct:hover{transform:scale(1.05);box-shadow:0 0 8px rgba(190,227,219,.25)}
+.stat-clean{font-size:9px;font-weight:700;letter-spacing:.06em;padding:var(--s1) 8px;border-radius:var(--r-full);background:var(--teal);color:#0c0e12;border:1px solid var(--teal);font-family:ui-monospace,"SF Mono",monospace;cursor:pointer;user-select:none;transition:all .15s var(--ease)}
+.stat-clean:hover{transform:scale(1.05);box-shadow:0 0 10px rgba(137,176,174,.4)}
 
 /* Clickable pills for API key entry */
 .pill.clickable{cursor:pointer;transition:all .2s var(--ease)}
@@ -125,7 +126,7 @@ body{display:flex;flex-direction:column;height:100vh}
    LAYOUT
    ============================================================================ */
 main{
-  max-width:1440px;margin:0 auto;
+  max-width:1440px;margin:0 auto;width:100%;
   padding:var(--s4) var(--s6) var(--s4);
   display:flex;flex-direction:column;gap:var(--s3);
   flex:1;overflow:hidden;
@@ -187,9 +188,14 @@ main{
 }
 .card:hover{border-color:var(--border-hover)}
 .card.grow{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+/* Feed body must flex to fill the card so it scrolls internally AND collapses cleanly */
+#feeds-body{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 /* When the feed card is collapsed it must stop growing so the freed space is
    reclaimed and the footer rises to fill it (instead of a big empty card). */
 .card.grow.is-collapsed{flex:0 0 auto}
+/* When the feed is collapsed, the footer expands to absorb the freed space */
+#card-feeds.is-collapsed ~ .powered-footer{flex:1 1 auto;display:flex;align-items:center}
+#card-feeds.is-collapsed ~ .powered-footer .footer-inner{width:100%}
 .card-head{
   display:flex;align-items:center;justify-content:space-between;
   padding:var(--s3) var(--s4);

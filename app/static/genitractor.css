@@ -54,7 +54,9 @@ body{display:flex;flex-direction:column;height:100vh}
   background:#fff;
 }
 .brand-group{display:flex;align-items:center;gap:var(--s3)}
-.brand-logo{height:28px;width:auto;filter:brightness(0);opacity:.9}
+.brand-logo-link{display:inline-flex;align-items:center;text-decoration:none;line-height:0}
+.brand-logo{height:28px;width:auto;filter:brightness(0);opacity:.9;transition:opacity .3s var(--ease),transform .3s var(--ease)}
+.brand-logo:hover{opacity:1;transform:scale(1.04)}
 .brand-text{display:flex;flex-direction:column;gap:1px}
 .brand{font-size:13px;font-weight:800;letter-spacing:.16em;color:var(--carbon)}
 .brand-sub{font-size:8px;font-weight:500;letter-spacing:.28em;color:var(--graphite)}
@@ -188,6 +190,9 @@ main{
 .card.grow{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 /* Collapsed feed card stops growing so freed space is reclaimed + footer fills it */
 .card.grow.is-collapsed{flex:0 0 auto}
+/* When the feed is collapsed, the footer expands to absorb the freed space */
+#card-feeds.is-collapsed ~ .powered-footer{flex:1 1 auto;display:flex;align-items:center}
+#card-feeds.is-collapsed ~ .powered-footer .footer-inner{width:100%}
 .card-head{
   display:flex;align-items:center;justify-content:space-between;
   padding:var(--s3) var(--s4);border-bottom:1px solid var(--dust);
