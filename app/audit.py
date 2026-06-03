@@ -44,6 +44,11 @@ def audit_artist(
 ) -> ArtistAudit:
     """Run the full audit pipeline for one artist.
 
+    Optimization: checks Chartmetric label FIRST. If it already contains a
+    major-family token or licensing clause, we skip all API calls entirely —
+    no point burning rate limits and time on an artist we know is DROP.
+
+    Full pipeline (only runs if CM doesn't give an instant answer):
     1. Pull releases from iTunes, Deezer, Discogs
     2. Classify each label/P-line against the artist name
     3. Check Chartmetric's self-reported label
@@ -53,7 +58,36 @@ def audit_artist(
     audit = ArtistAudit(artist=artist)
     evals: List[LabelEval] = []
 
-    # --- Pull from all sources ---
+    # --- EARLY EXIT: check Chartmetric label before hitting any API ---
+    cm = (chartmetric_label or "").strip()
+    cm_classification = None
+    if cm and cm.lower() not in ("unknown label", "unknown", ""):
+        cm_classification = labels.classify_label(artist, cm)
+
+        # If CM already shows a major → instant DROP, skip all network calls
+        if cm_classification == "major":
+            evals.append(LabelEval(
+                source="Chartmetric", label=cm, classification="major",
+            ))
+            audit.evaluations = evals
+            audit.earliest_year = chartmetric_first_year
+            audit.status = "DROP_MAJOR"
+            audit.status_reason = f"Major-family token in Chartmetric label: {cm!r} (skipped API calls)"
+            return audit
+
+        # If CM has a licensing clause → instant DROP, skip all network calls
+        licensee = labels.find_licensing_clause(cm)
+        if licensee:
+            evals.append(LabelEval(
+                source="Chartmetric", label=cm, classification="licensed",
+            ))
+            audit.evaluations = evals
+            audit.earliest_year = chartmetric_first_year
+            audit.status = "DROP_LICENSED"
+            audit.status_reason = f"Licensing clause in Chartmetric label: {cm!r} → {licensee} (skipped API calls)"
+            return audit
+
+    # --- Pull from all sources (only if CM didn't give an instant answer) ---
     itunes_releases = itunes.get_releases(artist)
     deezer_releases = deezer.get_releases(artist)
     discogs_releases = discogs.get_releases(artist)
@@ -103,10 +137,9 @@ def audit_artist(
             year=rel.get("year"),
         ))
 
-    # --- Chartmetric self-reported label ---
-    cm = (chartmetric_label or "").strip()
+    # --- Chartmetric self-reported label (use pre-computed classification if available) ---
     if cm and cm.lower() not in ("unknown label", "unknown", ""):
-        cls = labels.classify_label(artist, cm)
+        cls = cm_classification if cm_classification else labels.classify_label(artist, cm)
         evals.append(LabelEval(
             source="Chartmetric",
             label=cm,
@@ -115,7 +148,18 @@ def audit_artist(
 
     audit.evaluations = evals
 
-    # --- Earliest year (informational) ---
+    # --- Quick check: if we already have a clear DROP from source data,
+    # skip the expensive earliest-year API calls ---
+    has_major = any(e.classification == "major" for e in evals)
+    has_licensed = any(e.classification == "licensed" for e in evals)
+
+    if has_major or has_licensed:
+        # Use Chartmetric year if available, skip API year lookups
+        audit.earliest_year = chartmetric_first_year
+        _derive_status(audit)
+        return audit
+
+    # --- Earliest year (informational) — only for potential KEEP/REVIEW artists ---
     years = []
     if chartmetric_first_year:
         years.append(chartmetric_first_year)

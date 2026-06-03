@@ -33,9 +33,6 @@ _MAJOR_TOKENS = [
     "hollywood records", "hasbro", "mattel", "arts music/rhino",
 ]
 
-# Short tokens that need strict word-boundary matching
-_SHORT_TOKENS = {t for t in _MAJOR_TOKENS if len(t) <= 4}
-
 # Known indie labels to flag (not majors but still third-party encumbrances)
 _KNOWN_INDIES = [
     "merlin", "beggars", "4ad", "matador", "sub pop", "secretly canadian",
@@ -49,8 +46,11 @@ _DISTRIBUTORS = [
     "unitedmasters", "united masters", "stem", "repost network",
     "ditto", "ditto music", "routenote", "recordjet", "igroovemusic.com",
     "imusician", "believe music", "mediacube music", "musichub",
-    "tratore", "altafonte", "independent",
+    "tratore", "altafonte",
 ]
+
+# These only match as exact (normalized) equals — not prefix/suffix
+_DISTRIBUTORS_EXACT_ONLY = ["independent"]
 
 # Corporate suffixes to strip for name-variant comparison
 _SUFFIXES = [
@@ -58,7 +58,7 @@ _SUFFIXES = [
     "production", "entertainment", "ent", "ltd", "llc", "inc", "gmbh",
     "s.a.", "s.a. de c.v.", "pty ltd", "oficial", "official", "group",
     "co", "studios", "media", "international", "kids", "band",
-    "ministries", "digital", "label",
+    "ministries", "digital", "label", "distribution",
 ]
 
 # Licensing markers (multi-language)
@@ -77,6 +77,7 @@ _LICENSING_MARKERS = [
 
 # Soft licensing markers that only flag when followed by a major/indie name
 _SOFT_LICENSING_MARKERS = [
+    "exclusively licensed by",
     "distributed by",
     "a division of",
     "a label of",
@@ -143,29 +144,63 @@ def _word_boundary_match(text: str, token: str) -> bool:
 # Public API
 # ---------------------------------------------------------------------------
 
+# Tokens that are common English words and only count as major when they
+# appear at the START of the label name (prevents "Long Island Sound" matching "island")
+_START_ANCHORED_TOKENS = {
+    "island", "mercury", "republic", "atlantic", "capitol", "epic", "verve",
+    "decca", "hansa",
+}
+
+
 def is_major_family(label: str) -> bool:
-    """Does this label string contain a major-family token?"""
+    """Does this label string contain a major-family token?
+
+    All tokens use word-boundary matching. Tokens that are common English
+    words (island, mercury, republic, etc.) additionally require appearing
+    at the START of the label to prevent geographic/descriptive false positives.
+    """
     ll = _normalize(label)
     for token in _MAJOR_TOKENS:
-        if token in _SHORT_TOKENS:
-            # Short tokens require word-boundary to avoid false positives
-            if _word_boundary_match(ll, token):
+        if token in _START_ANCHORED_TOKENS:
+            # Must appear at start of string (possibly after whitespace)
+            if ll.startswith(token) or ll.startswith(token + " "):
+                return True
+            # Also match if preceded only by "the " (e.g., "The Atlantic")
+            if ll.startswith("the " + token):
                 return True
         else:
-            if token in ll:
+            if _word_boundary_match(ll, token):
                 return True
     return False
 
 
+# Tokens in the indie list that are common English words — require start-anchoring
+# AND what follows must be empty or a corporate suffix
+_INDIE_START_ANCHORED = {"empire", "alamo"}
+
+
 def is_known_indie(label: str) -> bool:
-    """Is this a known indie label we should flag?"""
+    """Is this a known indie label we should flag?
+
+    Uses word-boundary matching with start-anchoring for common English words.
+    Start-anchored tokens require the remainder (after the token) to be empty
+    or consist only of corporate suffixes like 'records', 'music', 'distribution'.
+    This prevents 'Empire State Records' from matching the 'empire' token.
+    """
     ll = _normalize(label)
+    suffix_set = {_normalize(s) for s in _SUFFIXES}
+
     for token in _KNOWN_INDIES:
-        if len(token) <= 4:
-            if _word_boundary_match(ll, token):
+        if token in _INDIE_START_ANCHORED:
+            if ll == token:
                 return True
+            if ll.startswith(token + " "):
+                remainder_tokens = ll[len(token):].split()
+                # All remaining words must be corporate suffixes
+                if remainder_tokens and all(t in suffix_set for t in remainder_tokens):
+                    return True
         else:
-            if token in ll:
+            if _word_boundary_match(ll, token):
                 return True
     return False
 
@@ -198,12 +233,37 @@ def find_licensing_clause(text: str) -> Optional[str]:
 
 
 def is_distributor_only(label: str) -> bool:
-    """Is this label just a known neutral distributor?"""
+    """Is this label just a known neutral distributor?
+
+    Stricter than major/indie matching: requires the label to essentially
+    BE the distributor name (exact match, or distributor at the start/end
+    of a short label string). Prevents false positives like
+    'I Believe Music Is Life' matching 'believe music'.
+    """
     ll = _normalize(label)
+    if not ll:
+        return False
+
+    # Exact-only matches (e.g., "independent" — only matches the literal word)
+    for d in _DISTRIBUTORS_EXACT_ONLY:
+        if ll == _normalize(d):
+            return True
+
     for d in _DISTRIBUTORS:
         nd = _normalize(d)
-        if nd == ll or nd in ll:
+        # Exact match
+        if nd == ll:
             return True
+        # Label starts with the distributor name (e.g., "Believe Music UK")
+        if ll.startswith(nd + " "):
+            # Only if the extra part is short (country/region suffix)
+            remainder = ll[len(nd) + 1:].strip()
+            if len(remainder) <= 8:
+                return True
+        # Label ends with the distributor name (e.g., "via DistroKid")
+        if ll.endswith(" " + nd):
+            return True
+
     # Generic numeric "NNNNNNN Records DK" pattern (DistroKid placeholders)
     if re.match(r"^\d{5,} records dk\d?$", ll):
         return True

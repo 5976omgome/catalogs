@@ -165,6 +165,12 @@ function artistBlock(ev){
     block.append(reason);
   }
   log.append(block);log.scrollTop=log.scrollHeight;
+  // Respect active filter
+  const filterBtn=$("btn-filter-flagged");
+  if(filterBtn&&filterBtn.dataset.filter==="on"){
+    const badge=block.querySelector(".badge");
+    if(badge&&badge.classList.contains("keep"))block.style.display="none";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -220,6 +226,21 @@ document.addEventListener("DOMContentLoaded",()=>{
   $("btn-stop").addEventListener("click",()=>{fetch("/api/queue/stop",{method:"POST"});sysLine("stop requested","warn")});
   $("btn-clear").addEventListener("click",()=>{fetch("/api/queue/clear",{method:"POST"})});
   $("btn-clear-log").addEventListener("click",()=>{$("log").innerHTML=""});
+  $("btn-filter-flagged").addEventListener("click",()=>{
+    const btn=$("btn-filter-flagged");
+    const log=$("log");
+    const showing=btn.dataset.filter==="on";
+    if(showing){
+      btn.dataset.filter="off";btn.textContent="show only flagged";btn.classList.remove("warn");
+      log.querySelectorAll(".ablock").forEach(b=>b.style.display="");
+    } else {
+      btn.dataset.filter="on";btn.textContent="showing flagged only";btn.classList.add("warn");
+      log.querySelectorAll(".ablock").forEach(b=>{
+        const badge=b.querySelector(".badge");
+        if(badge&&badge.classList.contains("keep"))b.style.display="none";
+      });
+    }
+  });
   $("btn-save-keys").addEventListener("click",saveKeys);
   $("btn-clear-keys").addEventListener("click",clearKeys);
   $("btn-toggle-keys").addEventListener("click",()=>{

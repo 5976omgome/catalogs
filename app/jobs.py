@@ -348,8 +348,9 @@ class JobManager:
                 "drop": item.drop,
             })
 
-            # Incremental xlsx write every 5 artists
-            if item.processed % 5 == 0 or item.processed == item.total:
+            # Incremental xlsx write every 25 artists (balance between
+            # export availability and not thrashing the disk with rewrites)
+            if item.processed % 25 == 0 or item.processed == item.total:
                 self._write_partial(item, df)
 
         # Final write
