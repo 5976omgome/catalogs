@@ -332,6 +332,61 @@ body {
 }
 
 /* API Panel */
+/* API Panel */
+.api-keys-panel {
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-primary);
+}
+
+.api-key-field {
+    margin-bottom: 8px;
+}
+
+.api-key-label {
+    display: block;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.api-key-input {
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    outline: none;
+}
+
+.api-key-input:focus {
+    border-color: var(--accent);
+}
+
+.btn-save-keys {
+    width: 100%;
+    padding: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    color: var(--bg-primary);
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-save-keys:hover {
+    background: var(--accent-light);
+}
+
 .api-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -863,6 +918,256 @@ body {
 
 .version-entry li {
     margin-bottom: 2px;
+}
+
+/* =============================================
+   FEEDBACK BUTTON & MODAL
+   ============================================= */
+
+.btn-feedback {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--accent-dim);
+    border-radius: var(--radius);
+    color: var(--accent);
+    font-size: 12px;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-feedback:hover {
+    background: var(--accent-dim);
+    color: var(--accent-light);
+    border-color: var(--accent);
+}
+
+.modal-feedback {
+    max-width: 560px;
+}
+
+.feedback-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.feedback-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.feedback-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.feedback-categories {
+    display: flex;
+    gap: 8px;
+}
+
+.feedback-cat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.feedback-cat:hover {
+    border-color: var(--border-light);
+    color: var(--text-primary);
+}
+
+.feedback-cat.active {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent-light);
+}
+
+.feedback-cat[data-cat="BUG"].active {
+    border-color: var(--drop-third);
+    background: rgba(231, 76, 60, 0.12);
+    color: var(--drop-third);
+}
+
+.feedback-cat[data-cat="IDEA"].active {
+    border-color: var(--accent);
+    background: rgba(200, 160, 74, 0.12);
+    color: var(--accent-light);
+}
+
+.feedback-cat[data-cat="OTHER"].active {
+    border-color: var(--variant);
+    background: rgba(52, 152, 219, 0.12);
+    color: var(--variant);
+}
+
+.feedback-textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px;
+    font-size: 13px;
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.feedback-textarea:focus {
+    border-color: var(--accent);
+}
+
+.feedback-textarea::placeholder {
+    color: var(--text-muted);
+}
+
+.feedback-ai-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.btn-ai-clean {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-ai-clean:hover {
+    border-color: var(--accent);
+    color: var(--accent-light);
+}
+
+.btn-ai-clean:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-ai-clean.loading {
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.ai-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+.ai-status.success {
+    color: var(--keep);
+}
+
+.ai-status.error {
+    color: var(--drop-third);
+}
+
+.feedback-preview-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.feedback-preview {
+    padding: 12px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    line-height: 1.7;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.feedback-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.btn-submit-feedback {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--font-sans);
+    color: var(--bg-primary);
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-submit-feedback:hover {
+    background: var(--accent-light);
+}
+
+.btn-submit-feedback:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: var(--text-muted);
+}
+
+.btn-submit-feedback.loading {
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.submit-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+.submit-status.success {
+    color: var(--keep);
+}
+
+.submit-status.error {
+    color: var(--drop-third);
 }
 
 /* =============================================

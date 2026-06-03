@@ -693,6 +693,332 @@
     }
 
     // =============================================
+    // FEEDBACK SYSTEM
+    // =============================================
+
+    const GITHUB_OWNER = '5976omgome';
+    const GITHUB_REPO = 'catalogs';
+    const GROQ_MODEL = 'llama-3.3-70b-versatile';
+    const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+
+    let feedbackState = {
+        category: null,
+        rawText: '',
+        cleanedText: '',
+        isClean: false
+    };
+
+    function getGroqApiKey() {
+        return localStorage.getItem('groq_api_key') || '';
+    }
+
+    function getGithubToken() {
+        return localStorage.getItem('github_token') || '';
+    }
+
+    function initFeedbackModal() {
+        const btn = document.getElementById('btnFeedback');
+        const modal = document.getElementById('feedbackModal');
+        const close = document.getElementById('feedbackModalClose');
+
+        if (btn && modal) {
+            btn.addEventListener('click', () => {
+                resetFeedbackState();
+                modal.classList.add('active');
+            });
+        }
+        if (close && modal) {
+            close.addEventListener('click', () => modal.classList.remove('active'));
+        }
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.classList.remove('active');
+            });
+        }
+
+        // Category buttons
+        document.querySelectorAll('.feedback-cat').forEach(catBtn => {
+            catBtn.addEventListener('click', () => {
+                document.querySelectorAll('.feedback-cat').forEach(b => b.classList.remove('active'));
+                catBtn.classList.add('active');
+                feedbackState.category = catBtn.dataset.cat;
+                updateSubmitState();
+            });
+        });
+
+        // Textarea input
+        const textarea = document.getElementById('feedbackText');
+        if (textarea) {
+            textarea.addEventListener('input', () => {
+                feedbackState.rawText = textarea.value.trim();
+                feedbackState.isClean = false;
+                feedbackState.cleanedText = '';
+                document.getElementById('feedbackPreviewContainer').style.display = 'none';
+                document.getElementById('aiStatus').textContent = '';
+                document.getElementById('aiStatus').className = 'ai-status';
+                updateSubmitState();
+            });
+        }
+
+        // AI Clean button
+        const aiBtn = document.getElementById('btnAiClean');
+        if (aiBtn) {
+            aiBtn.addEventListener('click', handleAiClean);
+        }
+
+        // Submit button
+        const submitBtn = document.getElementById('btnSubmitFeedback');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', handleSubmitFeedback);
+        }
+    }
+
+    function resetFeedbackState() {
+        feedbackState = { category: null, rawText: '', cleanedText: '', isClean: false };
+        document.querySelectorAll('.feedback-cat').forEach(b => b.classList.remove('active'));
+        const textarea = document.getElementById('feedbackText');
+        if (textarea) textarea.value = '';
+        document.getElementById('feedbackPreviewContainer').style.display = 'none';
+        document.getElementById('aiStatus').textContent = '';
+        document.getElementById('aiStatus').className = 'ai-status';
+        document.getElementById('submitStatus').textContent = '';
+        document.getElementById('submitStatus').className = 'submit-status';
+        document.getElementById('btnSubmitFeedback').disabled = true;
+    }
+
+    function updateSubmitState() {
+        const btn = document.getElementById('btnSubmitFeedback');
+        if (btn) {
+            btn.disabled = !(feedbackState.category && feedbackState.rawText.length > 0);
+        }
+    }
+
+    async function handleAiClean() {
+        const apiKey = getGroqApiKey();
+        if (!apiKey) {
+            showAiStatus('No Groq API key. Add it in API settings.', 'error');
+            return;
+        }
+        if (!feedbackState.rawText) {
+            showAiStatus('Write something first.', 'error');
+            return;
+        }
+
+        const aiBtn = document.getElementById('btnAiClean');
+        aiBtn.classList.add('loading');
+        showAiStatus('Processing...', '');
+
+        const categoryContext = feedbackState.category === 'BUG'
+            ? 'This is a bug report for a web-based catalog intelligence platform (IGNITE SCOUT). The platform processes CSV artist exports through iTunes, Deezer, Genius, Chartmetric, Groq, and Gemini APIs to verify catalog ownership.'
+            : feedbackState.category === 'IDEA'
+                ? 'This is a feature idea for a web-based catalog intelligence platform (IGNITE SCOUT). The platform processes CSV artist exports through multiple APIs to verify catalog ownership for licensing/buyout opportunities.'
+                : 'This is general feedback for a web-based catalog intelligence platform (IGNITE SCOUT).';
+
+        const systemPrompt = `You are an expert prompt engineer. Your job is to take raw user feedback and transform it into a perfectly structured, actionable prompt that Claude (Opus) can immediately research and act on.
+
+Rules:
+- Fix all grammar and spelling errors
+- Clarify vague instructions — ask yourself what Claude would need to know to act on this
+- Add context about WHAT part of the system this relates to
+- Break complex feedback into clear, actionable steps
+- For bugs: include what happened, what should happen, and where it occurs
+- For ideas: include the goal, how it would work, and what it affects
+- Structure with markdown headers and bullet points
+- Keep it concise but complete — no fluff
+- Do NOT wrap in code fences or add explanatory text around the output
+- Output ONLY the enhanced prompt text, nothing else
+
+${categoryContext}`;
+
+        try {
+            const response = await fetch(GROQ_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + apiKey
+                },
+                body: JSON.stringify({
+                    model: GROQ_MODEL,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: feedbackState.rawText }
+                    ],
+                    temperature: 0.3,
+                    max_tokens: 1024
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error?.message || 'Groq API error ' + response.status);
+            }
+
+            const data = await response.json();
+            const cleaned = data.choices[0]?.message?.content?.trim();
+
+            if (cleaned) {
+                feedbackState.cleanedText = cleaned;
+                feedbackState.isClean = true;
+                document.getElementById('feedbackPreview').textContent = cleaned;
+                document.getElementById('feedbackPreviewContainer').style.display = '';
+                showAiStatus('Enhanced \u2713', 'success');
+            } else {
+                throw new Error('Empty response from Groq');
+            }
+        } catch (err) {
+            showAiStatus(err.message, 'error');
+        } finally {
+            aiBtn.classList.remove('loading');
+        }
+    }
+
+    function showAiStatus(msg, type) {
+        const el = document.getElementById('aiStatus');
+        el.textContent = msg;
+        el.className = 'ai-status' + (type ? ' ' + type : '');
+    }
+
+    function showSubmitStatus(msg, type) {
+        const el = document.getElementById('submitStatus');
+        el.textContent = msg;
+        el.className = 'submit-status' + (type ? ' ' + type : '');
+    }
+
+    async function handleSubmitFeedback() {
+        const token = getGithubToken();
+        if (!token) {
+            showSubmitStatus('No GitHub token. Add it in API settings.', 'error');
+            return;
+        }
+        if (!feedbackState.category || !feedbackState.rawText) {
+            showSubmitStatus('Select category and write feedback.', 'error');
+            return;
+        }
+
+        const submitBtn = document.getElementById('btnSubmitFeedback');
+        submitBtn.classList.add('loading');
+        showSubmitStatus('Committing...', '');
+
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const month = pad(now.getMonth() + 1);
+        const day = pad(now.getDate());
+        const hours = pad(now.getHours());
+        const minutes = pad(now.getMinutes());
+
+        const fileName = `${month}-${day}.${hours}.${minutes}.${feedbackState.category}.md`;
+        const filePath = `feedback/${fileName}`;
+
+        // Build markdown content optimized for Claude parsing
+        const feedbackContent = feedbackState.isClean ? feedbackState.cleanedText : feedbackState.rawText;
+
+        const markdownContent = [
+            '---',
+            `category: ${feedbackState.category}`,
+            `date: ${now.toISOString()}`,
+            `platform: IGNITE SCOUT`,
+            `version: v3.1.0`,
+            `ai_enhanced: ${feedbackState.isClean ? 'true' : 'false'}`,
+            '---',
+            '',
+            `# ${feedbackState.category}: ${getShortTitle(feedbackContent)}`,
+            '',
+            feedbackContent,
+            '',
+            '---',
+            '',
+            feedbackState.isClean ? `> **Original (raw):** ${feedbackState.rawText}` : ''
+        ].filter(line => line !== undefined).join('\n');
+
+        try {
+            // Use GitHub Contents API to create file
+            const apiUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
+
+            const response = await fetch(apiUrl, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token,
+                    'Accept': 'application/vnd.github.v3+json'
+                },
+                body: JSON.stringify({
+                    message: `feedback(${feedbackState.category.toLowerCase()}): ${getShortTitle(feedbackContent)}`,
+                    content: btoa(unescape(encodeURIComponent(markdownContent))),
+                    branch: 'main'
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.message || 'GitHub API error ' + response.status);
+            }
+
+            showSubmitStatus('Submitted \u2713 ' + fileName, 'success');
+
+            // Reset after short delay
+            setTimeout(() => {
+                document.getElementById('feedbackModal').classList.remove('active');
+                resetFeedbackState();
+            }, 1500);
+        } catch (err) {
+            showSubmitStatus(err.message, 'error');
+        } finally {
+            submitBtn.classList.remove('loading');
+        }
+    }
+
+    function getShortTitle(text) {
+        // Extract first meaningful line or first ~60 chars
+        const firstLine = text.split('\n').find(l => l.trim() && !l.startsWith('#') && !l.startsWith('-') && !l.startsWith('*'));
+        if (firstLine) {
+            const clean = firstLine.replace(/[#*_`>]/g, '').trim();
+            return clean.length > 60 ? clean.substring(0, 57) + '...' : clean;
+        }
+        return text.substring(0, 60).replace(/\n/g, ' ').trim();
+    }
+
+    // =============================================
+    // API KEYS PANEL
+    // =============================================
+
+    function initApiKeysPanel() {
+        const btn = document.getElementById('btnApiSettings');
+        const panel = document.getElementById('apiKeysPanel');
+        const saveBtn = document.getElementById('btnSaveKeys');
+        const groqInput = document.getElementById('inputGroqKey');
+        const githubInput = document.getElementById('inputGithubToken');
+
+        // Load saved values (show masked)
+        if (groqInput && getGroqApiKey()) {
+            groqInput.value = getGroqApiKey();
+        }
+        if (githubInput && getGithubToken()) {
+            githubInput.value = getGithubToken();
+        }
+
+        if (btn && panel) {
+            btn.addEventListener('click', () => {
+                panel.style.display = panel.style.display === 'none' ? '' : 'none';
+            });
+        }
+
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                const groqVal = groqInput ? groqInput.value.trim() : '';
+                const githubVal = githubInput ? githubInput.value.trim() : '';
+
+                if (groqVal) localStorage.setItem('groq_api_key', groqVal);
+                if (githubVal) localStorage.setItem('github_token', githubVal);
+
+                saveBtn.textContent = 'Saved \u2713';
+                setTimeout(() => { saveBtn.textContent = 'Save'; }, 1200);
+
+                panel.style.display = 'none';
+            });
+        }
+    }
+
+    // =============================================
     // INIT
     // =============================================
 
@@ -705,6 +1031,8 @@
 
         initInstructionsModal();
         initVersionDropdown();
+        initFeedbackModal();
+        initApiKeysPanel();
     }
 
     if (document.readyState === 'loading') {

@@ -23,6 +23,10 @@
                 </div>
             </div>
             <div class="header-right">
+                <button class="btn-feedback" id="btnFeedback">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 10.5a1.5 1.5 0 01-1.5 1.5h-8L2 14.5v-11A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v7z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Feedback
+                </button>
                 <button class="btn-instructions" id="btnInstructions">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                     How to Use
@@ -130,6 +134,59 @@
             </div>
         </div>
 
+        <!-- Feedback Modal -->
+        <div class="modal-overlay" id="feedbackModal">
+            <div class="modal modal-feedback">
+                <div class="modal-header">
+                    <h2>Submit Feedback</h2>
+                    <button class="modal-close" id="feedbackModalClose">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="feedback-form">
+                        <div class="feedback-field">
+                            <label class="feedback-label">Category</label>
+                            <div class="feedback-categories">
+                                <button class="feedback-cat" data-cat="BUG">
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5 5l4 4M9 5l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                    BUG
+                                </button>
+                                <button class="feedback-cat" data-cat="IDEA">
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v1M11.5 2.5l-.7.7M13 7h-1M11.5 11.5l-.7-.7M7 13v-1M2.5 11.5l.7-.7M1 7h1M2.5 2.5l.7.7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="7" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
+                                    IDEA
+                                </button>
+                                <button class="feedback-cat" data-cat="OTHER">
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="4" cy="7" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="10" cy="7" r="1.2" fill="currentColor"/></svg>
+                                    OTHER
+                                </button>
+                            </div>
+                        </div>
+                        <div class="feedback-field">
+                            <label class="feedback-label">Your Feedback</label>
+                            <textarea class="feedback-textarea" id="feedbackText" placeholder="Describe the bug, idea, or note..." rows="5"></textarea>
+                        </div>
+                        <div class="feedback-ai-row">
+                            <button class="btn-ai-clean" id="btnAiClean">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.5 4.5L13 7l-4.5 1.5L7 13l-1.5-4.5L1 7l4.5-1.5L7 1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                                Clean up with Groq
+                            </button>
+                            <span class="ai-status" id="aiStatus"></span>
+                        </div>
+                        <div class="feedback-preview-container" id="feedbackPreviewContainer" style="display:none;">
+                            <label class="feedback-label">AI-Enhanced Preview</label>
+                            <div class="feedback-preview" id="feedbackPreview"></div>
+                        </div>
+                        <div class="feedback-actions">
+                            <button class="btn-submit-feedback" id="btnSubmitFeedback" disabled>
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M8 3l5 4-5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                Submit to Repo
+                            </button>
+                            <span class="submit-status" id="submitStatus"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Main Content -->
         <main class="main">
             <!-- Left Panel: API Status & Queue -->
@@ -137,6 +194,18 @@
                 <div class="panel api-panel">
                     <div class="panel-header">
                         <span class="panel-label">API</span>
+                        <button class="btn-add" id="btnApiSettings">Keys</button>
+                    </div>
+                    <div class="api-keys-panel" id="apiKeysPanel" style="display:none;">
+                        <div class="api-key-field">
+                            <label class="api-key-label">Groq API Key</label>
+                            <input type="password" class="api-key-input" id="inputGroqKey" placeholder="gsk_..." autocomplete="off">
+                        </div>
+                        <div class="api-key-field">
+                            <label class="api-key-label">GitHub Token</label>
+                            <input type="password" class="api-key-input" id="inputGithubToken" placeholder="ghp_..." autocomplete="off">
+                        </div>
+                        <button class="btn-save-keys" id="btnSaveKeys">Save</button>
                     </div>
                     <div class="api-grid">
                         <div class="api-item active">
@@ -240,11 +309,21 @@
                 <span class="footer-brand">IGNITE THE LABEL &middot; Q2 2026</span>
                 <div class="version-dropdown-container">
                     <button class="btn-version" id="btnVersion">
-                        v3.0.0
+                        v3.1.0
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </button>
                     <div class="version-panel" id="versionPanel">
                         <h4>Changelog</h4>
+                        <div class="version-entry">
+                            <div class="version-tag">v3.1.0 <span class="version-date">June 3, 2026</span></div>
+                            <ul>
+                                <li>Added Feedback button with BUG / IDEA / OTHER categories</li>
+                                <li>Groq AI text cleanup &mdash; fixes grammar, structures feedback as an optimized prompt for Claude</li>
+                                <li>Feedback commits directly to repo as markdown files in <code>feedback/</code> folder</li>
+                                <li>File naming: <code>MM-DD.HH.MM.CATEGORY.md</code></li>
+                                <li>Markdown format with YAML-style frontmatter for optimal Claude parsing</li>
+                            </ul>
+                        </div>
                         <div class="version-entry">
                             <div class="version-tag">v3.0.0 <span class="version-date">June 3, 2026</span></div>
                             <ul>
