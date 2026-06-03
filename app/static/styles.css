@@ -143,3 +143,16 @@ button:disabled{opacity:.4;cursor:not-allowed}
 .sysline.bad{color:var(--red)}
 .sysline.info{color:var(--blue)}
 .sysline.warn{color:var(--yellow)}
+
+
+/* Socials line */
+.socials{font-size:9px;color:var(--blue);margin-top:3px;padding-left:2px}
+
+/* Debug info */
+.debug-info{font-size:8px;color:var(--muted);margin-top:2px;
+  padding:3px 6px;background:rgba(255,255,255,.03);border-radius:3px;
+  font-family:ui-monospace,"SF Mono",monospace}
+
+/* Socials + Debug toggles */
+.feed-filters .ftoggle.f-socials{color:var(--blue);background:rgba(96,165,250,.08);border-color:rgba(96,165,250,.25)}
+.feed-filters .ftoggle.f-debug{color:var(--muted);background:rgba(255,255,255,.03);border-color:var(--border)}

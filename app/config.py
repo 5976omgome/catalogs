@@ -25,5 +25,9 @@ def gemini_api_key() -> str:
     return _store.get("gemini_api_key") or os.getenv("GEMINI_API_KEY", "")
 
 
+def genius_token() -> str:
+    return _store.get("genius_token") or os.getenv("GENIUS_TOKEN", "")
+
+
 def keys_store() -> "KeyStore":
     return _store

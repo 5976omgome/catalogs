@@ -43,6 +43,7 @@ def api_status():
     return jsonify({
         "groq_set": s["groq_api_key"]["set"],
         "gemini_set": s["gemini_api_key"]["set"],
+        "genius_set": s["genius_token"]["set"],
     })
 
 
@@ -58,7 +59,7 @@ def api_settings_post():
     if not data or not isinstance(data, dict):
         return jsonify({"error": "invalid body"}), 400
     store = config.keys_store()
-    for key in ("groq_api_key", "gemini_api_key"):
+    for key in ("groq_api_key", "gemini_api_key", "genius_token"):
         if key in data:
             val = str(data[key]).strip()
             if val:
@@ -184,6 +185,34 @@ def api_export(item_id: str, filter_name: str):
         return jsonify({"error": "no rows match this filter"}), 404
 
     return send_file(str(dst), as_attachment=True, download_name=dst.name)
+
+
+@app.route("/api/export_all")
+def api_export_all():
+    """Merge ALL finished item outputs into one master xlsx."""
+    mgr = get_manager()
+    items_with_output = []
+    with mgr._lock:
+        for item in mgr._items:
+            if item.output_path and item.output_path.exists():
+                items_with_output.append(item)
+
+    if not items_with_output:
+        return jsonify({"error": "no finished outputs to merge"}), 404
+
+    try:
+        merged_path = excel.merge_all_outputs(
+            [item.output_path for item in items_with_output],
+            config.OUTPUT_DIR / "AllCombinedOutput.xlsx",
+        )
+    except Exception as e:
+        return jsonify({"error": f"merge failed: {e}"}), 500
+
+    return send_file(
+        str(merged_path),
+        as_attachment=True,
+        download_name="AllCombinedOutput.xlsx",
+    )
 
 
 @app.route("/api/queue/stop_and_export/<item_id>")

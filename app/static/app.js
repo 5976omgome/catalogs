@@ -27,17 +27,19 @@ async function loadSettings(){
     const r=await fetch("/api/settings");const s=await r.json();
     $("prev-groq").textContent=s.groq_api_key.set?s.groq_api_key.preview:"\u2014";
     $("prev-gemini").textContent=s.gemini_api_key.set?s.gemini_api_key.preview:"\u2014";
+    $("prev-genius").textContent=s.genius_token.set?s.genius_token.preview:"\u2014";
   }catch(e){}
 }
 async function saveKeys(){
   const body={};
   const g=$("key-groq").value.trim();
   const m=$("key-gemini").value.trim();
-  if(g)body.groq_api_key=g;if(m)body.gemini_api_key=m;
+  const gn=$("key-genius").value.trim();
+  if(g)body.groq_api_key=g;if(m)body.gemini_api_key=m;if(gn)body.genius_token=gn;
   if(!Object.keys(body).length){$("keys-msg").textContent="nothing to save";return}
   $("keys-msg").textContent="saving\u2026";
   const r=await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  if(r.ok){$("keys-msg").textContent="saved \u2713";$("key-groq").value="";$("key-gemini").value="";
+  if(r.ok){$("keys-msg").textContent="saved \u2713";$("key-groq").value="";$("key-gemini").value="";$("key-genius").value="";
     loadSettings();refreshStatus();setTimeout(()=>$("keys-msg").textContent="",2000)}
   else $("keys-msg").textContent="error";
 }
@@ -128,7 +130,7 @@ function ensureFeed(itemId, filename){
 
   // Filter toggles
   const filters=document.createElement("div");filters.className="feed-filters";
-  const state={drop:true,review:true,keep:true};
+  const state={drop:true,review:true,keep:true,socials:true,debug:false};
   const counts={drop:0,review:0,keep:0};
 
   function mkToggle(key,label,cls){
@@ -146,7 +148,9 @@ function ensureFeed(itemId, filename){
   const tDrop=mkToggle("drop","Flagged","f-drop");
   const tReview=mkToggle("review","Review","f-review");
   const tKeep=mkToggle("keep","Clean","f-keep");
-  filters.append(tDrop,tReview,tKeep);
+  const tSocials=mkToggle("socials","Socials","f-socials");
+  const tDebug=mkToggle("debug","Debug","f-debug");
+  filters.append(tDrop,tReview,tKeep,tSocials,tDebug);
 
   // Log area
   const log=document.createElement("div");log.className="feed-log";
@@ -154,7 +158,7 @@ function ensureFeed(itemId, filename){
   panel.append(header,filters,log);
   $("feeds-grid").append(panel);
 
-  const feed={el:panel,log,barFill,pct,filters:state,counts,toggles:{drop:tDrop,review:tReview,keep:tKeep}};
+  const feed={el:panel,log,barFill,pct,filters:state,counts,toggles:{drop:tDrop,review:tReview,keep:tKeep,socials:tSocials,debug:tDebug}};
   feeds[itemId]=feed;
   updateGridLayout();
   return feed;
@@ -244,6 +248,24 @@ function addArtistToFeed(ev){
     block.append(reason);
   }
 
+  // Socials (from Genius API)
+  if(ev.socials&&feed.filters.socials){
+    const soc=document.createElement("div");soc.className="socials";
+    const parts=[];
+    if(ev.socials.instagram)parts.push("IG: @"+ev.socials.instagram);
+    if(ev.socials.twitter)parts.push("X: @"+ev.socials.twitter);
+    if(ev.socials.facebook)parts.push("FB: "+ev.socials.facebook);
+    if(parts.length)soc.textContent=parts.join(" \u00b7 ");
+    block.append(soc);
+  }
+
+  // Debug info (verbose mode)
+  if(ev.debug&&feed.filters.debug){
+    const dbg=document.createElement("div");dbg.className="debug-info";
+    dbg.textContent=ev.debug.steps.join(" | ");
+    block.append(dbg);
+  }
+
   feed.log.append(block);
   feed.log.scrollTop=feed.log.scrollHeight;
 
@@ -296,6 +318,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
   $("btn-run").addEventListener("click",()=>fetch("/api/queue/start",{method:"POST"}));
   $("btn-stop").addEventListener("click",()=>fetch("/api/queue/stop",{method:"POST"}));
+  $("btn-export-all").addEventListener("click",()=>dl($("btn-export-all"),"/api/export_all","AllCombinedOutput.xlsx"));
   $("btn-clear").addEventListener("click",()=>{
     fetch("/api/queue/clear",{method:"POST"});
     // Remove finished feed panels

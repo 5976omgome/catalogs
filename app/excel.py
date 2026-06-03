@@ -176,3 +176,43 @@ def filter_xlsx_by_status(source_path: Path, dest_path: Path, statuses: List[str
     df = pd.DataFrame(filtered, columns=headers)
     write_xlsx(df, dest_path)
     return len(filtered)
+
+
+
+def merge_all_outputs(source_paths: list, dest_path: Path) -> Path:
+    """Merge multiple output xlsx files into one combined sheet.
+
+    Reads all source files, concatenates their data rows (preserving headers
+    from the first file), and writes a single output with formatting.
+    Uses explicit close() on all workbooks to prevent FD leaks.
+    """
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    all_rows = []
+    headers = None
+
+    for src_path in source_paths:
+        wb = load_workbook(str(src_path), read_only=True)
+        try:
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+        finally:
+            wb.close()
+
+        if not rows:
+            continue
+
+        if headers is None:
+            headers = list(rows[0])
+
+        # Add data rows (skip header row of each file)
+        for row in rows[1:]:
+            all_rows.append(row)
+
+    if not headers or not all_rows:
+        raise ValueError("No data rows found in any output file")
+
+    # Build DataFrame and write
+    df = pd.DataFrame(all_rows, columns=headers)
+    write_xlsx(df, dest_path)
+    return dest_path

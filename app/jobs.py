@@ -79,6 +79,9 @@ class JobItem:
     drop: int = 0
     output_path: Optional[Path] = None
     _stop: bool = field(default=False, repr=False)
+    use_gemini: bool = field(default=True)   # Whether AI bridge runs for this item
+    verbose: bool = field(default=False)      # Whether to emit debug events
+    use_genius: bool = field(default=False)   # Whether to pull socials from Genius
 
     def to_dict(self) -> dict:
         return {
@@ -92,6 +95,9 @@ class JobItem:
             "review": self.review,
             "drop": self.drop,
             "has_output": self.output_path is not None and self.output_path.exists(),
+            "use_gemini": self.use_gemini,
+            "verbose": self.verbose,
+            "use_genius": self.use_genius,
         }
 
 
@@ -252,9 +258,10 @@ class JobManager:
 
         def _audit_one(idx, row):
             """Audit one artist — runs in thread pool."""
+            import time as _time
             artist = str(row.get(artist_col, "")).strip()
             if not artist:
-                return idx, None
+                return idx, None, None, None
 
             cm_label = ""
             for col in ("associated_labels", "Associated Labels"):
@@ -268,6 +275,12 @@ class JobManager:
                     cm_year = _parse_date_year(row[col])
                     break
 
+            # Verbose: track timing
+            debug_info = None
+            if item.verbose:
+                debug_info = {"artist": artist, "steps": []}
+                t0 = _time.time()
+
             try:
                 a = audit_mod.audit_artist(
                     artist=artist,
@@ -280,7 +293,24 @@ class JobManager:
                 a.status = "REVIEW"
                 a.status_reason = f"Audit error: {e}"
 
-            return idx, a
+            if item.verbose and debug_info is not None:
+                elapsed = _time.time() - t0
+                debug_info["audit_time_ms"] = int(elapsed * 1000)
+                debug_info["status"] = a.status
+                debug_info["evals_count"] = len(a.evaluations)
+                debug_info["steps"].append(f"audit: {int(elapsed*1000)}ms → {a.status}")
+
+            # Genius socials (optional)
+            socials = None
+            if item.use_genius:
+                from app.sources import genius
+                t1 = _time.time() if item.verbose else 0
+                socials = genius.get_socials(artist)
+                if item.verbose and debug_info is not None:
+                    ge = _time.time() - t1
+                    debug_info["steps"].append(f"genius: {int(ge*1000)}ms → {socials or 'none'}")
+
+            return idx, a, socials, debug_info
 
         with ThreadPoolExecutor(max_workers=PARALLEL_ARTISTS) as executor:
             futures = {}
@@ -310,7 +340,7 @@ class JobManager:
                     del futures[future]
 
                     try:
-                        idx, a = future.result()
+                        idx, a, socials, debug_info = future.result()
                     except Exception as e:
                         print(f"[worker-error] {e}", flush=True)
                         with self._lock:
@@ -362,7 +392,7 @@ class JobManager:
                                 "year": ev.year,
                             })
 
-                    self._broadcast({
+                    event_data = {
                         "type": "artist_done",
                         "item_id": item.id,
                         "artist": artist,
@@ -376,7 +406,17 @@ class JobManager:
                         "keep": item.keep,
                         "review": item.review,
                         "drop": item.drop,
-                    })
+                    }
+
+                    # Add socials if available
+                    if socials:
+                        event_data["socials"] = socials
+
+                    # Add debug info if verbose
+                    if debug_info:
+                        event_data["debug"] = debug_info
+
+                    self._broadcast(event_data)
 
                     if item.processed % 25 == 0 or item.processed == item.total:
                         self._write_partial(item, df)
