@@ -613,7 +613,13 @@ button.warn:hover:not(:disabled){box-shadow:0 4px 12px rgba(255,214,186,.15)}
 }
 
 /* --- COLLAPSE / EXPAND — smooth height + rotate arrow --- */
-.sys-log-wrap,#feeds-body{transition:max-height .35s var(--ease),opacity .25s var(--ease),padding .25s var(--ease);overflow:hidden}
+.sys-log-wrap,#feeds-body{
+  transition:max-height .35s var(--ease),opacity .25s var(--ease),padding .25s var(--ease);
+  overflow:hidden;
+}
+.sys-log-wrap.collapsed,#feeds-body.collapsed{
+  max-height:0 !important;opacity:0;padding-top:0;padding-bottom:0;
+}
 .collapse-btn{transition:transform .25s var(--ease)}
 .card-head:hover .collapse-btn{color:var(--text-secondary)}
 

@@ -39,12 +39,24 @@ function sys(text,cls){
 // ---------------------------------------------------------------------------
 function initCollapsible(){
   document.querySelectorAll(".card-head[data-collapse]").forEach(head=>{
+    head.style.cursor="pointer";
     head.addEventListener("click",e=>{
       if(e.target.closest("button:not(.collapse-btn)"))return;
       const body=document.getElementById(head.dataset.collapse);
       const btn=head.querySelector(".collapse-btn");
-      if(body.style.display==="none"){body.style.display="";if(btn)btn.textContent="\u25BC"}
-      else{body.style.display="none";if(btn)btn.textContent="\u25B6"}
+      const isCollapsed=body.classList.contains("collapsed");
+      if(isCollapsed){
+        body.classList.remove("collapsed");
+        body.style.maxHeight=body.scrollHeight+"px";
+        if(btn)btn.textContent="\u25BC";
+        setTimeout(()=>{body.style.maxHeight=""},350);
+      }else{
+        body.style.maxHeight=body.scrollHeight+"px";
+        body.offsetHeight;
+        body.classList.add("collapsed");
+        body.style.maxHeight="0";
+        if(btn)btn.textContent="\u25B6";
+      }
     });
   });
 }

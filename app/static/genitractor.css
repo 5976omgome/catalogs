@@ -278,14 +278,6 @@ main{
 .fb-submit-status.bad{color:#c0392b}
 
 /* ============================================================================
-   SCROLLBAR
-   ============================================================================ */
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--dust);border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:var(--graphite)}
-
-/* ============================================================================
    RESPONSIVE
    ============================================================================ */
 @media(max-width:600px){
@@ -372,7 +364,13 @@ button.warn:hover:not(:disabled){box-shadow:0 4px 12px rgba(192,57,43,.1)}
 .ablock:hover{border-left-color:var(--gold);transition:border-color .15s var(--ease)}
 
 /* --- COLLAPSE/EXPAND --- */
-.sys-log-wrap,#feeds-body{transition:max-height .35s var(--ease),opacity .25s var(--ease),padding .25s var(--ease);overflow:hidden}
+.sys-log-wrap,#feeds-body{
+  transition:max-height .35s var(--ease),opacity .25s var(--ease),padding .25s var(--ease);
+  overflow:hidden;
+}
+.sys-log-wrap.collapsed,#feeds-body.collapsed{
+  max-height:0 !important;opacity:0;padding-top:0;padding-bottom:0;
+}
 .collapse-btn{transition:transform .25s var(--ease)}
 
 /* --- CROSS-TOOL BAR --- */
@@ -405,7 +403,6 @@ button.warn:hover:not(:disabled){box-shadow:0 4px 12px rgba(192,57,43,.1)}
   background:#fff;
   animation:slideUp .3s var(--ease) both;
 }
-@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .cross-tool-bar.visible{display:flex}
 .cross-tool-bar .ctb-icon{width:8px;height:8px;border-radius:50%;flex-shrink:0;animation:pulse 1.8s var(--ease) infinite}
 .cross-tool-bar .ctb-icon.chartporter{background:#2d6a4f}
