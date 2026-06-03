@@ -5,9 +5,16 @@ a 256 FD limit, 100+ artists × 7 calls each = crash.
 
 Sessions reuse a single urllib3.PoolManager. We increase pool_maxsize
 to handle concurrent requests across multiple CSVs without bottlenecking.
+
+Connection pool overflow warnings are suppressed — they're harmless (the
+connection is discarded and remade) but flood the terminal.
 """
+import logging
 import requests
 from requests.adapters import HTTPAdapter
+
+# Suppress "Connection pool is full, discarding connection" warnings
+logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
 
 
 class _LargePoolAdapter(HTTPAdapter):

@@ -300,20 +300,10 @@ class JobManager:
                 debug_info["evals_count"] = len(a.evaluations)
                 debug_info["steps"].append(f"audit: {int(elapsed*1000)}ms → {a.status}")
 
-            # Genius socials (optional)
+            # Genius socials — REMOVED from main audit loop.
+            # Genius rate limits are too strict for parallel processing.
+            # Use the separate "GENIUS RUN" button after main audit completes.
             socials = None
-            if item.use_genius:
-                from app.sources import genius
-                from app import config as _cfg
-                t1 = _time.time() if item.verbose else 0
-                if _cfg.genius_token():
-                    socials = genius.get_socials(artist)
-                    if item.verbose and debug_info is not None:
-                        ge = _time.time() - t1
-                        debug_info["steps"].append(f"genius: {int(ge*1000)}ms → {socials or 'no socials found'}")
-                else:
-                    if item.verbose and debug_info is not None:
-                        debug_info["steps"].append("genius: SKIPPED (no token)")
 
             return idx, a, socials, debug_info
 

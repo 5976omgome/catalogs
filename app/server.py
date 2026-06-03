@@ -242,6 +242,162 @@ def api_stop_and_export(item_id: str):
 
 
 # ---------------------------------------------------------------------------
+# Genius Social Pass — runs AFTER main audit, one artist per 2 seconds
+# ---------------------------------------------------------------------------
+
+_genius_thread = None
+_genius_running = False
+_genius_stop = False
+
+
+@app.route("/api/genius/run", methods=["POST"])
+def api_genius_run():
+    """Start a slow Genius social pass on all finished items."""
+    global _genius_thread, _genius_running, _genius_stop
+
+    if _genius_running:
+        return jsonify({"error": "Genius pass already running"}), 409
+
+    key = config.genius_token()
+    if not key:
+        return jsonify({"error": "No Genius token configured"}), 400
+
+    _genius_stop = False
+
+    import threading
+    _genius_thread = threading.Thread(target=_genius_worker, daemon=True)
+    _genius_thread.start()
+
+    return jsonify({"ok": True, "message": "Genius pass started"})
+
+
+@app.route("/api/genius/stop", methods=["POST"])
+def api_genius_stop():
+    """Stop the running Genius pass."""
+    global _genius_stop
+    _genius_stop = True
+    return jsonify({"ok": True})
+
+
+@app.route("/api/genius/status")
+def api_genius_status():
+    """Check if Genius pass is running."""
+    return jsonify({"running": _genius_running})
+
+
+def _genius_worker():
+    """Process all finished items, updating xlsx with socials. 1 artist per 2 sec."""
+    global _genius_running, _genius_stop
+    _genius_running = True
+
+    from app.sources import genius
+    import openpyxl
+    import time as _time
+
+    mgr = get_manager()
+
+    try:
+        with mgr._lock:
+            items = [i for i in mgr._items if i.output_path and i.output_path.exists()]
+
+        if not items:
+            print("[genius-pass] No finished items to process.", flush=True)
+            return
+
+        total_found = 0
+        total_processed = 0
+
+        for item in items:
+            if _genius_stop:
+                print("[genius-pass] Stopped by user.", flush=True)
+                break
+
+            try:
+                wb = openpyxl.load_workbook(str(item.output_path))
+                ws = wb.active
+            except Exception as e:
+                print(f"[genius-pass] Failed to open {item.output_path.name}: {e}", flush=True)
+                continue
+
+            # Find column indices
+            headers = {cell.value: cell.column for cell in ws[1] if cell.value}
+            artist_col = headers.get("artist") or headers.get("Artist") or headers.get("artist name")
+            ig_col = headers.get("Instagram")
+            fb_col = headers.get("Facebook")
+
+            if not artist_col:
+                print(f"[genius-pass] No artist column in {item.output_path.name}", flush=True)
+                continue
+
+            # If Instagram/Facebook columns don't exist, add them
+            if not ig_col:
+                ig_col = ws.max_column + 1
+                ws.cell(row=1, column=ig_col, value="Instagram")
+            if not fb_col:
+                fb_col = ws.max_column + 1
+                ws.cell(row=1, column=fb_col, value="Facebook")
+
+            modified = False
+
+            for row_idx in range(2, ws.max_row + 1):
+                if _genius_stop:
+                    break
+
+                artist_name = ws.cell(row=row_idx, column=artist_col).value
+                if not artist_name:
+                    continue
+
+                # Skip if already has socials
+                existing_ig = ws.cell(row=row_idx, column=ig_col).value
+                existing_fb = ws.cell(row=row_idx, column=fb_col).value
+                if existing_ig or existing_fb:
+                    continue
+
+                total_processed += 1
+
+                # Rate limit: 1 request per 2 seconds
+                _time.sleep(2.0)
+
+                socials = genius.get_socials(str(artist_name).strip())
+
+                if socials:
+                    if socials.get("instagram"):
+                        ws.cell(row=row_idx, column=ig_col, value=f"https://instagram.com/{socials['instagram']}")
+                        modified = True
+                    if socials.get("facebook"):
+                        fb = socials["facebook"]
+                        ws.cell(row=row_idx, column=fb_col, value=fb if fb.startswith("http") else f"https://facebook.com/{fb}")
+                        modified = True
+                    if socials.get("instagram") or socials.get("facebook"):
+                        total_found += 1
+
+                # Broadcast progress via SSE
+                mgr._broadcast({
+                    "type": "genius_progress",
+                    "artist": str(artist_name),
+                    "found": bool(socials),
+                    "socials": socials or {},
+                    "processed": total_processed,
+                    "total_found": total_found,
+                })
+
+            if modified:
+                try:
+                    wb.save(str(item.output_path))
+                    print(f"[genius-pass] Saved {item.output_path.name} ({total_found} socials found)", flush=True)
+                except Exception as e:
+                    print(f"[genius-pass] Save error: {e}", flush=True)
+
+        print(f"[genius-pass] Complete. {total_processed} artists checked, {total_found} socials found.", flush=True)
+        mgr._broadcast({"type": "genius_done", "processed": total_processed, "found": total_found})
+
+    except Exception as e:
+        print(f"[genius-pass] Error: {e}", flush=True)
+    finally:
+        _genius_running = False
+
+
+# ---------------------------------------------------------------------------
 # Feedback — writes .md files to feedback/ folder, Groq AI cleanup
 # ---------------------------------------------------------------------------
 

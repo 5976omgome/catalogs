@@ -252,6 +252,16 @@ function handleEvent(ev){
   else if(ev.type==="item_done"){renderItem(ev.item);sys("\u2713 Done: "+ev.item.filename,"ok")}
   else if(ev.type==="item_stopped"){renderItem(ev.item);sys("\u25a0 Stopped: "+ev.item.filename,"warn")}
   else if(ev.type==="item_error"){renderItem(ev.item);sys("\u2717 Error: "+(ev.item.error||ev.item.filename),"bad")}
+  else if(ev.type==="genius_progress"){
+    const s=ev.socials||{};const parts=[];
+    if(s.instagram)parts.push("IG");if(s.facebook)parts.push("FB");
+    const found=parts.length?parts.join("+"):"—";
+    sys(`[genius] ${ev.artist} → ${found} (${ev.total_found} found / ${ev.processed} checked)`,ev.found?"ok":"")
+  }
+  else if(ev.type==="genius_done"){
+    sys(`[genius] ✓ Complete: ${ev.found} socials from ${ev.processed} artists.`,"ok");
+    $("btn-genius").disabled=false;$("btn-genius").textContent="GENIUS";$("btn-genius-stop").style.display="none";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -260,6 +270,28 @@ function handleEvent(ev){
 async function uploadFile(file){const fd=new FormData();fd.append("file",file);
   const r=await fetch("/api/upload",{method:"POST",body:fd});
   if(!r.ok){const e=await r.json().catch(()=>({error:"failed"}));sys("Upload error: "+(e.error||""),"bad")}}
+
+// ---------------------------------------------------------------------------
+// GENIUS SEPARATE PASS
+// ---------------------------------------------------------------------------
+async function startGeniusPass(){
+  const btn=$("btn-genius");
+  btn.disabled=true;btn.textContent="RUNNING…";
+  $("btn-genius-stop").style.display="";
+  sys("Genius pass starting (1 artist / 2 sec)…","info");
+  try{
+    const r=await fetch("/api/genius/run",{method:"POST"});
+    const d=await r.json();
+    if(!r.ok){sys("Genius error: "+(d.error||""),"bad");btn.disabled=false;btn.textContent="GENIUS";$("btn-genius-stop").style.display="none"}
+  }catch(e){sys("Genius start failed: "+e.message,"bad");btn.disabled=false;btn.textContent="GENIUS";$("btn-genius-stop").style.display="none"}
+}
+
+async function stopGeniusPass(){
+  await fetch("/api/genius/stop",{method:"POST"});
+  sys("Genius pass stopped.","warn");
+  $("btn-genius").disabled=false;$("btn-genius").textContent="GENIUS";
+  $("btn-genius-stop").style.display="none";
+}
 
 // ---------------------------------------------------------------------------
 // FEEDBACK SYSTEM
@@ -346,6 +378,8 @@ document.addEventListener("DOMContentLoaded",()=>{
   $("btn-run").addEventListener("click",()=>{fetch("/api/queue/start",{method:"POST"});sys("RUN","info")});
   $("btn-stop").addEventListener("click",()=>{fetch("/api/queue/stop",{method:"POST"});sys("STOP","warn")});
   $("btn-export-all").addEventListener("click",()=>dl($("btn-export-all"),"/api/export_all","AllCombinedOutput.xlsx"));
+  $("btn-genius").addEventListener("click",startGeniusPass);
+  $("btn-genius-stop").addEventListener("click",stopGeniusPass);
   $("btn-clear").addEventListener("click",()=>{fetch("/api/queue/clear",{method:"POST"});Object.keys(feeds).forEach(id=>removeFeed(id));sys("Cleared.","info")});
   $("btn-save-keys").addEventListener("click",saveKeys);
   $("btn-clear-keys").addEventListener("click",clearKeys);
