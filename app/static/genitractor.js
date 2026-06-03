@@ -225,6 +225,27 @@ function checkAllDone(){
 }
 
 // ---------------------------------------------------------------------------
+// CROSS-TOOL PROGRESS BAR — polls Chartporter status
+// ---------------------------------------------------------------------------
+function initCrossToolBar(){
+  setInterval(async()=>{
+    try{
+      const r=await fetch("/api/cross-status");const d=await r.json();
+      const cp=d.chartporter;
+      const bar=$("cross-tool-bar");
+      if(cp.running&&cp.total>0){
+        bar.classList.add("visible");
+        const pct=Math.floor(100*cp.processed/cp.total);
+        $("ctb-fill").style.width=pct+"%";
+        $("ctb-stats").textContent=cp.processed+"/"+cp.total;
+      }else{
+        bar.classList.remove("visible");
+      }
+    }catch(e){}
+  },3000);
+}
+
+// ---------------------------------------------------------------------------
 // UPLOAD + INIT
 // ---------------------------------------------------------------------------
 async function uploadFile(file){
@@ -235,7 +256,7 @@ async function uploadFile(file){
 
 document.addEventListener("DOMContentLoaded",()=>{
   sys("Genitractor starting\u2026","info");
-  initClock();initCollapsible();initKeyModal();initConfirmModal();initToolsDropdown();initFeedback();
+  initClock();initCollapsible();initKeyModal();initConfirmModal();initToolsDropdown();initFeedback();initCrossToolBar();
   $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
   $("btn-run").addEventListener("click",()=>{fetch("/api/genitractor/start",{method:"POST"});sys("RUN","info");startTimer()});
   $("btn-stop").addEventListener("click",()=>{showConfirm("Stop extraction?","This will halt Genius lookups.",()=>{fetch("/api/genitractor/stop",{method:"POST"});sys("STOP","warn");stopTimer()})});

@@ -349,6 +349,28 @@ async function uploadFile(file){const fd=new FormData();fd.append("file",file);
   if(!r.ok){const e=await r.json().catch(()=>({error:"failed"}));sys("Upload error: "+(e.error||""),"bad")}}
 
 // ---------------------------------------------------------------------------
+// CROSS-TOOL PROGRESS BAR — polls other tool's status
+// ---------------------------------------------------------------------------
+let _ctbInterval=null;
+function initCrossToolBar(){
+  _ctbInterval=setInterval(async()=>{
+    try{
+      const r=await fetch("/api/cross-status");const d=await r.json();
+      const gn=d.genitractor;
+      const bar=$("cross-tool-bar");
+      if(gn.running&&gn.total>0){
+        bar.classList.add("visible");
+        const pct=Math.floor(100*gn.processed/gn.total);
+        $("ctb-fill").style.width=pct+"%";
+        $("ctb-stats").textContent=gn.processed+"/"+gn.total;
+      }else{
+        bar.classList.remove("visible");
+      }
+    }catch(e){}
+  },3000);
+}
+
+// ---------------------------------------------------------------------------
 // TOOLS DROPDOWN
 // ---------------------------------------------------------------------------
 function initToolsDropdown(){
@@ -486,6 +508,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   initKeyModal();
   initConfirmModal();
   initToolsDropdown();
+  initCrossToolBar();
   $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
   $("btn-run").addEventListener("click",()=>{fetch("/api/queue/start",{method:"POST"});sys("RUN","info");startTimer()});
   $("btn-stop").addEventListener("click",()=>{showConfirm("Stop all running jobs?","This will halt processing. Do you also want to clear the queue?",()=>{fetch("/api/queue/stop",{method:"POST"});sys("STOP","warn");stopTimer()})});

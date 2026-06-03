@@ -425,6 +425,42 @@ GENI_OUTPUT_DIR = config.BASE_DIR / "GeniOutputs"
 GENI_OUTPUT_DIR.mkdir(exist_ok=True)
 
 
+@app.route("/api/cross-status")
+def api_cross_status():
+    """Returns status of both tools for cross-tool progress bar."""
+    mgr = get_manager()
+
+    # Chartporter status
+    cp_processed = 0
+    cp_total = 0
+    cp_running = False
+    with mgr._lock:
+        for item in mgr._items:
+            if item.status == "running":
+                cp_running = True
+                cp_processed += item.processed
+                cp_total += item.total
+            elif item.status == "done":
+                cp_processed += item.processed
+                cp_total += item.total
+
+    # Genitractor status
+    gn_processed = 0
+    gn_total = 0
+    gn_running = False
+    with _geni_lock:
+        for item in _geni_items:
+            if item["status"] == "running":
+                gn_running = True
+            gn_processed += item.get("processed", 0)
+            gn_total += item.get("total", 0)
+
+    return jsonify({
+        "chartporter": {"running": cp_running, "processed": cp_processed, "total": cp_total},
+        "genitractor": {"running": gn_running, "processed": gn_processed, "total": gn_total},
+    })
+
+
 def _geni_broadcast(event):
     with _geni_lock:
         dead = []

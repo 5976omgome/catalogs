@@ -524,3 +524,93 @@ button:disabled{opacity:.35;cursor:not-allowed}
   .topbar{padding:var(--s3) var(--s4)}
   .pills{flex-wrap:wrap}
 }
+
+
+/* ============================================================================
+   ANIMATIONS — low-cost, GPU-accelerated, intentional
+   ============================================================================ */
+
+/* Fade-in for cards and sections on load */
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.card{animation:fadeUp .4s var(--ease) both}
+.card:nth-child(2){animation-delay:.08s}
+.card:nth-child(3){animation-delay:.16s}
+
+/* Slide-in for artist blocks */
+@keyframes slideIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+.ablock{animation:slideIn .25s var(--ease) both}
+
+/* Pulse for running status */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.queue .stat.running{animation:pulse 1.8s var(--ease) infinite}
+
+/* Smooth collapse/expand */
+.sys-log-wrap,.card-body,#feeds-body,#queue-body{
+  transition:max-height .3s var(--ease),opacity .2s var(--ease),padding .2s var(--ease);
+  overflow:hidden;
+}
+
+/* Topbar slide-down on load */
+@keyframes slideDown{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:translateY(0)}}
+.topbar{animation:slideDown .35s var(--ease) both}
+.queue-bar{animation:slideDown .35s var(--ease) .1s both}
+
+/* Button press micro-interaction */
+button:active:not(:disabled){transform:scale(.96) !important;transition:transform .08s}
+
+/* Feed panel hover lift */
+.feed-panel{transition:transform .2s var(--ease),border-color .2s var(--ease)}
+.feed-panel:hover{transform:translateY(-1px)}
+
+/* Pill glow on ok status */
+.pill.ok{box-shadow:0 0 6px rgba(137,176,174,.15);transition:box-shadow .3s var(--ease),transform .2s var(--ease)}
+.pill.ok:hover{box-shadow:0 0 12px rgba(137,176,174,.3)}
+
+/* Missing pill attention pulse */
+@keyframes attentionPulse{0%,100%{box-shadow:0 0 0 0 rgba(232,127,143,0)}50%{box-shadow:0 0 0 4px rgba(232,127,143,.2)}}
+.pill.missing{animation:attentionPulse 2.5s var(--ease) infinite}
+
+/* Modal entrance */
+@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-overlay.open .modal{animation:modalIn .2s var(--ease) both}
+
+/* Progress bar shimmer */
+@keyframes shimmer{from{background-position:-200px 0}to{background-position:200px 0}}
+.feed-header .feed-bar>span{background:linear-gradient(90deg,var(--teal) 0%,var(--frost) 50%,var(--teal) 100%);background-size:200px 100%;animation:shimmer 2s linear infinite}
+
+/* ============================================================================
+   CROSS-TOOL PROGRESS BAR (bottom of page)
+   ============================================================================ */
+.cross-tool-bar{
+  position:fixed;bottom:0;left:0;right:0;z-index:150;
+  display:none;align-items:center;gap:var(--s3);
+  padding:var(--s3) var(--s6);
+  border-top:1px solid var(--border);
+  background:rgba(12,14,18,.94);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  animation:slideUp .3s var(--ease) both;
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.cross-tool-bar.visible{display:flex}
+.cross-tool-bar .ctb-icon{width:8px;height:8px;border-radius:50%;flex-shrink:0;animation:pulse 1.8s var(--ease) infinite}
+.cross-tool-bar .ctb-icon.chartporter{background:#2d6a4f}
+.cross-tool-bar .ctb-icon.genitractor{background:#ffd100}
+.cross-tool-bar .ctb-label{font-size:10px;font-weight:600;color:var(--text-secondary);letter-spacing:.04em}
+.cross-tool-bar .ctb-progress{
+  flex:1;height:3px;background:var(--bg-surface);border-radius:2px;overflow:hidden;
+}
+.cross-tool-bar .ctb-progress>span{display:block;height:100%;border-radius:2px;transition:width .5s var(--ease)}
+.cross-tool-bar .ctb-progress>span.chartporter{background:#2d6a4f}
+.cross-tool-bar .ctb-progress>span.genitractor{background:#ffd100}
+.cross-tool-bar .ctb-stats{font-size:10px;font-weight:700;font-family:ui-monospace,"SF Mono",monospace;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+.cross-tool-bar .ctb-timer{font-size:10px;font-weight:600;font-family:ui-monospace,"SF Mono",monospace;color:var(--frost)}
+.cross-tool-bar .ctb-btn{
+  font-size:9px;font-weight:700;letter-spacing:.06em;
+  padding:var(--s1) 12px;border-radius:var(--r-full);
+  border:none;cursor:pointer;font-family:inherit;transition:all .15s var(--ease);
+  text-decoration:none;display:inline-block;
+}
+.cross-tool-bar .ctb-btn.chartporter{background:#2d6a4f;color:#fff}
+.cross-tool-bar .ctb-btn.chartporter:hover{background:#3a7d5e}
+.cross-tool-bar .ctb-btn.genitractor{background:#ffd100;color:#202020}
+.cross-tool-bar .ctb-btn.genitractor:hover{background:#ffee32}
