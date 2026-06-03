@@ -517,56 +517,136 @@ button:disabled{opacity:.35;cursor:not-allowed}
 
 
 /* ============================================================================
-   ANIMATIONS — low-cost, GPU-accelerated, intentional
+   ANIMATIONS — GPU-accelerated, 60fps, professional micro-interactions
    ============================================================================ */
 
-/* Fade-in for cards and sections on load */
-@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.card{animation:fadeUp .4s var(--ease) both}
-.card:nth-child(2){animation-delay:.08s}
-.card:nth-child(3){animation-delay:.16s}
+/* --- KEYFRAMES --- */
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes attentionPulse{0%,100%{box-shadow:0 0 0 0 rgba(232,127,143,0)}50%{box-shadow:0 0 0 5px rgba(232,127,143,.18)}}
+@keyframes modalIn{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes modalOverlayIn{from{opacity:0}to{opacity:1}}
+@keyframes shimmer{from{background-position:-200px 0}to{background-position:200px 0}}
+@keyframes popIn{from{opacity:0;transform:scale(.9) translateY(-4px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 8px rgba(137,176,174,.12)}50%{box-shadow:0 0 16px rgba(137,176,174,.25)}}
+@keyframes barGrow{from{width:0}to{width:var(--bar-width,100%)}}
 
-/* Slide-in for artist blocks */
-@keyframes slideIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
-.ablock{animation:slideIn .25s var(--ease) both}
+/* --- PAGE LOAD — staggered entrance --- */
+.topbar{animation:slideDown .4s var(--ease) both}
+.queue-bar{animation:slideDown .4s var(--ease) .08s both}
+.card{animation:fadeUp .45s var(--ease) both}
+.card:nth-child(1){animation-delay:.12s}
+.card:nth-child(2){animation-delay:.2s}
+.card:nth-child(3){animation-delay:.28s}
+.powered-footer{animation:fadeUp .5s var(--ease) .35s both}
 
-/* Pulse for running status */
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.queue .stat.running{animation:pulse 1.8s var(--ease) infinite}
+/* --- BUTTONS — smooth press + lift + glow --- */
+button{transition:all .2s var(--ease);will-change:transform,box-shadow}
+button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
+button:active:not(:disabled){transform:translateY(0) scale(.95);box-shadow:0 1px 4px rgba(0,0,0,.15);transition:transform .06s,box-shadow .06s}
+button.primary{box-shadow:0 2px 8px rgba(137,176,174,.2)}
+button.primary:hover:not(:disabled){box-shadow:0 6px 20px rgba(137,176,174,.3);transform:translateY(-1.5px)}
+button.primary:active:not(:disabled){box-shadow:0 1px 4px rgba(137,176,174,.15)}
+button.warn:hover:not(:disabled){box-shadow:0 4px 12px rgba(255,214,186,.15)}
+.filebtn span{transition:all .2s var(--ease)}
+.filebtn:hover span{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.filebtn:active span{transform:translateY(0) scale(.95);transition:transform .06s}
 
-/* Smooth collapse/expand */
-.sys-log-wrap,.card-body,#feeds-body,#queue-body{
-  transition:max-height .3s var(--ease),opacity .2s var(--ease),padding .2s var(--ease);
-  overflow:hidden;
+/* --- PILLS — glow, hover lift, press --- */
+.pill{transition:all .2s var(--ease);will-change:transform,box-shadow}
+.pill:hover{transform:translateY(-1.5px)}
+.pill:active{transform:translateY(0) scale(.94);transition:transform .06s}
+.pill.ok{box-shadow:0 0 8px rgba(137,176,174,.15);animation:glowPulse 3s var(--ease) infinite}
+.pill.ok:hover{box-shadow:0 0 16px rgba(137,176,174,.3)}
+.pill.missing{animation:attentionPulse 2s var(--ease) infinite}
+
+/* --- TOOLS & FEEDBACK BUTTONS (topbar) --- */
+.btn-tools,.btn-feedback{transition:all .2s var(--ease);will-change:transform,box-shadow}
+.btn-tools:hover,.btn-feedback:hover{transform:translateY(-1.5px);box-shadow:0 4px 14px rgba(0,0,0,.15)}
+.btn-tools:active,.btn-feedback:active{transform:translateY(0) scale(.94);transition:transform .06s}
+
+/* --- DROPDOWNS — smooth pop-in --- */
+.tools-menu{transform-origin:top right}
+.tools-menu.open{animation:popIn .18s var(--ease) both}
+.tool-option{transition:all .12s var(--ease)}
+.tool-option:hover{transform:translateX(3px)}
+
+/* --- MODAL — overlay fade + content scale --- */
+.modal-overlay{transition:opacity .2s var(--ease)}
+.modal-overlay.open{animation:modalOverlayIn .2s var(--ease) both}
+.modal-overlay.open .modal{animation:modalIn .25s var(--ease) both}
+.modal{will-change:transform,opacity}
+.modal-close{transition:all .15s var(--ease)}
+.modal-close:hover{transform:rotate(90deg) scale(1.1);color:var(--text)}
+
+/* --- FEEDBACK CATEGORIES — bounce on select --- */
+.fb-cat{transition:all .15s var(--ease);will-change:transform}
+.fb-cat:hover{transform:translateY(-1px)}
+.fb-cat:active{transform:scale(.93);transition:transform .06s}
+.fb-cat.active{transform:scale(1.02)}
+
+/* --- QUEUE ITEMS --- */
+.queue li{transition:all .2s var(--ease)}
+.queue li:hover{transform:translateX(3px);background:var(--bg-card-hover)}
+.queue .stat.running{animation:pulse 1.6s var(--ease) infinite}
+.queue .stat.done{animation:fadeUp .3s var(--ease) both}
+.queue .exports button{transition:all .15s var(--ease);will-change:transform}
+.queue .exports button:hover{transform:translateY(-1px) scale(1.03)}
+.queue .exports button:active{transform:scale(.92);transition:transform .06s}
+
+/* --- FEED PANELS — lift + border glow --- */
+.feed-panel{transition:transform .25s var(--ease),border-color .25s var(--ease),box-shadow .25s var(--ease)}
+.feed-panel:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.12);border-color:var(--teal)}
+
+/* --- ARTIST BLOCKS — staggered slide-in --- */
+.ablock{animation:slideIn .3s var(--ease) both}
+.ablock:hover{border-left-color:var(--teal);transition:border-color .15s var(--ease)}
+
+/* --- PROGRESS BAR — shimmer + smooth width --- */
+.feed-header .feed-bar>span{
+  background:linear-gradient(90deg,var(--teal) 0%,var(--frost) 50%,var(--teal) 100%);
+  background-size:200px 100%;animation:shimmer 1.8s linear infinite;
+  transition:width .6s var(--ease);
 }
 
-/* Topbar slide-down on load */
-@keyframes slideDown{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:translateY(0)}}
-.topbar{animation:slideDown .35s var(--ease) both}
-.queue-bar{animation:slideDown .35s var(--ease) .1s both}
+/* --- COLLAPSE / EXPAND — smooth height + rotate arrow --- */
+.sys-log-wrap,#feeds-body{transition:max-height .35s var(--ease),opacity .25s var(--ease),padding .25s var(--ease);overflow:hidden}
+.collapse-btn{transition:transform .25s var(--ease)}
+.card-head:hover .collapse-btn{color:var(--text-secondary)}
 
-/* Button press micro-interaction */
-button:active:not(:disabled){transform:scale(.96) !important;transition:transform .08s}
+/* --- CROSS-TOOL BAR — slide up entrance --- */
+.cross-tool-bar{animation:slideUp .35s var(--ease) both}
+.cross-tool-bar .ctb-progress>span{transition:width .6s var(--ease)}
+.cross-tool-bar .ctb-btn{transition:all .2s var(--ease);will-change:transform}
+.cross-tool-bar .ctb-btn:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.15)}
+.cross-tool-bar .ctb-btn:active{transform:scale(.94);transition:transform .06s}
+.cross-tool-bar .ctb-icon{animation:pulse 1.6s var(--ease) infinite}
 
-/* Feed panel hover lift */
-.feed-panel{transition:transform .2s var(--ease),border-color .2s var(--ease)}
-.feed-panel:hover{transform:translateY(-1px)}
+/* --- SOCIAL LINKS (feed) --- */
+.social-link{transition:all .15s var(--ease);will-change:transform}
+.social-link:hover{transform:translateY(-1px) scale(1.02)}
 
-/* Pill glow on ok status */
-.pill.ok{box-shadow:0 0 6px rgba(137,176,174,.15);transition:box-shadow .3s var(--ease),transform .2s var(--ease)}
-.pill.ok:hover{box-shadow:0 0 12px rgba(137,176,174,.3)}
+/* --- FILTER TOGGLES --- */
+.card-head .ftoggle{transition:all .15s var(--ease);will-change:transform,opacity}
+.card-head .ftoggle:hover{transform:translateY(-1px)}
+.card-head .ftoggle:active{transform:scale(.9);transition:transform .06s}
 
-/* Missing pill attention pulse */
-@keyframes attentionPulse{0%,100%{box-shadow:0 0 0 0 rgba(232,127,143,0)}50%{box-shadow:0 0 0 4px rgba(232,127,143,.2)}}
-.pill.missing{animation:attentionPulse 2.5s var(--ease) infinite}
+/* --- INPUT FOCUS GLOW --- */
+.key-modal-input,.fb-textarea{transition:border-color .2s var(--ease),box-shadow .2s var(--ease)}
+.key-modal-input:focus{box-shadow:0 0 0 3px var(--green-soft),0 4px 12px rgba(137,176,174,.08)}
+.fb-textarea:focus{box-shadow:0 0 0 3px var(--green-soft),0 4px 12px rgba(137,176,174,.08)}
 
-/* Modal entrance */
-@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
-.modal-overlay.open .modal{animation:modalIn .2s var(--ease) both}
+/* --- CLOCK + TIMER — subtle entrance --- */
+.clock,.timer{transition:color .3s var(--ease)}
 
-/* Progress bar shimmer */
-@keyframes shimmer{from{background-position:-200px 0}to{background-position:200px 0}}
-.feed-header .feed-bar>span{background:linear-gradient(90deg,var(--teal) 0%,var(--frost) 50%,var(--teal) 100%);background-size:200px 100%;animation:shimmer 2s linear infinite}
+/* --- SCROLLBAR FADE --- */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;transition:background .2s}
+::-webkit-scrollbar-thumb:hover{background:var(--teal)}
 
 /* ============================================================================
    CROSS-TOOL PROGRESS BAR (bottom of page)

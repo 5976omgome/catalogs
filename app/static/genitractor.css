@@ -296,33 +296,103 @@ main{
 
 
 /* ============================================================================
-   ANIMATIONS — low-cost, GPU-accelerated
+   ANIMATIONS — GPU-accelerated, 60fps, professional micro-interactions
    ============================================================================ */
-@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.card{animation:fadeUp .4s var(--ease) both}
-.card:nth-child(2){animation-delay:.08s}
-.card:nth-child(3){animation-delay:.16s}
 
-@keyframes slideIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
-.ablock{animation:slideIn .25s var(--ease) both}
-
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.queue .stat.running{animation:pulse 1.8s var(--ease) infinite}
-
+/* --- KEYFRAMES --- */
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
 @keyframes slideDown{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:translateY(0)}}
-.topbar{animation:slideDown .35s var(--ease) both}
-.queue-bar{animation:slideDown .35s var(--ease) .1s both}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes attentionPulse{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0)}50%{box-shadow:0 0 0 5px rgba(192,57,43,.15)}}
+@keyframes modalIn{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes modalOverlayIn{from{opacity:0}to{opacity:1}}
+@keyframes popIn{from{opacity:0;transform:scale(.9) translateY(-4px)}to{opacity:1;transform:scale(1) translateY(0)}}
 
-button:active:not(:disabled){transform:scale(.96) !important;transition:transform .08s}
+/* --- PAGE LOAD — staggered entrance --- */
+.topbar{animation:slideDown .4s var(--ease) both}
+.queue-bar{animation:slideDown .4s var(--ease) .08s both}
+.card{animation:fadeUp .45s var(--ease) both}
+.card:nth-child(1){animation-delay:.12s}
+.card:nth-child(2){animation-delay:.2s}
+.powered-footer{animation:fadeUp .5s var(--ease) .3s both}
 
-.pill.ok{box-shadow:0 0 6px rgba(45,106,79,.15)}
-@keyframes attentionPulse{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0)}50%{box-shadow:0 0 0 4px rgba(192,57,43,.15)}}
-.pill.missing{animation:attentionPulse 2.5s var(--ease) infinite}
+/* --- BUTTONS — press + lift + shadow --- */
+button{transition:all .2s var(--ease);will-change:transform,box-shadow}
+button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.1)}
+button:active:not(:disabled){transform:translateY(0) scale(.95);box-shadow:0 1px 3px rgba(0,0,0,.08);transition:transform .06s,box-shadow .06s}
+button.primary{box-shadow:0 2px 8px rgba(32,32,32,.15)}
+button.primary:hover:not(:disabled){box-shadow:0 6px 20px rgba(32,32,32,.2);transform:translateY(-1.5px)}
+button.warn:hover:not(:disabled){box-shadow:0 4px 12px rgba(192,57,43,.1)}
+.filebtn span{transition:all .2s var(--ease)}
+.filebtn:hover span{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.filebtn:active span{transform:translateY(0) scale(.95);transition:transform .06s}
 
-@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
-.modal-overlay.open .modal{animation:modalIn .2s var(--ease) both}
+/* --- PILLS — hover lift, press --- */
+.pill{transition:all .2s var(--ease);will-change:transform,box-shadow}
+.pill:hover{transform:translateY(-1.5px);box-shadow:0 3px 8px rgba(0,0,0,.08)}
+.pill:active{transform:translateY(0) scale(.94);transition:transform .06s}
+.pill.ok{box-shadow:0 0 6px rgba(45,106,79,.12)}
+.pill.missing{animation:attentionPulse 2s var(--ease) infinite}
 
-.sys-log-wrap,#feeds-body{transition:max-height .3s var(--ease),opacity .2s var(--ease)}
+/* --- TOOLS & FEEDBACK BUTTONS (topbar) --- */
+.btn-tools,.btn-feedback{transition:all .2s var(--ease);will-change:transform,box-shadow}
+.btn-tools:hover,.btn-feedback:hover{transform:translateY(-1.5px);box-shadow:0 4px 14px rgba(0,0,0,.1)}
+.btn-tools:active,.btn-feedback:active{transform:translateY(0) scale(.94);transition:transform .06s}
+
+/* --- DROPDOWNS — pop-in --- */
+.tools-menu{transform-origin:top right}
+.tools-menu.open{animation:popIn .18s var(--ease) both}
+.tool-option{transition:all .12s var(--ease)}
+.tool-option:hover{transform:translateX(3px)}
+
+/* --- MODALS --- */
+.modal-overlay{transition:opacity .2s var(--ease)}
+.modal-overlay.open{animation:modalOverlayIn .2s var(--ease) both}
+.modal-overlay.open .modal{animation:modalIn .25s var(--ease) both}
+.modal{will-change:transform,opacity}
+.modal-close{transition:all .15s var(--ease)}
+.modal-close:hover{transform:rotate(90deg) scale(1.1)}
+
+/* --- FEEDBACK CATEGORIES --- */
+.fb-cat{transition:all .15s var(--ease);will-change:transform}
+.fb-cat:hover{transform:translateY(-1px)}
+.fb-cat:active{transform:scale(.93);transition:transform .06s}
+.fb-cat.active{transform:scale(1.02)}
+
+/* --- QUEUE ITEMS --- */
+.queue li{transition:all .2s var(--ease)}
+.queue li:hover{transform:translateX(3px)}
+.queue .stat.running{animation:pulse 1.6s var(--ease) infinite}
+.queue .stat.done{animation:fadeUp .3s var(--ease) both}
+
+/* --- ARTIST BLOCKS --- */
+.ablock{animation:slideIn .3s var(--ease) both}
+.ablock:hover{border-left-color:var(--gold);transition:border-color .15s var(--ease)}
+
+/* --- COLLAPSE/EXPAND --- */
+.sys-log-wrap,#feeds-body{transition:max-height .35s var(--ease),opacity .25s var(--ease),padding .25s var(--ease);overflow:hidden}
+.collapse-btn{transition:transform .25s var(--ease)}
+
+/* --- CROSS-TOOL BAR --- */
+.cross-tool-bar{animation:slideUp .35s var(--ease) both}
+.cross-tool-bar .ctb-progress>span{transition:width .6s var(--ease)}
+.cross-tool-bar .ctb-btn{transition:all .2s var(--ease);will-change:transform}
+.cross-tool-bar .ctb-btn:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.1)}
+.cross-tool-bar .ctb-btn:active{transform:scale(.94);transition:transform .06s}
+.cross-tool-bar .ctb-icon{animation:pulse 1.6s var(--ease) infinite}
+
+/* --- INPUTS --- */
+.key-modal-input,.fb-textarea{transition:border-color .2s var(--ease),box-shadow .2s var(--ease)}
+.key-modal-input:focus{box-shadow:0 0 0 3px rgba(255,209,0,.15),0 4px 12px rgba(255,209,0,.05)}
+.fb-textarea:focus{box-shadow:0 0 0 3px rgba(255,209,0,.15)}
+
+/* --- SCROLLBAR --- */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--dust);border-radius:3px;transition:background .2s}
+::-webkit-scrollbar-thumb:hover{background:var(--graphite)}
 
 /* ============================================================================
    CROSS-TOOL PROGRESS BAR
