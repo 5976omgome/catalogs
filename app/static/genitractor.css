@@ -194,12 +194,17 @@ main{
 .collapse-btn{font-size:9px;padding:2px 6px;line-height:1;color:var(--graphite);border:1px solid var(--dust) !important}
 
 /* System log */
-.sys-log-wrap{max-height:120px;overflow-y:auto;padding:var(--s3);font-family:ui-monospace,"SF Mono",monospace;font-size:10px;line-height:1.6;white-space:pre-wrap;word-break:break-word;background:#fff}
-.sysline{color:var(--graphite);padding:1px 0}
-.sysline.ok{color:#2d6a4f}
-.sysline.bad{color:#c0392b}
-.sysline.info{color:var(--carbon)}
-.sysline.warn{color:#b8860b}
+.sys-log-wrap{
+  max-height:120px;overflow-y:auto;padding:var(--s3);
+  font-family:ui-monospace,"SF Mono",monospace;font-size:10px;line-height:1.6;
+  white-space:pre-wrap;word-break:break-word;
+  background:var(--carbon);border-radius:0 0 var(--r-lg) var(--r-lg);
+}
+.sysline{color:var(--dust);padding:1px 0}
+.sysline.ok{color:#4ade80}
+.sysline.bad{color:#f87171}
+.sysline.info{color:#fff}
+.sysline.warn{color:var(--gold)}
 
 /* Feeds grid */
 .feeds-grid{
