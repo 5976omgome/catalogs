@@ -20,6 +20,13 @@
     <div class="pills">
       <span class="pill clickable" id="pill-genius" data-key="genius_token">GENIUS</span>
       <span class="pill-divider"></span>
+      <div class="tools-dropdown" id="tools-dropdown">
+        <button class="btn-tools" id="tool-btn">GENITRACTOR</button>
+        <div class="tools-menu" id="tools-menu">
+          <a href="/" class="tool-option tool-chartporter-opt">Chartporter</a>
+          <a href="/genitractor" class="tool-option tool-genitractor-opt active">Genitractor</a>
+        </div>
+      </div>
       <button class="btn-feedback" id="btn-feedback">FEEDBACK</button>
     </div>
   </header>
@@ -27,15 +34,6 @@
   <!-- STICKY QUEUE BAR -->
   <nav class="queue-bar">
     <div class="queue-row">
-      <div class="tools-dropdown" id="tools-dropdown">
-        <span class="tools-label">Tools:</span>
-        <button class="tool-selected tool-genitractor" id="tool-btn">Genitractor</button>
-        <div class="tools-menu" id="tools-menu">
-          <a href="/" class="tool-option tool-chartporter-opt">Chartporter</a>
-          <a href="/genitractor" class="tool-option tool-genitractor-opt active">Genitractor</a>
-        </div>
-      </div>
-      <span class="pill-divider"></span>
       <label class="filebtn"><input type="file" id="file-input" accept=".csv,.tsv" multiple><span>ADD</span></label>
       <button id="btn-run" class="primary">RUN</button>
       <button id="btn-stop" class="warn">STOP</button>

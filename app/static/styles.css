@@ -140,22 +140,22 @@ main{
 }
 .queue-row{display:flex;align-items:center;gap:var(--s2)}
 
-/* Tools Dropdown */
-.tools-dropdown{position:relative;display:flex;align-items:center;gap:var(--s2)}
-.tools-label{font-size:11px;font-weight:500;color:var(--text-tertiary)}
-.tool-selected{
-  font-size:10px;font-weight:700;letter-spacing:.06em;
-  padding:var(--s1) 12px;border-radius:var(--r-full);cursor:pointer;
-  border:none;font-family:inherit;transition:all .15s var(--ease);
+/* ============================================================================
+   TOOLS DROPDOWN (topbar bubble)
+   ============================================================================ */
+.tools-dropdown{position:relative;display:inline-flex;align-items:center}
+.btn-tools{
+  font-size:9px;font-weight:700;letter-spacing:.08em;
+  padding:var(--s1) 10px;border-radius:var(--r-full);
+  background:var(--green-soft);border:1px solid var(--green-border);
+  color:var(--teal);cursor:pointer;transition:all .2s var(--ease);
+  font-family:inherit;
 }
-.tool-chartporter{background:#2d6a4f;color:#fff}
-.tool-chartporter:hover{background:#3a7d5e}
-.tool-genitractor{background:#ffd100;color:#202020}
-.tool-genitractor:hover{background:#ffee32}
+.btn-tools:hover{background:rgba(137,176,174,.15);border-color:var(--teal);transform:translateY(-.5px)}
 .tools-menu{
-  display:none;position:absolute;top:calc(100% + 6px);left:0;
+  display:none;position:absolute;top:calc(100% + 8px);right:0;
   background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-md);
-  padding:var(--s1);min-width:160px;z-index:50;
+  padding:var(--s1);min-width:150px;z-index:200;
   box-shadow:0 8px 24px rgba(0,0,0,.4);
 }
 .tools-menu.open{display:block}
