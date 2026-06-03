@@ -170,16 +170,13 @@ function removeFeed(itemId){if(feeds[itemId]){feeds[itemId].el.remove();delete f
 
 function updateGridLayout(){
   const grid=$("feeds-grid");
-  // Total panels = system console + feed panels
-  const feedCount=Object.keys(feeds).length;
-  const totalPanels=1+feedCount; // 1 for system console
+  const n=Object.keys(feeds).length;
   grid.className="feeds-grid";
-  if(totalPanels<=1)grid.classList.add("cols-1");
-  else if(totalPanels===2)grid.classList.add("cols-2");
-  else if(totalPanels===3)grid.classList.add("cols-3");
+  if(n<=1)grid.classList.add("cols-1");
+  else if(n===2)grid.classList.add("cols-2");
+  else if(n===3)grid.classList.add("cols-3");
   else grid.classList.add("cols-4");
-  // Update header title
-  $("feeds-title").textContent=feedCount>1?"FEEDS":"FEED";
+  $("feeds-title").textContent=n>1?"FEEDS":"FEED";
 }
 
 function addArtistToFeed(ev){

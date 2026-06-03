@@ -214,6 +214,15 @@ button:disabled{opacity:.35;cursor:not-allowed}
 .card-head .ftoggle.f-socials{color:var(--frost);background:var(--blue-soft);border-color:var(--blue-border)}
 .card-head .ftoggle.f-debug{color:var(--text-quaternary);background:rgba(255,255,255,.02);border-color:var(--border)}
 
+
+/* System console — separate from feeds grid */
+.sys-log-wrap{
+  max-height:120px;overflow-y:auto;padding:var(--s3);
+  font-family:ui-monospace,"SF Mono","Menlo","Cascadia Code",monospace;
+  font-size:10px;line-height:1.6;white-space:pre-wrap;word-break:break-word;
+  background:var(--bg);border-radius:0 0 var(--r-lg) var(--r-lg);
+}
+
 /* ============================================================================
    FEEDS GRID
    ============================================================================ */
