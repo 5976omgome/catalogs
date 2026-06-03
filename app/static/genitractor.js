@@ -167,14 +167,12 @@ function renderItem(item){
   li.append(stat);$("queue").append(li);qState[item.id]=li;
 }
 
-let totalProcessed=0,totalArtists=0;
+let totalProcessed=0,totalArtists=0,totalFound=0;
 
 function updateStats(){
-  let running=0;
-  Object.values(qState).forEach(li=>{const s=li.querySelector(".stat");if(s&&s.classList.contains("running"))running++});
-  $("stat-slots").textContent=running+"/4";
-  $("stat-pct").textContent=totalArtists>0?Math.floor(100*totalProcessed/totalArtists)+"%":"0%";
-  $("feed-progress").textContent=totalProcessed+"/"+totalArtists;
+  // stat-pct shows % of artists where we found at least 1 contact
+  const foundPct=totalProcessed>0?Math.floor(100*totalFound/totalProcessed):0;
+  $("stat-pct").textContent=foundPct+"% FOUND";
 }
 
 function addContactToFeed(ev){
@@ -204,7 +202,9 @@ function addContactToFeed(ev){
   }
   grid.append(block);grid.scrollTop=grid.scrollHeight;
 
-  totalProcessed++;updateStats();
+  totalProcessed++;
+  if(hasAnything)totalFound++;
+  updateStats();
   sys(`${hasAnything?"\u2713":"\u2014"} ${ev.artist}`,hasAnything?"ok":"");
 }
 

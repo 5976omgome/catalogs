@@ -37,10 +37,11 @@ html,body{
   margin:0;padding:0;
   background:var(--bg);color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter","Segoe UI",sans-serif;
-  font-size:14px;line-height:1.5;
+  font-size:13px;line-height:1.5;
   -webkit-font-smoothing:antialiased;
   min-height:100vh;
 }
+body{display:flex;flex-direction:column}
 
 /* ============================================================================
    TOPBAR
@@ -148,13 +149,13 @@ button.ghost:hover:not(:disabled){border-color:var(--carbon);color:var(--carbon)
 }
 
 /* Queue list */
-.queue{list-style:none;padding:0;margin:var(--s2) 0 0;max-height:120px;overflow-y:auto}
+.queue{list-style:none;padding:0;margin:var(--s2) 0 0;max-height:80px;overflow-y:auto;overflow-x:hidden}
 .queue li{
   padding:var(--s2) var(--s3);border-bottom:1px solid var(--dust);
   display:flex;align-items:center;justify-content:space-between;gap:var(--s2);
 }
 .queue li:last-child{border-bottom:none}
-.queue .name{font-size:11px;font-weight:500;color:var(--carbon);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.queue .name{font-size:11px;font-weight:500;color:var(--carbon);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .queue .stat{font-size:8px;font-weight:700;letter-spacing:.1em;padding:3px 8px;border-radius:var(--r-full);background:var(--carbon);color:#fff;text-transform:uppercase}
 .queue .stat.running{background:var(--gold);color:var(--carbon)}
 .queue .stat.done{background:#2d6a4f;color:#fff}
@@ -165,9 +166,10 @@ button.ghost:hover:not(:disabled){border-color:var(--carbon);color:var(--carbon)
    MAIN LAYOUT
    ============================================================================ */
 main{
-  max-width:1440px;margin:0 auto;
-  padding:var(--s5) var(--s6) var(--s10);
+  max-width:1440px;margin:0 auto;width:100%;
+  padding:var(--s4) var(--s6) var(--s6);
   display:flex;flex-direction:column;gap:var(--s3);
+  flex:1;
 }
 
 /* Cards */
@@ -182,13 +184,6 @@ main{
   cursor:pointer;
 }
 .card-head h2{margin:0;font-size:10px;font-weight:700;letter-spacing:.18em;color:var(--carbon)}
-
-.feed-progress{
-  font-size:11px;font-weight:700;font-family:ui-monospace,"SF Mono",monospace;
-  color:var(--carbon);padding:var(--s1) var(--s3);
-  border-radius:var(--r-full);background:var(--gold);
-  font-variant-numeric:tabular-nums;margin-left:var(--s2);
-}
 
 .collapse-btn{font-size:9px;padding:2px 6px;line-height:1;color:var(--graphite);border:1px solid var(--dust) !important}
 
@@ -207,7 +202,7 @@ main{
 
 /* Feeds grid */
 .feeds-grid{
-  padding:var(--s3);flex:1;min-height:200px;max-height:70vh;overflow-y:auto;
+  padding:var(--s3);flex:1;min-height:180px;max-height:calc(100vh - 340px);overflow-y:auto;
   background:var(--carbon);border-radius:0 0 var(--r-lg) var(--r-lg);
 }
 .feeds-grid.cols-1{display:block}
@@ -231,7 +226,7 @@ main{
 /* ============================================================================
    FOOTER
    ============================================================================ */
-.powered-footer{margin-top:var(--s10);padding:var(--s8) var(--s6) var(--s6);border-top:2px solid var(--carbon);background:#fff}
+.powered-footer{margin-top:auto;padding:var(--s8) var(--s6) var(--s6);border-top:2px solid var(--carbon);background:#fff;width:100%}
 .footer-inner{max-width:1440px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:var(--s5)}
 .footer-label{font-size:8px;font-weight:600;letter-spacing:.35em;color:var(--graphite)}
 .footer-logos{display:flex;align-items:center;gap:var(--s6)}

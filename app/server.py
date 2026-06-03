@@ -511,8 +511,10 @@ def geni_start():
     with _geni_lock:
         queued = [i for i in _geni_items if i["status"] == "queued"]
         running = sum(1 for i in _geni_items if i["status"] == "running")
-        available = 4 - running
-        to_start = queued[:max(0, available)]
+        # Only 1 CSV at a time for Genitractor (Genius rate limit is global)
+        if running >= 1:
+            return jsonify({"ok": True, "started": 0, "message": "Already running — queued"})
+        to_start = queued[:1]
 
     for item in to_start:
         _geni_stop_flags[item["id"]] = False
