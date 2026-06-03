@@ -10,39 +10,39 @@
   <header class="topbar">
     <div class="brand">CATALOG AUDIT</div>
     <div class="pills">
-      <span class="pill" id="pill-itunes">iTunes</span>
-      <span class="pill" id="pill-deezer">Deezer</span>
-      <span class="pill" id="pill-ai">ai</span>
+      <span class="pill" id="pill-itunes">ITUNES</span>
+      <span class="pill" id="pill-deezer">DEEZER</span>
+      <span class="pill" id="pill-ai">AI</span>
     </div>
   </header>
 
   <main>
     <section class="card" id="card-keys">
       <header class="card-head">
-        <h2>API Keys</h2>
-        <button id="btn-toggle-keys" class="ghost">edit</button>
+        <h2>API KEYS</h2>
+        <button id="btn-toggle-keys" class="ghost">EDIT</button>
       </header>
       <div class="keys-body" id="keys-body" style="display:none">
         <div class="keys-grid two-col">
           <label>
-            <span>Groq</span>
+            <span>GROQ</span>
             <input id="key-groq" type="password" placeholder="paste key">
             <small id="prev-groq"></small>
           </label>
           <label>
-            <span>Gemini</span>
+            <span>GEMINI</span>
             <input id="key-gemini" type="password" placeholder="paste key">
             <small id="prev-gemini"></small>
           </label>
           <label>
-            <span>Genius</span>
+            <span>GENIUS</span>
             <input id="key-genius" type="password" placeholder="paste token">
             <small id="prev-genius"></small>
           </label>
         </div>
         <div class="keys-actions">
           <button id="btn-save-keys" class="primary">SAVE</button>
-          <button id="btn-clear-keys" class="ghost">clear all</button>
+          <button id="btn-clear-keys" class="ghost">CLEAR</button>
           <span id="keys-msg"></span>
         </div>
       </div>
@@ -50,16 +50,16 @@
 
     <section class="card">
       <header class="card-head">
-        <h2>Queue</h2>
+        <h2>QUEUE</h2>
         <div class="row">
           <label class="filebtn">
             <input type="file" id="file-input" accept=".csv,.tsv" multiple>
             <span>+ CSV</span>
           </label>
-          <button id="btn-run" class="primary">RUN ALL</button>
-          <button id="btn-stop" class="warn">STOP ALL</button>
-          <button id="btn-export-all" class="ghost">EXPORT ALL</button>
-          <button id="btn-clear" class="ghost">clear done</button>
+          <button id="btn-run" class="primary">RUN</button>
+          <button id="btn-stop" class="warn">STOP</button>
+          <button id="btn-export-all" class="ghost">EXPORT</button>
+          <button id="btn-clear" class="ghost">CLEAR</button>
         </div>
       </header>
       <ul id="queue" class="queue"></ul>
@@ -67,10 +67,17 @@
 
     <section class="card grow" id="feeds-section">
       <header class="card-head">
-        <h2>Live Feeds</h2>
+        <h2>LIVE FEEDS</h2>
         <span class="counter" id="counter-global"></span>
       </header>
-      <div id="feeds-grid" class="feeds-grid"></div>
+      <div id="feeds-grid" class="feeds-grid cols-1">
+        <div class="feed-panel" id="system-console">
+          <div class="feed-header">
+            <span class="feed-title">SYSTEM</span>
+          </div>
+          <div class="feed-log" id="sys-log"></div>
+        </div>
+      </div>
     </section>
   </main>
 

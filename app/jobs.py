@@ -80,7 +80,7 @@ class JobItem:
     output_path: Optional[Path] = None
     _stop: bool = field(default=False, repr=False)
     use_gemini: bool = field(default=True)   # Whether AI bridge runs for this item
-    verbose: bool = field(default=False)      # Whether to emit debug events
+    verbose: bool = field(default=True)       # Emit debug events (always on, UI toggle controls display)
     use_genius: bool = field(default=True)    # Pull socials from Genius (always on when key exists)
 
     def to_dict(self) -> dict:
@@ -304,11 +304,16 @@ class JobManager:
             socials = None
             if item.use_genius:
                 from app.sources import genius
+                from app import config as _cfg
                 t1 = _time.time() if item.verbose else 0
-                socials = genius.get_socials(artist)
-                if item.verbose and debug_info is not None:
-                    ge = _time.time() - t1
-                    debug_info["steps"].append(f"genius: {int(ge*1000)}ms → {socials or 'none'}")
+                if _cfg.genius_token():
+                    socials = genius.get_socials(artist)
+                    if item.verbose and debug_info is not None:
+                        ge = _time.time() - t1
+                        debug_info["steps"].append(f"genius: {int(ge*1000)}ms → {socials or 'no socials found'}")
+                else:
+                    if item.verbose and debug_info is not None:
+                        debug_info["steps"].append("genius: SKIPPED (no token)")
 
             return idx, a, socials, debug_info
 
