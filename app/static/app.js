@@ -2,6 +2,70 @@
 const $=id=>document.getElementById(id);
 
 // ---------------------------------------------------------------------------
+// CLOCK + TIMER + STATS
+// ---------------------------------------------------------------------------
+let _timerStart=null;let _timerInterval=null;
+
+function initClock(){
+  function tick(){
+    const now=new Date();
+    $("clock").textContent=now.toLocaleTimeString("en",{hour12:false,hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  }
+  tick();setInterval(tick,1000);
+}
+
+function startTimer(){
+  if(_timerInterval)return;
+  _timerStart=Date.now();
+  $("timer").style.display="";$("timer-div").style.display="";
+  _timerInterval=setInterval(()=>{
+    const elapsed=Math.floor((Date.now()-_timerStart)/1000);
+    const m=String(Math.floor(elapsed/60)).padStart(2,"0");
+    const s=String(elapsed%60).padStart(2,"0");
+    $("timer").textContent=m+":"+s;
+  },1000);
+}
+
+function stopTimer(){
+  if(_timerInterval){clearInterval(_timerInterval);_timerInterval=null}
+}
+
+function updateStats(){
+  // Count running items (slots used)
+  const queueEl=$("queue");
+  const items=queueEl?queueEl.querySelectorAll("li"):[];
+  let running=0,totalProcessed=0,totalArtists=0,totalKeep=0;
+  // We track from the qState
+  Object.values(qState).forEach(li=>{
+    const stat=li.querySelector(".stat");
+    if(stat&&stat.classList.contains("running"))running++;
+  });
+  $("stat-slots").textContent=running+"/4";
+
+  // Calculate totals from all feeds
+  let allProcessed=0,allTotal=0,allKeep=0;
+  Object.values(feeds).forEach(f=>{
+    allKeep+=f.counts.keep||0;
+    const total=(f.counts.keep||0)+(f.counts.review||0)+(f.counts.drop||0);
+    allProcessed+=total;
+  });
+
+  // Total % finished (across all items)
+  // We need total artists from queue items
+  let queueTotal=0;
+  Object.values(qState).forEach(li=>{
+    const c=li.querySelector(".counts");
+    if(c){const parts=c.textContent.split("/");if(parts[1])queueTotal+=parseInt(parts[1])||0}
+  });
+  const pct=queueTotal>0?Math.floor(100*allProcessed/queueTotal):0;
+  $("stat-pct").textContent=pct+"%";
+
+  // % clean (KEEP out of all processed)
+  const cleanPct=allProcessed>0?Math.floor(100*allKeep/allProcessed):0;
+  $("stat-clean").textContent=cleanPct+"% CLEAN";
+}
+
+// ---------------------------------------------------------------------------
 // GLOBAL FILTERS — shared across all feeds
 // ---------------------------------------------------------------------------
 const gFilters={drop:true,review:true,keep:true,socials:true,debug:false};
@@ -245,12 +309,12 @@ function handleEvent(ev){
   if(ev.type==="snapshot"){$("queue").innerHTML="";Object.keys(qState).forEach(k=>delete qState[k]);
     (ev.items||[]).forEach(i=>{renderItem(i);if(i.status==="running")ensureFeed(i.id,i.filename)})}
   else if(ev.type==="item_added"){renderItem(ev.item);sys("+ "+ev.item.filename,"info")}
-  else if(ev.type==="item_started"){renderItem(ev.item);ensureFeed(ev.item.id,ev.item.filename);sys("\u25b6 "+ev.item.filename,"info")}
-  else if(ev.type==="artist_done"){addArtistToFeed(ev);
+  else if(ev.type==="item_started"){renderItem(ev.item);ensureFeed(ev.item.id,ev.item.filename);updateStats();sys("\u25b6 "+ev.item.filename,"info")}
+  else if(ev.type==="artist_done"){addArtistToFeed(ev);updateStats();
     const li=qState[ev.item_id];if(li){const stat=li.querySelector(".stat");if(stat)stat.textContent=`${Math.floor(100*ev.processed/ev.total)}%`;
       const c=li.querySelector(".counts");if(c)c.textContent=`${ev.processed}/${ev.total}`}}
-  else if(ev.type==="item_done"){renderItem(ev.item);sys("\u2713 Done: "+ev.item.filename,"ok")}
-  else if(ev.type==="item_stopped"){renderItem(ev.item);sys("\u25a0 Stopped: "+ev.item.filename,"warn")}
+  else if(ev.type==="item_done"){renderItem(ev.item);updateStats();sys("\u2713 Done: "+ev.item.filename,"ok");checkAllDone()}
+  else if(ev.type==="item_stopped"){renderItem(ev.item);updateStats();sys("\u25a0 Stopped: "+ev.item.filename,"warn")}
   else if(ev.type==="item_error"){renderItem(ev.item);sys("\u2717 Error: "+(ev.item.error||ev.item.filename),"bad")}
   else if(ev.type==="genius_progress"){
     const s=ev.socials||{};const parts=[];
@@ -262,6 +326,16 @@ function handleEvent(ev){
     sys(`[genius] ✓ Complete: ${ev.found} socials from ${ev.processed} artists.`,"ok");
     $("btn-genius").disabled=false;$("btn-genius").textContent="GENIUS";$("btn-genius-stop").style.display="none";
   }
+}
+
+function checkAllDone(){
+  // Stop timer when no running items remain
+  let anyRunning=false;
+  Object.values(qState).forEach(li=>{
+    const stat=li.querySelector(".stat");
+    if(stat&&stat.classList.contains("running"))anyRunning=true;
+  });
+  if(!anyRunning)stopTimer();
 }
 
 // ---------------------------------------------------------------------------
@@ -371,12 +445,13 @@ async function handleFbSubmit(){
 
 document.addEventListener("DOMContentLoaded",()=>{
   sys("Virtual Scout starting\u2026","info");
+  initClock();
   initGlobalFilters();
   initCollapsible();
   initFeedback();
   $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
-  $("btn-run").addEventListener("click",()=>{fetch("/api/queue/start",{method:"POST"});sys("RUN","info")});
-  $("btn-stop").addEventListener("click",()=>{fetch("/api/queue/stop",{method:"POST"});sys("STOP","warn")});
+  $("btn-run").addEventListener("click",()=>{fetch("/api/queue/start",{method:"POST"});sys("RUN","info");startTimer()});
+  $("btn-stop").addEventListener("click",()=>{fetch("/api/queue/stop",{method:"POST"});sys("STOP","warn");stopTimer()});
   $("btn-export-all").addEventListener("click",()=>dl($("btn-export-all"),"/api/export_all","AllCombinedOutput.xlsx"));
   $("btn-genius").addEventListener("click",startGeniusPass);
   $("btn-genius-stop").addEventListener("click",stopGeniusPass);

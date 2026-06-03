@@ -159,9 +159,13 @@ class JobManager:
             return [i.to_dict() for i in self._items]
 
     def start(self):
-        """Start ALL queued items simultaneously — each on its own thread."""
+        """Start queued items — max 4 concurrent. Rest stay queued."""
         with self._lock:
-            queued = [i for i in self._items if i.status == "queued"]
+            running_count = sum(1 for i in self._items if i.status == "running")
+            available_slots = 4 - running_count
+            if available_slots <= 0:
+                return
+            queued = [i for i in self._items if i.status == "queued"][:available_slots]
         for item in queued:
             if item.id not in self._active_threads:
                 t = threading.Thread(target=self._run_item_safe, args=(item,), daemon=True)
@@ -202,6 +206,8 @@ class JobManager:
         finally:
             with self._lock:
                 self._active_threads.pop(item.id, None)
+            # Auto-start next queued item (max 4 concurrent)
+            self.start()
 
     def _run_item(self, item: JobItem):
         with self._lock:

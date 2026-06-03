@@ -81,7 +81,15 @@ html,body{
 .brand-text{display:flex;flex-direction:column;gap:1px}
 .brand{font-size:13px;font-weight:800;letter-spacing:.16em;color:var(--snow)}
 .brand-sub{font-size:8px;font-weight:500;letter-spacing:.28em;color:var(--teal);opacity:.7}
-.pills{display:flex;gap:var(--s2)}
+.pills{display:flex;gap:var(--s2);align-items:center}
+
+/* Topbar center — clock, timer, stats */
+.topbar-center{display:flex;align-items:center;gap:var(--s2)}
+.clock{font-size:11px;font-weight:600;font-family:ui-monospace,"SF Mono",monospace;color:var(--text-tertiary);letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.timer{font-size:11px;font-weight:700;font-family:ui-monospace,"SF Mono",monospace;color:var(--frost);letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.stat-slots{font-size:9px;font-weight:700;letter-spacing:.06em;padding:var(--s1) 8px;border-radius:var(--r-full);background:var(--bg-surface);color:var(--text-tertiary);font-family:ui-monospace,"SF Mono",monospace}
+.stat-pct{font-size:9px;font-weight:700;letter-spacing:.06em;padding:var(--s1) 8px;border-radius:var(--r-full);background:var(--green-soft);color:var(--teal);border:1px solid var(--green-border);font-family:ui-monospace,"SF Mono",monospace}
+.stat-clean{font-size:9px;font-weight:700;letter-spacing:.06em;padding:var(--s1) 8px;border-radius:var(--r-full);background:var(--blue-soft);color:var(--frost);border:1px solid var(--blue-border);font-family:ui-monospace,"SF Mono",monospace;margin-left:var(--s1)}
 .pill{
   font-size:9px;font-weight:600;
   padding:var(--s1) 10px;
