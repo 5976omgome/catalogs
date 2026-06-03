@@ -61,26 +61,52 @@ _SUFFIXES = [
     "ministries", "digital", "label", "distribution",
 ]
 
-# Licensing markers (multi-language)
+# ---------------------------------------------------------------------------
+# Licensing markers — patterns in real P-lines indicating the artist does NOT
+# own masters outright. Researched from DDEX standard, Apple Music Style Guide,
+# Spotify copyrights field, and the user's actual Chartmetric output data.
+#
+# HARD markers — always flag (licensing relationship is explicit):
+# SOFT markers — only flag when followed by a major/indie (not a distributor)
+# ---------------------------------------------------------------------------
+
 _LICENSING_MARKERS = [
+    # English — explicit license/exclusive language
     "under exclusive license to",
     "under exclusive licence to",
+    "under license to",
+    "under licence to",
     "exclusively licensed to",
     "exclusively distributed by",
     "licensed to",
     "licensee for",
+    "as licensee for",
+    # Spanish
     "licencia exclusiva",
-    "sous licence exclusive",
     "bajo licencia exclusiva",
+    "bajo licencia",
+    # French
+    "sous licence exclusive",
+    "sous licence",
+    # German
     "unter exklusiver lizenz",
+    "unter lizenz",
+    # Portuguese
+    "sob licenca exclusiva",
+    # Italian
+    "su licenza esclusiva",
 ]
 
-# Soft licensing markers that only flag when followed by a major/indie name
+# Soft markers — only flag when what follows is a MAJOR or KNOWN INDIE.
+# "distributed by DistroKid" is fine (neutral distributor).
+# "distributed by Sony Music" is a hard flag.
 _SOFT_LICENSING_MARKERS = [
     "exclusively licensed by",
     "distributed by",
     "a division of",
     "a label of",
+    "a subsidiary of",
+    "an imprint of",
 ]
 
 
@@ -208,6 +234,13 @@ def is_known_indie(label: str) -> bool:
 def find_licensing_clause(text: str) -> Optional[str]:
     """If text contains exclusive/licensing language, return the licensee name.
     Returns None if no licensing clause found.
+    
+    Covers real-world P-line patterns from Apple/Spotify/Deezer:
+    - "under exclusive license to Republic Records, a division of UMG"
+    - "bajo Licencia Exclusiva para Play Music Perú"  
+    - "This compilation WaterTower Music as licensee for Warner Bros."
+    - "A Karussell release; ℗ 2026 Universal Music GmbH"
+    - "distributed by Sony Music" (only when followed by a major/indie)
     """
     tl = text.lower()
 
@@ -226,8 +259,16 @@ def find_licensing_clause(text: str) -> Optional[str]:
         if idx >= 0:
             after = text[idx + len(marker):].strip(" ,;:")
             after_chunk = re.split(r"[.!,;]", after, maxsplit=1)[0].strip()
-            if is_major_family(after_chunk) or is_known_indie(after_chunk):
+            if after_chunk and (is_major_family(after_chunk) or is_known_indie(after_chunk)):
                 return after_chunk
+
+    # Pattern: "A [Major Label] release" at the start of a P-line
+    # Real example: "A Karussell release; ℗ 2026 Universal Music GmbH"
+    release_match = re.match(r"^an?\s+(.+?)\s+release\b", tl)
+    if release_match:
+        label_name = release_match.group(1).strip()
+        if is_major_family(label_name):
+            return text[release_match.start(1):release_match.end(1)]
 
     return None
 
