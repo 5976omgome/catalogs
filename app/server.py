@@ -41,7 +41,6 @@ def api_status():
     store = config.keys_store()
     s = store.status()
     return jsonify({
-        "discogs_set": s["discogs_token"]["set"],
         "groq_set": s["groq_api_key"]["set"],
         "gemini_set": s["gemini_api_key"]["set"],
     })
@@ -59,7 +58,7 @@ def api_settings_post():
     if not data or not isinstance(data, dict):
         return jsonify({"error": "invalid body"}), 400
     store = config.keys_store()
-    for key in ("discogs_token", "groq_api_key", "gemini_api_key"):
+    for key in ("groq_api_key", "gemini_api_key"):
         if key in data:
             val = str(data[key]).strip()
             if val:

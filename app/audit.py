@@ -1,5 +1,7 @@
 """Audit engine — produces KEEP / DROP_MAJOR / DROP_LICENSED / DROP_THIRDPARTY / REVIEW
-for each artist by combining iTunes, Deezer, Discogs, and Chartmetric data.
+for each artist by combining iTunes, Deezer, and Chartmetric data.
+
+Sources: iTunes (P-line, 15 releases), Deezer (label field, 5 releases), Chartmetric (CSV).
 
 Key design decisions:
 - iTunes P-line is treated as ground truth (legal owner of the recording)
@@ -7,19 +9,20 @@ Key design decisions:
   a third-party name, we trust iTunes
 - OLD_CATALOG (pre-2005) is informational only, does NOT flag
 - AI bridge is called only on DIVERGES-only cases (can promote to KEEP)
+- Early-exit: if CM label is already a major/licensed → skip ALL API calls
 """
 from dataclasses import dataclass, field
 from typing import List, Optional
 
 from app import labels
-from app.sources import itunes, deezer, discogs
+from app.sources import itunes, deezer
 from app import ai_bridge
 
 
 @dataclass
 class LabelEval:
     """One label string evaluated against the artist."""
-    source: str          # "iTunes", "Deezer", "Discogs", "Chartmetric"
+    source: str          # "iTunes", "Deezer", "Chartmetric"
     label: str           # The raw label/P-line text
     classification: str  # "variant", "distributor", "major", "licensed", "thirdparty"
     title: str = ""      # Release title (when available)
@@ -49,7 +52,7 @@ def audit_artist(
     no point burning rate limits and time on an artist we know is DROP.
 
     Full pipeline (only runs if CM doesn't give an instant answer):
-    1. Pull releases from iTunes, Deezer, Discogs
+    1. Pull releases from iTunes, Deezer
     2. Classify each label/P-line against the artist name
     3. Check Chartmetric's self-reported label
     4. Derive status based on priority rules
@@ -87,10 +90,9 @@ def audit_artist(
             audit.status_reason = f"Licensing clause in Chartmetric label: {cm!r} → {licensee} (skipped API calls)"
             return audit
 
-    # --- Pull from all sources (only if CM didn't give an instant answer) ---
+    # --- Pull from sources (only if CM didn't give an instant answer) ---
     itunes_releases = itunes.get_releases(artist)
     deezer_releases = deezer.get_releases(artist)
-    discogs_releases = discogs.get_releases(artist)
 
     # --- Classify each label ---
     for rel in itunes_releases:
@@ -121,16 +123,6 @@ def audit_artist(
         cls = labels.classify_label(artist, rel.get("label", ""))
         evals.append(LabelEval(
             source="Deezer",
-            label=rel.get("label", ""),
-            classification=cls,
-            title=rel.get("title", ""),
-            year=rel.get("year"),
-        ))
-
-    for rel in discogs_releases:
-        cls = labels.classify_label(artist, rel.get("label", ""))
-        evals.append(LabelEval(
-            source="Discogs",
             label=rel.get("label", ""),
             classification=cls,
             title=rel.get("title", ""),
@@ -169,9 +161,6 @@ def audit_artist(
     dz_year = deezer.get_earliest_year(artist)
     if dz_year:
         years.append(dz_year)
-    dc_year = discogs.get_earliest_year(artist)
-    if dc_year:
-        years.append(dc_year)
     audit.earliest_year = min(years) if years else None
 
     # --- Derive status ---

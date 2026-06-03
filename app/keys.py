@@ -9,7 +9,7 @@ from typing import Optional
 _DIR = Path.home() / ".catalog_audit"
 _FILE = _DIR / "keys.json"
 
-VALID_KEYS = ("discogs_token", "groq_api_key", "gemini_api_key")
+VALID_KEYS = ("groq_api_key", "gemini_api_key")
 
 
 def _mask(value: str) -> str:

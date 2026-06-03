@@ -10,7 +10,8 @@
   <header class="topbar">
     <div class="brand">CATALOG AUDIT</div>
     <div class="pills">
-      <span class="pill" id="pill-discogs">discogs</span>
+      <span class="pill" id="pill-itunes">iTunes</span>
+      <span class="pill" id="pill-deezer">Deezer</span>
       <span class="pill" id="pill-ai">ai</span>
     </div>
   </header>
@@ -22,12 +23,7 @@
         <button id="btn-toggle-keys" class="ghost">edit</button>
       </header>
       <div class="keys-body" id="keys-body" style="display:none">
-        <div class="keys-grid">
-          <label>
-            <span>Discogs</span>
-            <input id="key-discogs" type="password" placeholder="paste token">
-            <small id="prev-discogs"></small>
-          </label>
+        <div class="keys-grid two-col">
           <label>
             <span>Groq</span>
             <input id="key-groq" type="password" placeholder="paste key">
@@ -55,25 +51,20 @@
             <input type="file" id="file-input" accept=".csv,.tsv" multiple>
             <span>+ CSV</span>
           </label>
-          <button id="btn-run" class="primary">RUN</button>
-          <button id="btn-stop" class="warn">STOP</button>
+          <button id="btn-run" class="primary">RUN ALL</button>
+          <button id="btn-stop" class="warn">STOP ALL</button>
           <button id="btn-clear" class="ghost">clear done</button>
         </div>
       </header>
       <ul id="queue" class="queue"></ul>
     </section>
 
-    <section class="card grow">
+    <section class="card grow" id="feeds-section">
       <header class="card-head">
-        <h2>Live Output</h2>
-        <div class="row">
-          <span class="counter" id="counter-progress"></span>
-          <span class="counter" id="counter-clean"></span>
-          <button id="btn-filter-flagged" class="ghost">show only flagged</button>
-          <button id="btn-clear-log" class="ghost">clear</button>
-        </div>
+        <h2>Live Feeds</h2>
+        <span class="counter" id="counter-global"></span>
       </header>
-      <div id="log" class="log"></div>
+      <div id="feeds-grid" class="feeds-grid"></div>
     </section>
   </main>
 

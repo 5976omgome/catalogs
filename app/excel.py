@@ -31,7 +31,6 @@ AUDIT_COLUMNS = [
     "Status Reason",
     "iTunes Labels",
     "Deezer Labels",
-    "Discogs Labels",
     "Earliest Year",
     "AI Note",
 ]
@@ -41,7 +40,7 @@ _WIDTHS = {
     "Artist": 22, "Spotify Links": 42, "Genres": 26, "Region": 14,
     "Spotify Monthly Listeners": 16, "Associated Labels": 22,
     "Recent Momentum": 13, "Status": 14, "Status Reason": 52,
-    "iTunes Labels": 40, "Deezer Labels": 32, "Discogs Labels": 32,
+    "iTunes Labels": 40, "Deezer Labels": 32,
     "Earliest Year": 12, "AI Note": 30,
 }
 

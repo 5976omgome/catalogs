@@ -1,19 +1,18 @@
-"""Job manager — queue CSV files, process artists, broadcast SSE events.
+"""Job manager — process ALL queued CSVs simultaneously, each with parallel artists.
 
 Key features:
-- PARALLEL artist processing within each CSV (4 concurrent workers)
-- Incremental xlsx writes every 25 artists (export always has something)
-- Cooperative stop (finishes current artists, writes partial output)
-- Error recovery (crashes don't lose already-processed rows)
-- Thread-safe counter mutations
-- Tolerant CSV header matching
+- ALL CSVs run at the same time (each gets its own worker thread)
+- Artists within each CSV process 4-at-a-time (ThreadPoolExecutor)
+- Incremental xlsx writes every 25 artists
+- Cooperative stop per-item
+- Error recovery
 """
 import re
 import threading
 import time
 import traceback
 import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from queue import Queue, Full
@@ -23,14 +22,10 @@ import pandas as pd
 
 from app import config, audit as audit_mod, excel
 
-# Number of artists to process simultaneously within one CSV.
-# 4 is safe for rate limits: iTunes (no limit), Deezer (50/5s = 10/s),
-# Discogs (60/min = 1/s per thread with 4 threads = fine with internal sleeps)
-PARALLEL_WORKERS = 4
-
+PARALLEL_ARTISTS = 4  # Artists processed simultaneously within one CSV
 
 # ---------------------------------------------------------------------------
-# Header aliases — tolerant matching for various Chartmetric export formats
+# Header aliases
 # ---------------------------------------------------------------------------
 _HEADER_ALIASES = {
     "artist": ["artist", "artist name", "performer", "name"],
@@ -41,7 +36,6 @@ _HEADER_ALIASES = {
 
 
 def _normalise_headers(df: pd.DataFrame) -> pd.DataFrame:
-    """Rename columns to canonical names using alias matching."""
     col_map = {}
     for col in df.columns:
         cl = col.strip().lower()
@@ -55,15 +49,12 @@ def _normalise_headers(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _parse_date_year(val) -> Optional[int]:
-    """Parse various date formats to extract year."""
     if pd.isna(val) or not val:
         return None
     s = str(val).strip()
-    # ISO: 2024-03-15
     m = re.match(r"(\d{4})-\d{2}-\d{2}", s)
     if m:
         return int(m.group(1))
-    # Chartmetric: "Oct 30, 2019"
     m = re.search(r"(\d{4})", s)
     if m:
         return int(m.group(1))
@@ -71,7 +62,7 @@ def _parse_date_year(val) -> Optional[int]:
 
 
 # ---------------------------------------------------------------------------
-# Job item dataclass
+# Job item
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -87,6 +78,7 @@ class JobItem:
     review: int = 0
     drop: int = 0
     output_path: Optional[Path] = None
+    _stop: bool = field(default=False, repr=False)
 
     def to_dict(self) -> dict:
         return {
@@ -104,22 +96,20 @@ class JobItem:
 
 
 # ---------------------------------------------------------------------------
-# Job Manager
+# Job Manager — runs ALL items simultaneously
 # ---------------------------------------------------------------------------
 
 class JobManager:
     def __init__(self):
         self._items: List[JobItem] = []
         self._lock = threading.Lock()
-        self._running = False
-        self._stop_requested = False
         self._subscribers: List[Queue] = []
+        self._active_threads: dict = {}  # item_id → Thread
 
     def subscribe(self) -> Queue:
         q = Queue(maxsize=200)
         with self._lock:
             self._subscribers.append(q)
-        # Send snapshot
         self._broadcast({"type": "snapshot", "items": [i.to_dict() for i in self._items]})
         return q
 
@@ -163,48 +153,49 @@ class JobManager:
             return [i.to_dict() for i in self._items]
 
     def start(self):
+        """Start ALL queued items simultaneously — each on its own thread."""
         with self._lock:
-            if self._running:
-                return
-            self._running = True
-            self._stop_requested = False
-        t = threading.Thread(target=self._run_loop, daemon=True)
-        t.start()
+            queued = [i for i in self._items if i.status == "queued"]
+        for item in queued:
+            if item.id not in self._active_threads:
+                t = threading.Thread(target=self._run_item_safe, args=(item,), daemon=True)
+                self._active_threads[item.id] = t
+                t.start()
 
     def stop(self):
-        self._stop_requested = True
+        """Signal ALL running items to stop."""
+        with self._lock:
+            for item in self._items:
+                if item.status == "running":
+                    item._stop = True
+
+    def stop_item(self, item_id: str):
+        """Signal a specific item to stop."""
+        item = self.find(item_id)
+        if item:
+            item._stop = True
 
     def clear_done(self):
         with self._lock:
             self._items = [i for i in self._items if i.status in ("queued", "running")]
+            # Clean up dead thread refs
+            alive_ids = {i.id for i in self._items}
+            self._active_threads = {k: v for k, v in self._active_threads.items() if k in alive_ids}
         self._broadcast({"type": "snapshot", "items": [i.to_dict() for i in self._items]})
 
-    def _run_loop(self):
+    def _run_item_safe(self, item: JobItem):
+        """Wrapper that catches all exceptions."""
         try:
-            while True:
-                # Find next queued item
-                nxt = None
-                with self._lock:
-                    if self._stop_requested:
-                        break
-                    for item in self._items:
-                        if item.status == "queued":
-                            nxt = item
-                            break
-                if nxt is None:
-                    break
-                try:
-                    self._run_item(nxt)
-                except Exception as e:
-                    print(f"[WORKER ERROR] {nxt.filename}: {e}\n{traceback.format_exc()}", flush=True)
-                    with self._lock:
-                        nxt.status = "error"
-                        nxt.error = str(e)
-                    self._broadcast({"type": "item_error", "item": nxt.to_dict()})
+            self._run_item(item)
+        except Exception as e:
+            print(f"[WORKER ERROR] {item.filename}: {e}\n{traceback.format_exc()}", flush=True)
+            with self._lock:
+                item.status = "error"
+                item.error = str(e)
+            self._broadcast({"type": "item_error", "item": item.to_dict()})
         finally:
             with self._lock:
-                self._running = False
-            self._broadcast({"type": "queue_done"})
+                self._active_threads.pop(item.id, None)
 
     def _run_item(self, item: JobItem):
         with self._lock:
@@ -236,7 +227,7 @@ class JobManager:
             self._broadcast({"type": "item_error", "item": item.to_dict()})
             return
 
-        # Clean Spotify links (keep first only)
+        # Clean Spotify links
         sp_col = None
         for col in df.columns:
             if col.lower().strip() in ("spotify links", "spotify_links", "spotify link"):
@@ -251,21 +242,20 @@ class JobManager:
         with self._lock:
             item.total = total
 
-        # Add audit columns (use object dtype to avoid pandas strict typing)
+        # Add audit columns
         for col in excel.AUDIT_COLUMNS:
             if col not in df.columns:
                 df[col] = pd.Series([""] * total, dtype="object")
 
-        # Process each artist IN PARALLEL
+        # --- PARALLEL artist processing ---
         cancelled = False
 
         def _audit_one(idx, row):
-            """Audit a single artist — runs inside ThreadPoolExecutor."""
+            """Audit one artist — runs in thread pool."""
             artist = str(row.get(artist_col, "")).strip()
             if not artist:
                 return idx, None
 
-            # Get Chartmetric label and first release year
             cm_label = ""
             for col in ("associated_labels", "Associated Labels"):
                 if col in row.index:
@@ -292,86 +282,66 @@ class JobManager:
 
             return idx, a
 
-        # Submit artists to the thread pool in batches
-        with ThreadPoolExecutor(max_workers=PARALLEL_WORKERS) as executor:
+        with ThreadPoolExecutor(max_workers=PARALLEL_ARTISTS) as executor:
             futures = {}
             row_iter = df.iterrows()
-            submitted = 0
-            completed = 0
 
             # Submit initial batch
-            for _ in range(min(PARALLEL_WORKERS * 2, total)):
+            for _ in range(min(PARALLEL_ARTISTS * 2, total)):
                 try:
                     idx, row = next(row_iter)
-                    future = executor.submit(_audit_one, idx, row)
-                    futures[future] = idx
-                    submitted += 1
+                    futures[executor.submit(_audit_one, idx, row)] = idx
                 except StopIteration:
                     break
 
-            # Process completed futures and submit new ones
             while futures:
-                if self._stop_requested:
+                if item._stop:
                     cancelled = True
-                    # Cancel pending futures
                     for f in futures:
                         f.cancel()
                     break
 
-                # Wait for at least one to complete
-                done_futures = []
-                for f in list(futures):
-                    if f.done():
-                        done_futures.append(f)
-
+                done_futures = [f for f in list(futures) if f.done()]
                 if not done_futures:
-                    time.sleep(0.05)
+                    time.sleep(0.03)
                     continue
 
                 for future in done_futures:
                     del futures[future]
-                    completed += 1
 
                     try:
                         idx, a = future.result()
                     except Exception as e:
-                        print(f"[worker-error] {e}\n{traceback.format_exc()}", flush=True)
+                        print(f"[worker-error] {e}", flush=True)
                         with self._lock:
                             item.processed += 1
                         continue
 
                     if a is None:
-                        # Empty artist name, skip
                         with self._lock:
                             item.processed += 1
                         continue
 
                     artist = a.artist
 
-                    # Write results to dataframe (str coercion for pandas compat)
+                    # Write to dataframe
                     df.at[idx, "Status"] = str(a.status)
                     df.at[idx, "Status Reason"] = str(a.status_reason)
                     df.at[idx, "Earliest Year"] = str(a.earliest_year or "")
                     df.at[idx, "AI Note"] = str(a.ai_note)
 
-                    # Build per-source label summaries
                     itunes_labels = []
                     deezer_labels = []
-                    discogs_labels = []
                     for ev in a.evaluations:
                         entry = f"{ev.label} [{ev.classification}]"
                         if ev.source == "iTunes":
                             itunes_labels.append(entry)
                         elif ev.source == "Deezer":
                             deezer_labels.append(entry)
-                        elif ev.source == "Discogs":
-                            discogs_labels.append(entry)
 
                     df.at[idx, "iTunes Labels"] = str(" | ".join(itunes_labels) if itunes_labels else "")
                     df.at[idx, "Deezer Labels"] = str(" | ".join(deezer_labels) if deezer_labels else "")
-                    df.at[idx, "Discogs Labels"] = str(" | ".join(discogs_labels) if discogs_labels else "")
 
-                    # Update counters
                     with self._lock:
                         item.processed += 1
                         if a.status == "KEEP":
@@ -381,8 +351,8 @@ class JobManager:
                         else:
                             item.drop += 1
 
-                    # Build per-source payload for SSE
-                    sources_payload = {"iTunes": [], "Deezer": [], "Discogs": [], "Chartmetric": []}
+                    # SSE event
+                    sources_payload = {"iTunes": [], "Deezer": [], "Chartmetric": []}
                     for ev in a.evaluations:
                         if ev.source in sources_payload:
                             sources_payload[ev.source].append({
@@ -408,54 +378,42 @@ class JobManager:
                         "drop": item.drop,
                     })
 
-                    # Incremental xlsx write every 25 artists
                     if item.processed % 25 == 0 or item.processed == item.total:
                         self._write_partial(item, df)
 
-                # Submit more work if available
+                # Submit more
                 if not cancelled:
-                    while len(futures) < PARALLEL_WORKERS * 2:
+                    while len(futures) < PARALLEL_ARTISTS * 2:
                         try:
                             idx, row = next(row_iter)
-                            future = executor.submit(_audit_one, idx, row)
-                            futures[future] = idx
-                            submitted += 1
+                            futures[executor.submit(_audit_one, idx, row)] = idx
                         except StopIteration:
                             break
 
         # Final write
         self._write_partial(item, df)
 
-        # Set final status
         with self._lock:
-            if cancelled:
-                item.status = "stopped"
-            else:
-                item.status = "done"
+            item.status = "stopped" if cancelled else "done"
 
         event_type = "item_stopped" if cancelled else "item_done"
         self._broadcast({"type": event_type, "item": item.to_dict()})
 
         # Cleanup upload
-        self._cleanup_upload(item.path)
+        if item.path and item.path.exists():
+            try:
+                item.path.unlink()
+            except Exception:
+                pass
 
     def _write_partial(self, item: JobItem, df: pd.DataFrame):
-        """Write whatever rows have been processed so far."""
         try:
             out_dir = config.OUTPUT_DIR
             stem = Path(item.filename).stem
             out_path = out_dir / f"{stem}Output.xlsx"
-            processed_df = df.iloc[:item.processed].copy()
+            processed_df = df.iloc[:item.processed].copy() if item.processed < len(df) else df
             excel.write_xlsx(processed_df, out_path)
             with self._lock:
                 item.output_path = out_path
         except Exception as e:
-            print(f"[partial-write] {item.filename}: {e}\n{traceback.format_exc()}", flush=True)
-
-    def _cleanup_upload(self, path: Optional[Path]):
-        """Remove the uploaded CSV after processing."""
-        if path and path.exists():
-            try:
-                path.unlink()
-            except Exception:
-                pass
+            print(f"[partial-write] {item.filename}: {e}", flush=True)

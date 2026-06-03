@@ -17,10 +17,6 @@ from app.keys import KeyStore  # noqa: E402
 _store = KeyStore()
 
 
-def discogs_token() -> str:
-    return _store.get("discogs_token") or os.getenv("DISCOGS_TOKEN", "")
-
-
 def groq_api_key() -> str:
     return _store.get("groq_api_key") or os.getenv("GROQ_API_KEY", "")
 

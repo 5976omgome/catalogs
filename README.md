@@ -2,7 +2,7 @@
 
 Automated label-ownership verification for catalog acquisition scouting.
 
-Pulls P-line / label data from **iTunes**, **Deezer**, **Discogs**, and compares
+Pulls P-line / label data from **iTunes** and **Deezer**, and compares
 against **Chartmetric** exports. Classifies each artist as:
 
 - **KEEP** — self-released, owns masters, no label encumbrances

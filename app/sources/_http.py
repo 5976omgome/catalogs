@@ -11,13 +11,12 @@ import requests
 # One session per source module. Each maintains its own connection pool.
 itunes_session = requests.Session()
 deezer_session = requests.Session()
-discogs_session = requests.Session()
 ai_session = requests.Session()
 
 
 def close_all():
     """Call on shutdown to cleanly release sockets."""
-    for s in (itunes_session, deezer_session, discogs_session, ai_session):
+    for s in (itunes_session, deezer_session, ai_session):
         try:
             s.close()
         except Exception:
