@@ -17,7 +17,6 @@ function initClock(){
 function startTimer(){
   if(_timerInterval)return;
   _timerStart=Date.now();
-  $("timer").style.display="";$("timer-div").style.display="";
   _timerInterval=setInterval(()=>{
     const elapsed=Math.floor((Date.now()-_timerStart)/1000);
     const m=String(Math.floor(elapsed/60)).padStart(2,"0");
@@ -126,18 +125,20 @@ function sys(text,cls){
 }
 
 // ---------------------------------------------------------------------------
-// Status pills + startup diagnostics
+// Status pills — turn red when key missing, clickable to set key
 // ---------------------------------------------------------------------------
+let _keyModalTarget=null;
+
 async function refreshStatus(){
   try{
     const r=await fetch("/api/status");const s=await r.json();
-    $("pill-itunes").className="pill ok";
-    $("pill-deezer").className="pill ok";
-    $("pill-groq").className="pill "+(s.groq_set?"ok":"off");
-    $("pill-gemini").className="pill "+(s.gemini_set?"ok":"off");
-    $("pill-genius").className="pill "+(s.genius_set?"ok":"off");
-    if(!s.genius_set)sys("⚠ Genius not configured — socials disabled.","warn");
-    if(!s.groq_set&&!s.gemini_set)sys("⚠ No AI keys — bridge disabled.","warn");
+    $("pill-itunes").className="pill ok clickable";
+    $("pill-deezer").className="pill ok clickable";
+    $("pill-groq").className="pill clickable "+(s.groq_set?"ok":"missing");
+    $("pill-gemini").className="pill clickable "+(s.gemini_set?"ok":"missing");
+    $("pill-genius").className="pill clickable "+(s.genius_set?"ok":"missing");
+    if(!s.genius_set)sys("⚠ Genius — click pill to add key.","warn");
+    if(!s.groq_set&&!s.gemini_set)sys("⚠ No AI keys — click pills to add.","warn");
     if(s.groq_set)sys("✓ Groq ready.","ok");
     if(s.gemini_set)sys("✓ Gemini ready.","ok");
     if(s.genius_set)sys("✓ Genius ready.","ok");
@@ -146,25 +147,32 @@ async function refreshStatus(){
   }catch(e){sys("Server connection failed: "+e.message,"bad")}
 }
 
-// ---------------------------------------------------------------------------
-// Settings
-// ---------------------------------------------------------------------------
-async function loadSettings(){
-  try{const r=await fetch("/api/settings");const s=await r.json();
-    $("prev-groq").textContent=s.groq_api_key.set?s.groq_api_key.preview:"\u2014";
-    $("prev-gemini").textContent=s.gemini_api_key.set?s.gemini_api_key.preview:"\u2014";
-    $("prev-genius").textContent=s.genius_token.set?s.genius_token.preview:"\u2014";
-  }catch(e){}}
-async function saveKeys(){
-  const body={};const g=$("key-groq").value.trim();const m=$("key-gemini").value.trim();const gn=$("key-genius").value.trim();
-  if(g)body.groq_api_key=g;if(m)body.gemini_api_key=m;if(gn)body.genius_token=gn;
-  if(!Object.keys(body).length){$("keys-msg").textContent="NOTHING TO SAVE";return}
-  const r=await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  if(r.ok){$("keys-msg").textContent="SAVED \u2713";$("key-groq").value="";$("key-gemini").value="";$("key-genius").value="";
-    loadSettings();refreshStatus();setTimeout(()=>$("keys-msg").textContent="",2000)}
-  else{$("keys-msg").textContent="ERROR";sys("Failed to save keys","bad")}}
-async function clearKeys(){if(!confirm("Clear ALL API keys?"))return;
-  await fetch("/api/settings/clear",{method:"POST"});loadSettings();sys("Keys cleared.","warn");refreshStatus()}
+function initKeyModal(){
+  const modal=$("key-modal"),close=$("key-modal-close"),save=$("key-modal-save"),input=$("key-modal-input");
+  close.addEventListener("click",()=>modal.classList.remove("open"));
+  modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.remove("open")});
+  document.querySelectorAll(".pill.clickable").forEach(pill=>{
+    pill.addEventListener("click",()=>{
+      const key=pill.dataset.key;
+      if(!key||key==="itunes"||key==="deezer")return;
+      _keyModalTarget=key;
+      const names={groq_api_key:"GROQ",gemini_api_key:"GEMINI",genius_token:"GENIUS"};
+      $("key-modal-title").textContent="Set "+(names[key]||key)+" Key";
+      input.value="";$("key-modal-msg").textContent="";
+      modal.classList.add("open");input.focus();
+    });
+  });
+  save.addEventListener("click",async()=>{
+    const val=input.value.trim();
+    if(!val){$("key-modal-msg").textContent="Paste a key first";return}
+    const body={};body[_keyModalTarget]=val;
+    const r=await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(r.ok){$("key-modal-msg").textContent="✓ Saved";input.value="";
+      setTimeout(()=>{modal.classList.remove("open");refreshStatus()},800)}
+    else{$("key-modal-msg").textContent="Error"}
+  });
+  input.addEventListener("keydown",e=>{if(e.key==="Enter")save.click()});
+}
 
 // ---------------------------------------------------------------------------
 // Queue
@@ -456,7 +464,6 @@ document.addEventListener("DOMContentLoaded",()=>{
   $("btn-genius").addEventListener("click",startGeniusPass);
   $("btn-genius-stop").addEventListener("click",stopGeniusPass);
   $("btn-clear").addEventListener("click",()=>{fetch("/api/queue/clear",{method:"POST"});Object.keys(feeds).forEach(id=>removeFeed(id));sys("Cleared.","info")});
-  $("btn-save-keys").addEventListener("click",saveKeys);
-  $("btn-clear-keys").addEventListener("click",clearKeys);
-  loadSettings();startStream();refreshStatus();
+  initKeyModal();
+  startStream();refreshStatus();
 });
