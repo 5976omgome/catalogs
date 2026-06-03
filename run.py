@@ -27,7 +27,7 @@ def main():
     threading.Timer(1.5, lambda: webbrowser.open(url)).start()
     try:
         from waitress import serve
-        serve(app, host="127.0.0.1", port=port, threads=4)
+        serve(app, host="127.0.0.1", port=port, threads=16)
     except KeyboardInterrupt:
         print("\nShutting down.")
 

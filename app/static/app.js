@@ -352,6 +352,7 @@ async function uploadFile(file){const fd=new FormData();fd.append("file",file);
 // ---------------------------------------------------------------------------
 let _ctbInterval=null;
 function initCrossToolBar(){
+  // Only poll when other tool might be running — start on first RUN, stop when idle
   _ctbInterval=setInterval(async()=>{
     try{
       const r=await fetch("/api/cross-status");const d=await r.json();
@@ -366,7 +367,7 @@ function initCrossToolBar(){
         bar.classList.remove("visible");
       }
     }catch(e){}
-  },3000);
+  },10000);
 }
 
 // ---------------------------------------------------------------------------

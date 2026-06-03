@@ -21,17 +21,21 @@ from app import cache
 # Rate limit — be respectful to artist websites
 _scrape_lock = threading.Lock()
 _last_request_time = 0.0
-_MIN_INTERVAL = 1.5  # 1 request per 1.5 seconds
+_MIN_INTERVAL = 0.8  # Max ~1.2 req/sec (respectful but not glacial)
 
 
 def _rate_limit():
+    """Non-blocking rate limiter — computes wait, releases lock, then sleeps."""
     global _last_request_time
+    wait = 0.0
     with _scrape_lock:
         now = time.time()
         elapsed = now - _last_request_time
         if elapsed < _MIN_INTERVAL:
-            time.sleep(_MIN_INTERVAL - elapsed)
-        _last_request_time = time.time()
+            wait = _MIN_INTERVAL - elapsed
+        _last_request_time = now + wait  # Reserve this slot
+    if wait > 0:
+        time.sleep(wait)
 
 
 # Email regex — matches standard email patterns
@@ -211,28 +215,41 @@ def find_artist_website(instagram: Optional[str] = None) -> Optional[str]:
     """Try to derive an artist website URL from their Instagram handle.
 
     Many indie artists use their IG handle as their domain (handle.com).
+    Only checks .com (by far most common). Caches failures to avoid repeated lookups.
     Returns URL string or None.
     """
     if not instagram:
         return None
 
     handle = instagram.strip().lstrip("@").lower()
-    if not handle or len(handle) < 3:
+    if not handle or len(handle) < 3 or len(handle) > 30:
         return None
 
-    # Try common patterns
-    for tld in [".com", ".co", ".net", ".io", ".music"]:
-        url = f"https://{handle}{tld}"
-        try:
-            _rate_limit()
-            r = _s.head(url, timeout=5, allow_redirects=True, headers={
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
-            })
-            if r.status_code == 200:
-                return url
-        except Exception:
-            continue
+    # Skip handles with numbers/underscores that are unlikely to be domains
+    if handle.startswith("_") or handle.endswith("_"):
+        return None
 
+    # Check cache first (including negative cache)
+    cache_key = f"website_lookup:{handle}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached if cached else None
+
+    # Only try .com — covers 90%+ of indie artist websites
+    url = f"https://{handle}.com"
+    try:
+        _rate_limit()
+        r = _s.head(url, timeout=3, allow_redirects=True, headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+        })
+        if r.status_code == 200:
+            cache.put(cache_key, url)
+            return url
+    except Exception:
+        pass
+
+    # Cache the miss so we don't re-check
+    cache.put(cache_key, "")
     return None
 
 

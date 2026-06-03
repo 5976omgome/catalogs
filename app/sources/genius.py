@@ -24,14 +24,17 @@ _MIN_INTERVAL = 0.25  # 4 requests/second max (well under Genius limit)
 
 
 def _rate_limit():
-    """Ensure minimum interval between Genius API calls globally."""
+    """Non-blocking rate limiter — computes wait, releases lock, then sleeps."""
     global _last_request_time
+    wait = 0.0
     with _genius_lock:
         now = time.time()
         elapsed = now - _last_request_time
         if elapsed < _MIN_INTERVAL:
-            time.sleep(_MIN_INTERVAL - elapsed)
-        _last_request_time = time.time()
+            wait = _MIN_INTERVAL - elapsed
+        _last_request_time = now + wait
+    if wait > 0:
+        time.sleep(wait)
 
 
 def _normalize(s: str) -> str:

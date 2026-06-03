@@ -535,10 +535,11 @@ def geni_stop():
 @app.route("/api/genitractor/export")
 def geni_export():
     """Export all found contacts as a CSV."""
-    all_contacts = []
-    for item in _geni_items:
-        contacts = item.get("_contacts", [])
-        all_contacts.extend(contacts)
+    with _geni_lock:
+        all_contacts = []
+        for item in _geni_items:
+            contacts = list(item.get("_contacts", []))
+            all_contacts.extend(contacts)
 
     if not all_contacts:
         return jsonify({"error": "no contacts found yet"}), 404
