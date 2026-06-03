@@ -57,11 +57,12 @@ html,body{
   margin:0;padding:0;
   background:var(--bg);color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Inter","Segoe UI",sans-serif;
-  font-size:14px;line-height:1.5;
+  font-size:13px;line-height:1.5;
   -webkit-font-smoothing:antialiased;
   -moz-osx-font-smoothing:grayscale;
-  min-height:100vh;
+  height:100vh;overflow:hidden;
 }
+body{display:flex;flex-direction:column;height:100vh}
 
 /* ============================================================================
    TOPBAR
@@ -89,6 +90,8 @@ html,body{
 .timer{font-size:11px;font-weight:700;font-family:ui-monospace,"SF Mono",monospace;color:var(--frost);letter-spacing:.04em;font-variant-numeric:tabular-nums}
 .stat-pct{font-size:9px;font-weight:700;letter-spacing:.06em;padding:var(--s1) 8px;border-radius:var(--r-full);background:var(--green-soft);color:var(--teal);border:1px solid var(--green-border);font-family:ui-monospace,"SF Mono",monospace;cursor:pointer;user-select:none;transition:all .15s var(--ease)}
 .stat-pct:hover{transform:scale(1.05);box-shadow:0 0 8px rgba(137,176,174,.2)}
+.stat-clean{font-size:9px;font-weight:700;letter-spacing:.06em;padding:var(--s1) 8px;border-radius:var(--r-full);background:var(--blue-soft);color:var(--frost);border:1px solid var(--blue-border);font-family:ui-monospace,"SF Mono",monospace;cursor:pointer;user-select:none;transition:all .15s var(--ease)}
+.stat-clean:hover{transform:scale(1.05);box-shadow:0 0 8px rgba(190,227,219,.2)}
 
 /* Clickable pills for API key entry */
 .pill.clickable{cursor:pointer;transition:all .2s var(--ease)}
@@ -123,8 +126,9 @@ html,body{
    ============================================================================ */
 main{
   max-width:1440px;margin:0 auto;
-  padding:var(--s5) var(--s6) var(--s10);
+  padding:var(--s4) var(--s6) var(--s4);
   display:flex;flex-direction:column;gap:var(--s3);
+  flex:1;overflow:hidden;
 }
 
 /* ============================================================================
@@ -182,7 +186,7 @@ main{
   transition:border-color .2s var(--ease);
 }
 .card:hover{border-color:var(--border-hover)}
-.card.grow{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+.card.grow{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .card-head{
   display:flex;align-items:center;justify-content:space-between;
   padding:var(--s3) var(--s4);
@@ -298,7 +302,7 @@ button:disabled{opacity:.35;cursor:not-allowed}
    ============================================================================ */
 .feeds-grid{
   display:grid;gap:var(--s2);padding:var(--s2);
-  flex:1;min-height:280px;max-height:72vh;overflow:hidden;
+  flex:1;overflow-y:auto;overflow-x:hidden;
 }
 .feeds-grid.cols-1{grid-template-columns:1fr}
 .feeds-grid.cols-2{grid-template-columns:1fr 1fr}

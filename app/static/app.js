@@ -31,6 +31,7 @@ function stopTimer(){
 
 let _totalArtists=0;
 let _statShowFraction=false;
+let _cleanShowFraction=false;
 
 function updateStats(){
   let allProcessed=0,allKeep=0;
@@ -39,12 +40,20 @@ function updateStats(){
     allProcessed+=(f.counts.keep||0)+(f.counts.review||0)+(f.counts.drop||0);
   });
 
-  const el=$("stat-pct");
+  const elPct=$("stat-pct");
   if(_statShowFraction){
-    el.textContent=allProcessed+"/"+(_totalArtists||allProcessed);
+    elPct.textContent=allProcessed+"/"+(_totalArtists||allProcessed);
   }else{
     const pct=_totalArtists>0?Math.floor(100*allProcessed/_totalArtists):0;
-    el.textContent=pct+"% TOTAL";
+    elPct.textContent=pct+"% TOTAL";
+  }
+
+  const elClean=$("stat-clean");
+  if(_cleanShowFraction){
+    elClean.textContent=allKeep+"/"+allProcessed;
+  }else{
+    const cleanPct=allProcessed>0?Math.floor(100*allKeep/allProcessed):0;
+    elClean.textContent=cleanPct+"% CLEAN";
   }
 }
 
@@ -487,6 +496,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   initCrossToolBar();
   $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
   $("stat-pct").addEventListener("click",()=>{_statShowFraction=!_statShowFraction;updateStats()});
+  $("stat-clean").addEventListener("click",()=>{_cleanShowFraction=!_cleanShowFraction;updateStats()});
   $("btn-run").addEventListener("click",()=>{fetch("/api/queue/start",{method:"POST"});sys("RUN","info");startTimer()});
   $("btn-stop").addEventListener("click",()=>{showConfirm("Stop all running jobs?","This will halt processing. Do you also want to clear the queue?",()=>{fetch("/api/queue/stop",{method:"POST"});sys("STOP","warn");stopTimer()})});
   $("btn-export-all").addEventListener("click",()=>{showConfirm("Export all results?","This will merge all finished outputs into one file.",()=>dl($("btn-export-all"),"/api/export_all","AllCombinedOutput.xlsx"))});
