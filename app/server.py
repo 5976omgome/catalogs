@@ -18,7 +18,7 @@ from .jobs import manager
 STATIC_DIR = BASE_DIR / "static"
 
 # Keys we accept on POST /api/settings
-_KEY_FIELDS = ("discogs_token", "groq_api_key", "gemini_api_key")
+_KEY_FIELDS = ("discogs_token", "groq_api_key", "gemini_api_key", "genius_token")
 
 # Upload limits
 _MAX_UPLOAD_BYTES = 32 * 1024 * 1024  # 32 MB - generous for CSV
@@ -41,6 +41,7 @@ def create_app() -> Flask:
             "discogs": bool(config.discogs_token()),
             "groq": bool(config.groq_api_key()),
             "gemini": bool(config.gemini_api_key()),
+            "genius": bool(config.genius_token()),
             "output_dir": str(OUTPUT_DIR),
         })
 

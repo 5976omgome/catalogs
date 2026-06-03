@@ -22,6 +22,8 @@ async function fetchStatus() {
     setPill("pill-itunes", "iTunes: ready", true);
     setPill("pill-deezer", "Deezer: ready", true);
     setPill("pill-wiki", "Wikipedia: ready", true);
+    const geniusOn = !!j.genius;
+    setPill("pill-genius", geniusOn ? "Genius: ready" : "Genius: no token", geniusOn);
   } catch (e) {}
 }
 
@@ -371,6 +373,7 @@ const SETTINGS_FIELDS = [
   { key: "discogs_token", inputId: "settings-discogs", statusId: "settings-discogs-status" },
   { key: "groq_api_key",  inputId: "settings-groq",    statusId: "settings-groq-status"    },
   { key: "gemini_api_key",inputId: "settings-gemini",  statusId: "settings-gemini-status"  },
+  { key: "genius_token",  inputId: "settings-genius",  statusId: "settings-genius-status"  },
 ];
 
 function renderSettings(payload) {

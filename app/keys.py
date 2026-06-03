@@ -19,7 +19,7 @@ _DIR = Path.home() / ".catalog_audit"
 _FILE = _DIR / "keys.json"
 _LOCK = threading.Lock()
 
-_SUPPORTED = ("discogs_token", "groq_api_key", "gemini_api_key")
+_SUPPORTED = ("discogs_token", "groq_api_key", "gemini_api_key", "genius_token")
 
 
 def _load() -> Dict[str, str]:

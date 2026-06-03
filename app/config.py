@@ -39,3 +39,7 @@ def groq_api_key() -> str:
 
 def gemini_api_key() -> str:
     return keys.get("gemini_api_key")
+
+
+def genius_token() -> str:
+    return keys.get("genius_token")

@@ -28,6 +28,10 @@ PREFERRED_COL_ORDER = [
     "Wikipedia Labels",
     "Discogs Labels",
     "Associated Labels",      # This is the Chartmetric label column
+    "Instagram",              # Genius social — LEFT of Spotify Links
+    "Facebook",               # Genius social
+    "YouTube",                # Genius social
+    "Website",                # Genius social
     "Spotify Links",
     "Region",
     "Genres",
@@ -147,6 +151,10 @@ def write_xlsx(rows: List[dict], input_columns: List[str], out_path: Path) -> No
         "Informational Notes": 50,
         "Flag Reasons": 60,
         "Associated Labels": 22,
+        "Instagram": 32,
+        "Facebook": 32,
+        "YouTube": 38,
+        "Website": 30,
         "Spotify Links": 36,
         "Genres": 30,
         "Region": 16,

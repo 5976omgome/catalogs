@@ -22,6 +22,7 @@ import pandas as pd
 from .audit import audit_artist
 from .config import OUTPUT_DIR
 from .excel import write_xlsx
+from .sources import genius
 
 # CSV header aliases - map common variants to canonical names
 HEADER_ALIASES = {
@@ -354,6 +355,14 @@ class JobManager:
                 )
 
                 out_row = {col: row.get(col, "") for col in input_columns}
+                
+                # Genius social media lookup (independent of label audit)
+                socials = genius.get_socials(artist)
+                out_row["Instagram"] = socials.get("instagram", "")
+                out_row["Facebook"] = socials.get("facebook", "")
+                out_row["YouTube"] = socials.get("youtube", "")
+                out_row["Website"] = socials.get("website", "")
+                
                 out_row["Status"] = audit.status
                 out_row["Status Reason"] = audit.status_reason
                 out_row["Label Evaluations"] = eval_strs
