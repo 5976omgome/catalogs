@@ -124,12 +124,9 @@ async function refreshStatus(){
     $("pill-deezer").className="pill ok clickable";
     $("pill-groq").className="pill clickable "+(s.groq_set?"ok":"missing");
     $("pill-gemini").className="pill clickable "+(s.gemini_set?"ok":"missing");
-    $("pill-genius").className="pill clickable "+(s.genius_set?"ok":"missing");
-    if(!s.genius_set)sys("⚠ Genius — click pill to add key.","warn");
     if(!s.groq_set&&!s.gemini_set)sys("⚠ No AI keys — click pills to add.","warn");
     if(s.groq_set)sys("✓ Groq ready.","ok");
     if(s.gemini_set)sys("✓ Gemini ready.","ok");
-    if(s.genius_set)sys("✓ Genius ready.","ok");
     sys("✓ iTunes + Deezer ready.","ok");
     sys("Virtual Scout ready.","info");
   }catch(e){sys("Server connection failed: "+e.message,"bad")}
