@@ -17,10 +17,10 @@ from app import config, cache
 
 _BASE = "https://api.genius.com"
 
-# Global rate limiter — max 1 Genius request per 0.25s across all threads
+# Global rate limiter — 2 req/sec is the safe max for Genius free tier
 _genius_lock = threading.Lock()
 _last_request_time = 0.0
-_MIN_INTERVAL = 0.25  # 4 requests/second max (well under Genius limit)
+_MIN_INTERVAL = 0.5  # 2 requests/second — tested safe, no 429s
 
 
 def _rate_limit():

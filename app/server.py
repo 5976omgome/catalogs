@@ -546,9 +546,9 @@ def geni_export():
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Artist Name", "Instagram", "Facebook", "YouTube", "Website", "Email"])
+    writer.writerow(["Artist Name", "Instagram", "Facebook", "Twitter"])
     for c in all_contacts:
-        writer.writerow([c.get("artist", ""), c.get("instagram", ""), c.get("facebook", ""), c.get("youtube", ""), c.get("website", ""), c.get("email", "")])
+        writer.writerow([c.get("artist", ""), c.get("instagram", ""), c.get("facebook", ""), c.get("twitter", "")])
 
     output.seek(0)
     return Response(
@@ -640,8 +640,6 @@ def _geni_worker(item):
         item["_contacts"] = []
         _geni_broadcast({"type": "item_started", "item": _geni_item_dict(item)})
 
-        from app.sources import email_scraper
-
         for i, artist_name in enumerate(artists):
             if _geni_stop_flags.get(item["id"]):
                 item["status"] = "stopped"
@@ -652,9 +650,9 @@ def _geni_worker(item):
                 item["processed"] = i + 1
                 continue
 
-            # Genius lookup (rate limiter handles pacing internally)
+            # Genius lookup only — rate limiter handles pacing (0.25s between calls)
             socials = genius.get_socials(artist_name)
-            contact = {"artist": artist_name, "instagram": "", "facebook": "", "youtube": "", "website": "", "email": ""}
+            contact = {"artist": artist_name, "instagram": "", "facebook": "", "youtube": ""}
 
             if socials:
                 if socials.get("instagram"):
@@ -662,19 +660,8 @@ def _geni_worker(item):
                 if socials.get("facebook"):
                     fb = socials["facebook"]
                     contact["facebook"] = fb if fb.startswith("http") else f"https://facebook.com/{fb}"
-                if socials.get("youtube"):
-                    contact["youtube"] = socials["youtube"]
-
-            # --- Email scraping (only if Genius found an IG handle) ---
-            # Skip entirely if no socials — no leads to follow
-            ig_handle = socials.get("instagram") if socials else None
-            if ig_handle:
-                website_url = email_scraper.find_artist_website(ig_handle)
-                if website_url:
-                    contact["website"] = website_url
-                    email_result = email_scraper.scrape_website_emails(website_url)
-                    if email_result and email_result.get("emails"):
-                        contact["email"] = email_result["emails"][0]
+                if socials.get("twitter"):
+                    contact["twitter"] = f"https://x.com/{socials['twitter']}"
 
             item["_contacts"].append(contact)
             item["processed"] = i + 1
@@ -684,8 +671,6 @@ def _geni_worker(item):
                 "item_id": item["id"],
                 "artist": artist_name,
                 "socials": socials,
-                "website": contact["website"],
-                "email": contact["email"],
                 "processed": item["processed"],
                 "total": item["total"],
             })
