@@ -32,6 +32,11 @@ def index():
     return app.send_static_file("index.html")
 
 
+@app.route("/genitractor")
+def genitractor_page():
+    return app.send_static_file("genitractor.html")
+
+
 # ---------------------------------------------------------------------------
 # Settings (API keys)
 # ---------------------------------------------------------------------------
@@ -395,6 +400,271 @@ def _genius_worker():
         print(f"[genius-pass] Error: {e}", flush=True)
     finally:
         _genius_running = False
+
+
+# ---------------------------------------------------------------------------
+# GENITRACTOR — Contact extraction tool (Genius-only, separate from main audit)
+# Processes CSVs to extract Instagram/Facebook/YouTube via Genius API
+# Exports a clean CSV with: Artist Name, Instagram, Facebook, YouTube
+# ---------------------------------------------------------------------------
+
+import csv
+import io
+import threading as _geni_threading
+from queue import Queue as _GeniQueue, Full as _GeniFull
+
+_geni_items = []
+_geni_lock = _geni_threading.Lock()
+_geni_subscribers = []
+_geni_active_threads = {}
+_geni_stop_flags = {}
+
+GENI_UPLOAD_DIR = config.BASE_DIR / ".geni_uploads"
+GENI_UPLOAD_DIR.mkdir(exist_ok=True)
+GENI_OUTPUT_DIR = config.BASE_DIR / "GeniOutputs"
+GENI_OUTPUT_DIR.mkdir(exist_ok=True)
+
+
+def _geni_broadcast(event):
+    with _geni_lock:
+        dead = []
+        for q in _geni_subscribers:
+            try:
+                q.put_nowait(event)
+            except _GeniFull:
+                dead.append(q)
+        for q in dead:
+            try:
+                _geni_subscribers.remove(q)
+            except ValueError:
+                pass
+
+
+@app.route("/api/genitractor/upload", methods=["POST"])
+def geni_upload():
+    if "file" not in request.files:
+        return jsonify({"error": "no file"}), 400
+    f = request.files["file"]
+    if not f.filename:
+        return jsonify({"error": "no filename"}), 400
+    ext = Path(f.filename).suffix.lower()
+    if ext not in (".csv", ".tsv"):
+        return jsonify({"error": "only .csv/.tsv"}), 400
+
+    safe_name = f"{uuid.uuid4().hex[:8]}_{Path(f.filename).name}"
+    dest = GENI_UPLOAD_DIR / safe_name
+    f.save(str(dest))
+
+    item = {
+        "id": uuid.uuid4().hex[:12],
+        "filename": f.filename,
+        "path": str(dest),
+        "status": "queued",
+        "processed": 0,
+        "total": 0,
+        "error": "",
+    }
+    with _geni_lock:
+        _geni_items.append(item)
+    _geni_broadcast({"type": "item_added", "item": item})
+    return jsonify(item), 201
+
+
+@app.route("/api/genitractor/start", methods=["POST"])
+def geni_start():
+    with _geni_lock:
+        queued = [i for i in _geni_items if i["status"] == "queued"]
+        running = sum(1 for i in _geni_items if i["status"] == "running")
+        available = 4 - running
+        to_start = queued[:max(0, available)]
+
+    for item in to_start:
+        _geni_stop_flags[item["id"]] = False
+        t = _geni_threading.Thread(target=_geni_worker, args=(item,), daemon=True)
+        _geni_active_threads[item["id"]] = t
+        t.start()
+
+    return jsonify({"ok": True, "started": len(to_start)})
+
+
+@app.route("/api/genitractor/stop", methods=["POST"])
+def geni_stop():
+    with _geni_lock:
+        for item in _geni_items:
+            if item["status"] == "running":
+                _geni_stop_flags[item["id"]] = True
+    return jsonify({"ok": True})
+
+
+@app.route("/api/genitractor/export")
+def geni_export():
+    """Export all found contacts as a CSV."""
+    all_contacts = []
+    for item in _geni_items:
+        contacts = item.get("_contacts", [])
+        all_contacts.extend(contacts)
+
+    if not all_contacts:
+        return jsonify({"error": "no contacts found yet"}), 404
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Artist Name", "Instagram", "Facebook", "YouTube"])
+    for c in all_contacts:
+        writer.writerow([c.get("artist", ""), c.get("instagram", ""), c.get("facebook", ""), c.get("youtube", "")])
+
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=Genitractor_Contacts.csv"},
+    )
+
+
+@app.route("/api/genitractor/stream")
+def geni_stream():
+    q = _GeniQueue(maxsize=200)
+    with _geni_lock:
+        _geni_subscribers.append(q)
+    # Send snapshot
+    snapshot = {"type": "snapshot", "items": [_geni_item_dict(i) for i in _geni_items]}
+    try:
+        q.put_nowait(snapshot)
+    except _GeniFull:
+        pass
+
+    def generate():
+        try:
+            while True:
+                try:
+                    event = q.get(timeout=30)
+                    yield f"data: {json.dumps(event)}\n\n"
+                except Exception:
+                    yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+        except GeneratorExit:
+            pass
+        finally:
+            with _geni_lock:
+                try:
+                    _geni_subscribers.remove(q)
+                except ValueError:
+                    pass
+
+    return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+def _geni_item_dict(item):
+    return {
+        "id": item["id"],
+        "filename": item["filename"],
+        "status": item["status"],
+        "processed": item["processed"],
+        "total": item["total"],
+        "error": item.get("error", ""),
+    }
+
+
+def _geni_worker(item):
+    """Process one CSV — extract artist names, look up Genius socials one by one."""
+    import time as _time
+    import pandas as pd
+    from app.sources import genius
+
+    try:
+        with _geni_lock:
+            item["status"] = "running"
+        _geni_broadcast({"type": "item_started", "item": _geni_item_dict(item)})
+
+        # Read CSV
+        df = pd.read_csv(item["path"])
+        df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
+
+        # Find artist column
+        artist_col = None
+        for col in df.columns:
+            if col.lower().strip() in ("artist", "artist name", "name"):
+                artist_col = col
+                break
+        if not artist_col:
+            # Try second column if first is numeric ID
+            if len(df.columns) >= 2:
+                first_vals = df.iloc[:3, 0].astype(str)
+                if all(v.isdigit() for v in first_vals):
+                    artist_col = df.columns[1]
+
+        if not artist_col:
+            item["status"] = "error"
+            item["error"] = "No artist column found"
+            _geni_broadcast({"type": "item_error", "item": _geni_item_dict(item)})
+            return
+
+        artists = df[artist_col].dropna().astype(str).str.strip().tolist()
+        item["total"] = len(artists)
+        item["_contacts"] = []
+        _geni_broadcast({"type": "item_started", "item": _geni_item_dict(item)})
+
+        for i, artist_name in enumerate(artists):
+            if _geni_stop_flags.get(item["id"]):
+                item["status"] = "stopped"
+                _geni_broadcast({"type": "item_stopped", "item": _geni_item_dict(item)})
+                return
+
+            if not artist_name:
+                item["processed"] = i + 1
+                continue
+
+            # Rate limit: 1 request per 2 seconds
+            _time.sleep(2.0)
+
+            socials = genius.get_socials(artist_name)
+            contact = {"artist": artist_name, "instagram": "", "facebook": "", "youtube": ""}
+
+            if socials:
+                if socials.get("instagram"):
+                    contact["instagram"] = f"https://instagram.com/{socials['instagram']}"
+                if socials.get("facebook"):
+                    fb = socials["facebook"]
+                    contact["facebook"] = fb if fb.startswith("http") else f"https://facebook.com/{fb}"
+                if socials.get("youtube"):
+                    contact["youtube"] = socials["youtube"]
+
+            item["_contacts"].append(contact)
+            item["processed"] = i + 1
+
+            _geni_broadcast({
+                "type": "contact_done",
+                "item_id": item["id"],
+                "artist": artist_name,
+                "socials": socials,
+                "processed": item["processed"],
+                "total": item["total"],
+            })
+
+        item["status"] = "done"
+        _geni_broadcast({"type": "item_done", "item": _geni_item_dict(item)})
+
+        # Auto-start next queued
+        with _geni_lock:
+            next_queued = [i for i in _geni_items if i["status"] == "queued"][:1]
+        for ni in next_queued:
+            _geni_stop_flags[ni["id"]] = False
+            t = _geni_threading.Thread(target=_geni_worker, args=(ni,), daemon=True)
+            _geni_active_threads[ni["id"]] = t
+            t.start()
+
+    except Exception as e:
+        import traceback
+        print(f"[genitractor] Error: {e}\n{traceback.format_exc()}", flush=True)
+        item["status"] = "error"
+        item["error"] = str(e)
+        _geni_broadcast({"type": "item_error", "item": _geni_item_dict(item)})
+    finally:
+        _geni_active_threads.pop(item["id"], None)
+        # Cleanup upload file
+        try:
+            Path(item["path"]).unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------

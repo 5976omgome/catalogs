@@ -349,6 +349,17 @@ async function uploadFile(file){const fd=new FormData();fd.append("file",file);
   if(!r.ok){const e=await r.json().catch(()=>({error:"failed"}));sys("Upload error: "+(e.error||""),"bad")}}
 
 // ---------------------------------------------------------------------------
+// TOOLS DROPDOWN
+// ---------------------------------------------------------------------------
+function initToolsDropdown(){
+  const btn=$("tool-btn"),menu=$("tools-menu");
+  if(!btn||!menu)return;
+  btn.addEventListener("click",e=>{e.stopPropagation();menu.classList.toggle("open")});
+  document.addEventListener("click",()=>menu.classList.remove("open"));
+  menu.addEventListener("click",e=>e.stopPropagation());
+}
+
+// ---------------------------------------------------------------------------
 // CONFIRM MODAL
 // ---------------------------------------------------------------------------
 let _confirmCallback=null;
@@ -474,6 +485,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   initFeedback();
   initKeyModal();
   initConfirmModal();
+  initToolsDropdown();
   $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
   $("btn-run").addEventListener("click",()=>{fetch("/api/queue/start",{method:"POST"});sys("RUN","info");startTimer()});
   $("btn-stop").addEventListener("click",()=>{showConfirm("Stop all running jobs?","This will halt processing. Do you also want to clear the queue?",()=>{fetch("/api/queue/stop",{method:"POST"});sys("STOP","warn");stopTimer()})});
