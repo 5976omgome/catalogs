@@ -253,10 +253,87 @@ async function uploadFile(file){const fd=new FormData();fd.append("file",file);
   const r=await fetch("/api/upload",{method:"POST",body:fd});
   if(!r.ok){const e=await r.json().catch(()=>({error:"failed"}));sys("Upload error: "+(e.error||""),"bad")}}
 
+// ---------------------------------------------------------------------------
+// FEEDBACK SYSTEM
+// ---------------------------------------------------------------------------
+const fbState={category:null,rawText:"",cleanedText:"",isClean:false};
+
+function initFeedback(){
+  const btn=$("btn-feedback"),modal=$("feedback-modal"),close=$("feedback-close");
+  btn.addEventListener("click",()=>{resetFb();modal.classList.add("open")});
+  close.addEventListener("click",()=>modal.classList.remove("open"));
+  modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.remove("open")});
+
+  document.querySelectorAll(".fb-cat").forEach(b=>{
+    b.addEventListener("click",()=>{
+      document.querySelectorAll(".fb-cat").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");fbState.category=b.dataset.cat;updateFbSubmit()});
+  });
+
+  $("fb-text").addEventListener("input",e=>{
+    fbState.rawText=e.target.value.trim();fbState.isClean=false;fbState.cleanedText="";
+    $("fb-preview-wrap").style.display="none";$("fb-ai-status").textContent="";
+    updateFbSubmit()});
+
+  $("fb-ai-clean").addEventListener("click",handleFbClean);
+  $("fb-submit").addEventListener("click",handleFbSubmit);
+}
+
+function resetFb(){
+  fbState.category=null;fbState.rawText="";fbState.cleanedText="";fbState.isClean=false;
+  document.querySelectorAll(".fb-cat").forEach(b=>b.classList.remove("active"));
+  $("fb-text").value="";$("fb-preview-wrap").style.display="none";
+  $("fb-ai-status").textContent="";$("fb-ai-status").className="fb-ai-status";
+  $("fb-submit-status").textContent="";$("fb-submit-status").className="fb-submit-status";
+  $("fb-submit").disabled=true;$("fb-ai-clean").disabled=true;
+}
+
+function updateFbSubmit(){
+  $("fb-submit").disabled=!(fbState.category&&fbState.rawText);
+  $("fb-ai-clean").disabled=!fbState.rawText;
+}
+
+async function handleFbClean(){
+  if(!fbState.rawText)return;
+  const btn=$("fb-ai-clean"),status=$("fb-ai-status");
+  btn.disabled=true;status.textContent="Processing...";status.className="fb-ai-status";
+  try{
+    const r=await fetch("/api/feedback/clean",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({text:fbState.rawText,category:fbState.category||"OTHER"})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||"API error");
+    fbState.cleanedText=d.cleaned;fbState.isClean=true;
+    $("fb-preview").textContent=d.cleaned;$("fb-preview-wrap").style.display="";
+    status.textContent="Enhanced \u2713";status.className="fb-ai-status ok";
+  }catch(e){status.textContent=e.message;status.className="fb-ai-status bad"}
+  finally{btn.disabled=!fbState.rawText}
+}
+
+async function handleFbSubmit(){
+  if(!fbState.category||!fbState.rawText)return;
+  const btn=$("fb-submit"),status=$("fb-submit-status");
+  btn.disabled=true;status.textContent="Submitting...";status.className="fb-submit-status";
+  const payload={
+    category:fbState.category,
+    text:fbState.isClean?fbState.cleanedText:fbState.rawText,
+    raw_text:fbState.isClean?fbState.rawText:"",
+    ai_enhanced:fbState.isClean
+  };
+  try{
+    const r=await fetch("/api/feedback",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||"Submit failed");
+    status.textContent="Submitted \u2713 "+d.file;status.className="fb-submit-status ok";
+    sys("Feedback submitted: "+d.file,"ok");
+    setTimeout(()=>{$("feedback-modal").classList.remove("open");resetFb()},1500);
+  }catch(e){status.textContent=e.message;status.className="fb-submit-status bad";btn.disabled=false}
+}
+
 document.addEventListener("DOMContentLoaded",()=>{
   sys("Ignite Scout starting\u2026","info");
   initGlobalFilters();
   initCollapsible();
+  initFeedback();
   $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
   $("btn-run").addEventListener("click",()=>{fetch("/api/queue/start",{method:"POST"});sys("RUN","info")});
   $("btn-stop").addEventListener("click",()=>{fetch("/api/queue/stop",{method:"POST"});sys("STOP","warn")});

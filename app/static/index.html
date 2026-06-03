@@ -18,6 +18,7 @@
       <span class="pill" id="pill-groq">GROQ</span>
       <span class="pill" id="pill-gemini">GEMINI</span>
       <span class="pill" id="pill-genius">GENIUS</span>
+      <button class="btn-feedback" id="btn-feedback">FEEDBACK</button>
     </div>
   </header>
 
@@ -107,6 +108,42 @@
       <div class="footer-credit">IGNITE THE LABEL &middot; Q2 2026</div>
     </div>
   </footer>
+
+  <!-- Feedback Modal -->
+  <div class="modal-overlay" id="feedback-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Submit Feedback</h2>
+        <button class="ghost modal-close" id="feedback-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="fb-field">
+          <label class="fb-label">Category</label>
+          <div class="fb-cats">
+            <button class="fb-cat" data-cat="BUG">BUG</button>
+            <button class="fb-cat" data-cat="IDEA">IDEA</button>
+            <button class="fb-cat" data-cat="OTHER">OTHER</button>
+          </div>
+        </div>
+        <div class="fb-field">
+          <label class="fb-label">Your Feedback</label>
+          <textarea class="fb-textarea" id="fb-text" placeholder="Describe the bug, idea, or note..." rows="4"></textarea>
+        </div>
+        <div class="fb-ai-row">
+          <button class="ghost fb-ai-btn" id="fb-ai-clean" disabled>&#10024; CLEAN UP WITH GROQ</button>
+          <span class="fb-ai-status" id="fb-ai-status"></span>
+        </div>
+        <div class="fb-preview-wrap" id="fb-preview-wrap" style="display:none">
+          <label class="fb-label">AI-Enhanced Preview</label>
+          <div class="fb-preview" id="fb-preview"></div>
+        </div>
+        <div class="fb-actions">
+          <button class="primary fb-submit" id="fb-submit" disabled>SUBMIT TO REPO</button>
+          <span class="fb-submit-status" id="fb-submit-status"></span>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

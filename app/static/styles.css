@@ -338,6 +338,90 @@ button:disabled{opacity:.35;cursor:not-allowed}
 }
 
 /* ============================================================================
+   FEEDBACK BUTTON & MODAL
+   ============================================================================ */
+.btn-feedback{
+  font-size:9px;font-weight:700;letter-spacing:.08em;
+  padding:var(--s1) 10px;border-radius:var(--r-full);
+  background:var(--yellow-soft);border:1px solid var(--yellow-border);
+  color:var(--peach);cursor:pointer;transition:all .2s var(--ease);
+  font-family:inherit;
+}
+.btn-feedback:hover{background:rgba(255,214,186,.15);border-color:var(--peach);transform:translateY(-.5px)}
+
+.modal-overlay{
+  display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,.75);z-index:200;
+  align-items:center;justify-content:center;padding:var(--s6);
+}
+.modal-overlay.open{display:flex}
+.modal{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--r-lg);width:100%;max-width:520px;
+  max-height:80vh;overflow:hidden;display:flex;flex-direction:column;
+  box-shadow:0 24px 80px rgba(0,0,0,.6);
+}
+.modal-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:var(--s4) var(--s5);border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.modal-head h2{margin:0;font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--teal)}
+.modal-close{font-size:20px;line-height:1;padding:2px 6px;color:var(--text-tertiary)}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:var(--s5);overflow-y:auto;display:flex;flex-direction:column;gap:var(--s4)}
+
+.fb-field{display:flex;flex-direction:column;gap:var(--s2)}
+.fb-label{font-size:9px;font-weight:700;letter-spacing:.14em;color:var(--slate);text-transform:uppercase}
+.fb-cats{display:flex;gap:var(--s2)}
+.fb-cat{
+  font-size:10px;font-weight:700;letter-spacing:.06em;
+  padding:var(--s2) var(--s4);border-radius:var(--r-sm);
+  background:var(--bg-surface);border:1px solid var(--border);
+  color:var(--text-secondary);cursor:pointer;font-family:inherit;transition:all .15s var(--ease);
+}
+.fb-cat:hover{border-color:var(--border-hover);color:var(--text)}
+.fb-cat.active[data-cat="BUG"]{border-color:var(--red-border);background:var(--red-soft);color:var(--red)}
+.fb-cat.active[data-cat="IDEA"]{border-color:var(--yellow-border);background:var(--yellow-soft);color:var(--peach)}
+.fb-cat.active[data-cat="OTHER"]{border-color:var(--blue-border);background:var(--blue-soft);color:var(--frost)}
+
+.fb-textarea{
+  width:100%;min-height:90px;padding:var(--s3);
+  font-size:13px;font-family:inherit;line-height:1.6;
+  color:var(--text);background:var(--bg);
+  border:1px solid var(--border);border-radius:var(--r-sm);
+  resize:vertical;outline:none;transition:border-color .2s var(--ease);
+}
+.fb-textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px var(--green-soft)}
+.fb-textarea::placeholder{color:var(--text-quaternary)}
+
+.fb-ai-row{display:flex;align-items:center;gap:var(--s3)}
+.fb-ai-btn{
+  font-size:10px;padding:var(--s2) var(--s3);
+  border:1px solid var(--border)!important;border-radius:var(--r-sm);
+  color:var(--text-secondary);transition:all .15s var(--ease);
+}
+.fb-ai-btn:hover:not(:disabled){border-color:var(--teal)!important;color:var(--teal)}
+.fb-ai-btn:disabled{opacity:.35;cursor:not-allowed}
+.fb-ai-status{font-size:10px;color:var(--text-quaternary);font-family:ui-monospace,"SF Mono",monospace}
+.fb-ai-status.ok{color:var(--teal)}
+.fb-ai-status.bad{color:var(--red)}
+
+.fb-preview-wrap{display:flex;flex-direction:column;gap:var(--s2)}
+.fb-preview{
+  padding:var(--s3);font-size:11px;font-family:ui-monospace,"SF Mono",monospace;
+  line-height:1.7;color:var(--text-secondary);
+  background:var(--bg);border:1px solid var(--border);
+  border-left:3px solid var(--teal);border-radius:var(--r-sm);
+  white-space:pre-wrap;word-break:break-word;max-height:160px;overflow-y:auto;
+}
+
+.fb-actions{display:flex;align-items:center;gap:var(--s3);padding-top:var(--s3);border-top:1px solid var(--border)}
+.fb-submit{font-size:11px;padding:var(--s2) var(--s5)}
+.fb-submit-status{font-size:10px;color:var(--text-quaternary);font-family:ui-monospace,"SF Mono",monospace}
+.fb-submit-status.ok{color:var(--teal)}
+.fb-submit-status.bad{color:var(--red)}
+
+/* ============================================================================
    RESPONSIVE
    ============================================================================ */
 @media(max-width:900px){

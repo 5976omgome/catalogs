@@ -242,6 +242,142 @@ def api_stop_and_export(item_id: str):
 
 
 # ---------------------------------------------------------------------------
+# Feedback — writes .md files to feedback/ folder, Groq AI cleanup
+# ---------------------------------------------------------------------------
+
+FEEDBACK_DIR = config.BASE_DIR / "feedback"
+FEEDBACK_DIR.mkdir(exist_ok=True)
+
+
+@app.route("/api/feedback", methods=["POST"])
+def api_feedback():
+    """Submit feedback — writes a markdown file to feedback/ folder."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "invalid body"}), 400
+
+    category = (data.get("category") or "").strip().upper()
+    if category not in ("BUG", "IDEA", "OTHER"):
+        return jsonify({"error": "category must be BUG, IDEA, or OTHER"}), 400
+
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "text is required"}), 400
+
+    raw_text = (data.get("raw_text") or "").strip()
+    ai_enhanced = bool(data.get("ai_enhanced", False))
+
+    from datetime import datetime
+    now = datetime.now()
+    filename = f"{now.strftime('%m-%d.%H.%M')}.{category}.md"
+
+    # Build markdown optimized for Claude parsing
+    lines = [
+        "---",
+        f"category: {category}",
+        f"date: {now.isoformat()}",
+        f"platform: IGNITE SCOUT",
+        f"version: v5.0.0",
+        f"ai_enhanced: {str(ai_enhanced).lower()}",
+        "---",
+        "",
+        f"# {category}: {text.split(chr(10))[0][:80]}",
+        "",
+        text,
+        "",
+    ]
+
+    if ai_enhanced and raw_text:
+        lines.extend([
+            "---",
+            "",
+            f"> **Original (raw):** {raw_text}",
+            "",
+        ])
+
+    content = "\n".join(lines)
+    filepath = FEEDBACK_DIR / filename
+    filepath.write_text(content, encoding="utf-8")
+
+    return jsonify({"ok": True, "file": filename}), 201
+
+
+@app.route("/api/feedback/clean", methods=["POST"])
+def api_feedback_clean():
+    """Use Groq to clean up feedback text into an optimized Claude prompt."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "invalid body"}), 400
+
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "text is required"}), 400
+
+    category = (data.get("category") or "OTHER").strip().upper()
+
+    groq_key = config.groq_api_key()
+    if not groq_key:
+        return jsonify({"error": "Groq API key not configured. Add it in the API panel."}), 400
+
+    category_context = {
+        "BUG": "This is a bug report for IGNITE SCOUT, a Flask-based catalog intelligence platform. It processes CSV artist exports through iTunes, Deezer, Genius, Chartmetric, Groq, and Gemini APIs to verify catalog ownership for licensing/buyout opportunities.",
+        "IDEA": "This is a feature idea for IGNITE SCOUT, a Flask-based catalog intelligence platform that processes CSV artist exports through multiple APIs to verify catalog ownership.",
+        "OTHER": "This is general feedback for IGNITE SCOUT, a Flask-based catalog intelligence platform.",
+    }.get(category, "This is feedback for IGNITE SCOUT.")
+
+    system_prompt = f"""You are an expert prompt engineer. Your job is to take raw user feedback and transform it into a perfectly structured, actionable prompt that Claude (Opus) can immediately research and act on.
+
+Rules:
+- Fix all grammar and spelling errors
+- Clarify vague instructions — ask yourself what Claude would need to know to act on this
+- Add context about WHAT part of the system this relates to
+- Break complex feedback into clear, actionable steps
+- For bugs: include what happened, what should happen, and where it occurs
+- For ideas: include the goal, how it would work, and what it affects
+- Structure with markdown headers and bullet points
+- Keep it concise but complete — no fluff
+- Do NOT wrap in code fences or add explanatory text around the output
+- Output ONLY the enhanced prompt text, nothing else
+
+{category_context}"""
+
+    import requests as http_req
+    try:
+        resp = http_req.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {groq_key}",
+            },
+            json={
+                "model": "llama-3.3-70b-versatile",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": text},
+                ],
+                "temperature": 0.3,
+                "max_tokens": 1024,
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        result = resp.json()
+        cleaned = result["choices"][0]["message"]["content"].strip()
+        return jsonify({"ok": True, "cleaned": cleaned})
+    except http_req.exceptions.Timeout:
+        return jsonify({"error": "Groq API timeout — try again"}), 504
+    except http_req.exceptions.HTTPError as e:
+        msg = str(e)
+        try:
+            msg = e.response.json().get("error", {}).get("message", msg)
+        except Exception:
+            pass
+        return jsonify({"error": f"Groq API error: {msg}"}), 502
+    except Exception as e:
+        return jsonify({"error": f"Groq request failed: {e}"}), 500
+
+
+# ---------------------------------------------------------------------------
 # SSE stream — no Connection header (that was the Waitress crash)
 # ---------------------------------------------------------------------------
 
