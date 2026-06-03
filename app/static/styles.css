@@ -138,7 +138,7 @@ main{
   border-bottom:1px solid var(--border);
   padding:var(--s2) var(--s6);
 }
-.queue-controls{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.queue-row{display:flex;align-items:center;gap:var(--s2)}
 
 /* Tools Dropdown */
 .tools-dropdown{position:relative;display:flex;align-items:center;gap:var(--s2)}
@@ -168,16 +168,6 @@ main{
 .tool-option.active{opacity:.5;pointer-events:none}
 .tool-chartporter-opt::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#2d6a4f;margin-right:var(--s2)}
 .tool-genitractor-opt::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#ffd100;margin-right:var(--s2)}
-.queue-stats{display:flex;align-items:center;gap:var(--s2);margin-top:var(--s2)}
-
-/* Feed progress counter */
-.feed-progress{
-  font-size:11px;font-weight:700;font-family:ui-monospace,"SF Mono",monospace;
-  color:var(--teal);padding:var(--s1) var(--s3);
-  border-radius:var(--r-full);background:var(--green-soft);border:1px solid var(--green-border);
-  font-variant-numeric:tabular-nums;margin-left:var(--s2);
-}
-
 /* Confirm modal */
 .confirm-msg{font-size:13px;color:var(--text-secondary);margin-bottom:var(--s4)}
 .confirm-actions{display:flex;gap:var(--s2)}

@@ -29,6 +29,8 @@ function stopTimer(){
   if(_timerInterval){clearInterval(_timerInterval);_timerInterval=null}
 }
 
+let _totalArtists=0;
+
 function updateStats(){
   let running=0;
   Object.values(qState).forEach(li=>{
@@ -37,26 +39,17 @@ function updateStats(){
   });
   $("stat-slots").textContent=running+"/4";
 
-  let allProcessed=0,allTotal=0,allKeep=0;
+  let allProcessed=0,allKeep=0;
   Object.values(feeds).forEach(f=>{
     allKeep+=f.counts.keep||0;
-    const total=(f.counts.keep||0)+(f.counts.review||0)+(f.counts.drop||0);
-    allProcessed+=total;
+    allProcessed+=(f.counts.keep||0)+(f.counts.review||0)+(f.counts.drop||0);
   });
 
-  let queueTotal=0;
-  Object.values(qState).forEach(li=>{
-    const c=li.querySelector(".counts");
-    if(c){const parts=c.textContent.split("/");if(parts[1])queueTotal+=parseInt(parts[1])||0}
-  });
-  const pct=queueTotal>0?Math.floor(100*allProcessed/queueTotal):0;
+  const pct=_totalArtists>0?Math.floor(100*allProcessed/_totalArtists):0;
   $("stat-pct").textContent=pct+"%";
 
   const cleanPct=allProcessed>0?Math.floor(100*allKeep/allProcessed):0;
   $("stat-clean").textContent=cleanPct+"% CLEAN";
-
-  // Feed progress: processed/total
-  $("feed-progress").textContent=allProcessed+"/"+(queueTotal||allProcessed);
 }
 
 // ---------------------------------------------------------------------------
@@ -97,7 +90,7 @@ function initCollapsible(){
   document.querySelectorAll(".card-head[data-collapse]").forEach(head=>{
     head.style.cursor="pointer";
     head.addEventListener("click",e=>{
-      if(e.target.closest("button:not(.collapse-btn)")||e.target.closest("label")||e.target.closest("input"))return;
+      if(e.target.closest(".ftoggle")||e.target.closest("#global-filters")||e.target.closest("button:not(.collapse-btn)")||e.target.closest("label")||e.target.closest("input"))return;
       const bodyId=head.dataset.collapse;
       const body=document.getElementById(bodyId);
       const btn=head.querySelector(".collapse-btn");
@@ -312,7 +305,7 @@ function handleEvent(ev){
   if(ev.type==="snapshot"){$("queue").innerHTML="";Object.keys(qState).forEach(k=>delete qState[k]);
     (ev.items||[]).forEach(i=>{renderItem(i);if(i.status==="running")ensureFeed(i.id,i.filename)})}
   else if(ev.type==="item_added"){renderItem(ev.item);sys("+ "+ev.item.filename,"info")}
-  else if(ev.type==="item_started"){renderItem(ev.item);ensureFeed(ev.item.id,ev.item.filename);updateStats();sys("\u25b6 "+ev.item.filename,"info")}
+  else if(ev.type==="item_started"){renderItem(ev.item);ensureFeed(ev.item.id,ev.item.filename);_totalArtists+=(ev.item.total||0);updateStats();sys("\u25b6 "+ev.item.filename,"info")}
   else if(ev.type==="artist_done"){addArtistToFeed(ev);updateStats();
     const li=qState[ev.item_id];if(li){const stat=li.querySelector(".stat");if(stat)stat.textContent=`${Math.floor(100*ev.processed/ev.total)}%`;
       const c=li.querySelector(".counts");if(c)c.textContent=`${ev.processed}/${ev.total}`}}
@@ -327,7 +320,6 @@ function handleEvent(ev){
   }
   else if(ev.type==="genius_done"){
     sys(`[genius] ✓ Complete: ${ev.found} socials from ${ev.processed} artists.`,"ok");
-    $("btn-genius").disabled=false;$("btn-genius").textContent="GENIUS";$("btn-genius-stop").style.display="none";
   }
 }
 
@@ -401,27 +393,7 @@ function showConfirm(title,msg,cb){
   $("confirm-modal").classList.add("open");
 }
 
-// ---------------------------------------------------------------------------
-// GENIUS SEPARATE PASS
-// ---------------------------------------------------------------------------
-async function startGeniusPass(){
-  const btn=$("btn-genius");
-  btn.disabled=true;btn.textContent="RUNNING…";
-  $("btn-genius-stop").style.display="";
-  sys("Genius pass starting (1 artist / 2 sec)…","info");
-  try{
-    const r=await fetch("/api/genius/run",{method:"POST"});
-    const d=await r.json();
-    if(!r.ok){sys("Genius error: "+(d.error||""),"bad");btn.disabled=false;btn.textContent="GENIUS";$("btn-genius-stop").style.display="none"}
-  }catch(e){sys("Genius start failed: "+e.message,"bad");btn.disabled=false;btn.textContent="GENIUS";$("btn-genius-stop").style.display="none"}
-}
 
-async function stopGeniusPass(){
-  await fetch("/api/genius/stop",{method:"POST"});
-  sys("Genius pass stopped.","warn");
-  $("btn-genius").disabled=false;$("btn-genius").textContent="GENIUS";
-  $("btn-genius-stop").style.display="none";
-}
 
 // ---------------------------------------------------------------------------
 // FEEDBACK SYSTEM
@@ -513,7 +485,5 @@ document.addEventListener("DOMContentLoaded",()=>{
   $("btn-run").addEventListener("click",()=>{fetch("/api/queue/start",{method:"POST"});sys("RUN","info");startTimer()});
   $("btn-stop").addEventListener("click",()=>{showConfirm("Stop all running jobs?","This will halt processing. Do you also want to clear the queue?",()=>{fetch("/api/queue/stop",{method:"POST"});sys("STOP","warn");stopTimer()})});
   $("btn-export-all").addEventListener("click",()=>{showConfirm("Export all results?","This will merge all finished outputs into one file.",()=>dl($("btn-export-all"),"/api/export_all","AllCombinedOutput.xlsx"))});
-  $("btn-genius").addEventListener("click",startGeniusPass);
-  $("btn-genius-stop").addEventListener("click",stopGeniusPass);
   startStream();refreshStatus();
 });

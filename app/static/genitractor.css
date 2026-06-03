@@ -87,8 +87,7 @@ html,body{
   background:#fff;border-bottom:2px solid var(--carbon);
   padding:var(--s2) var(--s6);
 }
-.queue-controls{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
-.queue-stats{display:flex;align-items:center;gap:var(--s2);margin-top:var(--s2)}
+.queue-row{display:flex;align-items:center;gap:var(--s2)}
 
 /* Tools Dropdown */
 .tools-dropdown{position:relative;display:flex;align-items:center;gap:var(--s2)}
@@ -204,23 +203,27 @@ main{
 .sysline.warn{color:#b8860b}
 
 /* Feeds grid */
-.feeds-grid{padding:var(--s3);flex:1;min-height:200px;max-height:70vh;overflow-y:auto}
+.feeds-grid{
+  padding:var(--s3);flex:1;min-height:200px;max-height:70vh;overflow-y:auto;
+  background:var(--carbon);border-radius:0 0 var(--r-lg) var(--r-lg);
+}
 .feeds-grid.cols-1{display:block}
 
 /* Artist contact blocks */
 .ablock{
-  border-left:3px solid var(--carbon);margin-bottom:var(--s3);padding:var(--s2) 0 var(--s2) var(--s3);
+  border-left:3px solid var(--gold);margin-bottom:var(--s3);padding:var(--s2) 0 var(--s2) var(--s3);
 }
 .ablock .ahead{display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s1)}
-.ablock .aname{font-weight:700;font-size:12px;color:var(--carbon)}
-.ablock .badge{font-size:8px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:var(--r-full);background:var(--carbon);color:#fff;text-transform:uppercase}
-.ablock .badge.found{background:#2d6a4f}
-.ablock .badge.empty{background:var(--dust);color:var(--graphite)}
+.ablock .aname{font-weight:700;font-size:12px;color:#fff}
+.ablock .badge{font-size:8px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:var(--r-full);background:var(--carbon);color:#fff;text-transform:uppercase;border:1px solid var(--graphite)}
+.ablock .badge.found{background:#2d6a4f;border-color:#2d6a4f}
+.ablock .badge.empty{background:var(--graphite);color:var(--dust);border-color:var(--graphite)}
 .ablock .src{display:flex;gap:var(--s2);padding:2px 0}
-.ablock .src-name{flex:0 0 70px;font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--graphite);font-weight:600}
+.ablock .src-name{flex:0 0 70px;font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--dust);font-weight:600}
 .ablock .src-vals{flex:1}
-.ablock .src-vals a{font-size:11px;color:var(--carbon);text-decoration:underline;word-break:break-all}
-.ablock .src-vals .empty{color:var(--text-muted);font-style:italic;font-size:11px}
+.ablock .src-vals a{font-size:11px;color:var(--gold);text-decoration:underline;word-break:break-all}
+.ablock .src-vals a:hover{color:var(--lemon)}
+.ablock .src-vals .empty{color:#666;font-style:italic;font-size:11px}
 
 /* ============================================================================
    FOOTER
