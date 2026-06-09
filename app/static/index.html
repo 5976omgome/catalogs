@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IGNITE: VIRTUAL SCOUT</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- STICKY TOP BAR — always visible -->
+  <header class="topbar">
+    <div class="brand-group">
+      <a href="https://ignitethelabel.com" target="_blank" rel="noopener" class="brand-logo-link"><img src="logos/ignite.svg" alt="IGNITE" class="brand-logo"></a>
+      <div class="brand-text">
+        <div class="brand">VIRTUAL SCOUT</div>
+        <div class="brand-sub">CATALOG INTELLIGENCE</div>
+      </div>
+      <span class="clock" id="clock">00:00:00</span>
+    </div>
+    <div class="pills">
+      <span class="pill ok clickable" id="pill-itunes" data-key="itunes">ITUNES</span>
+      <span class="pill ok clickable" id="pill-deezer" data-key="deezer">DEEZER</span>
+      <span class="pill clickable" id="pill-groq" data-key="groq_api_key">GROQ</span>
+      <span class="pill clickable" id="pill-gemini" data-key="gemini_api_key">GEMINI</span>
+      <span class="pill-divider"></span>
+      <div class="tools-dropdown" id="tools-dropdown">
+        <button class="btn-tools" id="tool-btn">CHARTPORTER</button>
+        <div class="tools-menu" id="tools-menu">
+          <a href="/" class="tool-option tool-chartporter-opt active">Chartporter</a>
+          <a href="/genitractor" class="tool-option tool-genitractor-opt">Genitractor</a>
+        </div>
+      </div>
+      <button class="btn-feedback" id="btn-feedback">FEEDBACK</button>
+    </div>
+  </header>
+
+  <!-- STICKY QUEUE CONTROLS — always visible below topbar -->
+  <nav class="queue-bar">
+    <div class="queue-row">
+      <label class="filebtn"><input type="file" id="file-input" accept=".csv,.tsv" multiple><span>ADD</span></label>
+      <button id="btn-run" class="primary">RUN</button>
+      <button id="btn-stop" class="warn">STOP</button>
+      <button id="btn-export-all" class="ghost">EXPORT</button>
+      <button id="btn-clear" class="ghost">CLEAR</button>
+      <span class="pill-divider"></span>
+      <span class="timer" id="timer">00:00</span>
+      <span class="stat-pct clickable" id="stat-pct" title="Click to toggle fraction">0% TOTAL</span>
+      <span class="stat-clean clickable" id="stat-clean" title="Click to toggle fraction">0% CLEAN</span>
+      <span class="export-msg" id="export-msg"></span>
+    </div>
+    <ul id="queue" class="queue"></ul>
+  </nav>
+
+  <!-- SCROLLABLE CONTENT -->
+  <main>
+    <section class="card collapsible" id="card-system">
+      <header class="card-head" data-collapse="sys-body">
+        <h2>SYSTEM</h2>
+        <button class="ghost collapse-btn">&#9660;</button>
+      </header>
+      <div class="sys-log-wrap" id="sys-body">
+        <div id="sys-log"></div>
+      </div>
+    </section>
+
+    <section class="card grow collapsible" id="card-feeds">
+      <header class="card-head" data-collapse="feeds-body">
+        <h2 id="feeds-title">FEED</h2>
+        <div class="row" id="global-filters">
+          <span class="ftoggle f-drop on" id="gf-drop">FLAGGED</span>
+          <span class="ftoggle f-review on" id="gf-review">REVIEW</span>
+          <span class="ftoggle f-keep on" id="gf-keep">CLEAN</span>
+          <span class="ftoggle f-socials on" id="gf-socials">SOCIALS</span>
+          <span class="ftoggle f-debug off" id="gf-debug">DEBUG</span>
+        </div>
+        <button class="ghost collapse-btn">&#9660;</button>
+      </header>
+      <div id="feeds-body">
+        <div id="feeds-grid" class="feeds-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- FULL-WIDTH FOOTER (sits flush to screen edges) -->
+  <footer class="powered-footer">
+    <div class="footer-inner">
+      <div class="footer-left">
+        <span class="footer-label">POWERED BY</span>
+        <div class="footer-logos">
+          <a class="logo-link" href="https://kiro.dev" target="_blank" rel="noopener"><img src="logos/kiro.svg" alt="Kiro"></a>
+          <a class="logo-link" href="https://chartmetric.com" target="_blank" rel="noopener"><img src="logos/chartmetric.svg" alt="Chartmetric"></a>
+          <a class="logo-link" href="https://music.apple.com" target="_blank" rel="noopener"><img src="logos/itunes.svg" alt="iTunes"></a>
+          <a class="logo-link" href="https://deezer.com" target="_blank" rel="noopener"><img src="logos/deezer.svg" alt="Deezer"></a>
+          <a class="logo-link" href="https://ai.google.dev/gemini-api/docs" target="_blank" rel="noopener"><img src="logos/gemini.svg" alt="Gemini"></a>
+          <a class="logo-link logo-ignite" href="https://ignitethelabel.com" target="_blank" rel="noopener"><img src="logos/ignite.svg" alt="Ignite"></a>
+        </div>
+      </div>
+      <span class="footer-credit">IGNITE THE LABEL &middot; Q2 2026</span>
+    </div>
+  </footer>
+
+  <!-- Confirm Modal (Stop/Export) -->
+  <div class="modal-overlay" id="confirm-modal">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <h2 id="confirm-title">Confirm</h2>
+        <button class="ghost modal-close" id="confirm-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-msg" class="confirm-msg">Are you sure?</p>
+        <div class="confirm-actions">
+          <button class="primary" id="confirm-yes">YES</button>
+          <button class="ghost" id="confirm-no">NO</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Key Modal -->
+  <div class="modal-overlay" id="key-modal">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <h2 id="key-modal-title">Set API Key</h2>
+        <button class="ghost modal-close" id="key-modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="password" class="key-modal-input" id="key-modal-input" placeholder="Paste key here...">
+        <div class="keys-actions">
+          <button id="key-modal-save" class="primary">SAVE</button>
+          <span id="key-modal-msg"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback Modal -->
+  <div class="modal-overlay" id="feedback-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Submit Feedback</h2>
+        <button class="ghost modal-close" id="feedback-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="fb-field">
+          <label class="fb-label">Category</label>
+          <div class="fb-cats">
+            <button class="fb-cat" data-cat="BUG">BUG</button>
+            <button class="fb-cat" data-cat="IDEA">IDEA</button>
+            <button class="fb-cat" data-cat="OTHER">OTHER</button>
+          </div>
+        </div>
+        <div class="fb-field">
+          <label class="fb-label">Your Feedback</label>
+          <textarea class="fb-textarea" id="fb-text" placeholder="Describe the bug, idea, or note..." rows="4"></textarea>
+        </div>
+        <div class="fb-ai-row">
+          <button class="ghost fb-ai-btn" id="fb-ai-clean" disabled>&#10024; CLEAN UP WITH GROQ</button>
+          <span class="fb-ai-status" id="fb-ai-status"></span>
+        </div>
+        <div class="fb-preview-wrap" id="fb-preview-wrap" style="display:none">
+          <label class="fb-label">AI-Enhanced Preview</label>
+          <div class="fb-preview" id="fb-preview"></div>
+        </div>
+        <div class="fb-actions">
+          <button class="primary fb-submit" id="fb-submit" disabled>SUBMIT TO REPO</button>
+          <span class="fb-submit-status" id="fb-submit-status"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cross-Tool Progress Bar (shows Genitractor progress) -->
+  <div class="cross-tool-bar" id="cross-tool-bar">
+    <span class="ctb-icon genitractor"></span>
+    <span class="ctb-label">GENITRACTOR</span>
+    <div class="ctb-progress"><span class="genitractor" id="ctb-fill" style="width:0%"></span></div>
+    <span class="ctb-stats" id="ctb-stats">0/0</span>
+    <span class="ctb-timer" id="ctb-timer">00:00</span>
+    <a href="/genitractor" class="ctb-btn genitractor">OPEN</a>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
