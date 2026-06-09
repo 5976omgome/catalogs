@@ -376,15 +376,23 @@ button.warn:hover:not(:disabled){box-shadow:0 4px 12px rgba(192,57,43,.1)}
 .ablock{animation:feedIn .28s var(--ease) both;will-change:transform,opacity}
 .ablock:hover{border-left-color:var(--gold);transition:border-color .15s var(--ease)}
 
-/* --- COLLAPSE/EXPAND --- */
+/* --- COLLAPSE/EXPAND — class-driven grid-row collapse (robust; no scrollHeight,
+   no inline maxHeight, no !important conflict, no overlapping timers) --- */
 .sys-log-wrap,#feeds-body{
-  transition:max-height .35s var(--ease),opacity .25s var(--ease),padding .25s var(--ease);
-  overflow:hidden;
+  display:grid;grid-template-rows:1fr;
+  transition:grid-template-rows .3s var(--ease),opacity .25s var(--ease),padding .25s var(--ease);
 }
+.sys-log-wrap>*,#feeds-body>*{min-height:0;overflow:auto}
 .sys-log-wrap.collapsed,#feeds-body.collapsed{
-  max-height:0 !important;opacity:0;padding-top:0;padding-bottom:0;
+  grid-template-rows:0fr;opacity:0;padding-top:0;padding-bottom:0;
 }
+.sys-log-wrap.collapsed>*,#feeds-body.collapsed>*{overflow:hidden}
 .collapse-btn{transition:transform .25s var(--ease)}
+
+/* Persistent in-UI export message */
+.export-msg{font-size:9px;font-weight:600;color:var(--graphite);font-family:ui-monospace,"SF Mono",monospace;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0;transition:opacity .2s var(--ease)}
+.export-msg.show{opacity:1}
+.export-msg.bad{color:#c0392b}
 
 /* --- CROSS-TOOL BAR --- */
 .cross-tool-bar{animation:slideUp .35s var(--ease) both}

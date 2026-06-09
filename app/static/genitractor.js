@@ -1,6 +1,11 @@
 "use strict";
 const $=id=>document.getElementById(id);
 
+// Max rendered feed blocks (mirrors the 200-line console cap).
+const FEED_BLOCK_CAP=200;
+// Safe percentage — never divides by zero (renders 0% instead of NaN%).
+function pct(p,t){return t>0?Math.floor(100*p/t):0}
+
 // ---------------------------------------------------------------------------
 // CLOCK
 // ---------------------------------------------------------------------------
@@ -13,12 +18,21 @@ function initClock(){
 // TIMER
 // ---------------------------------------------------------------------------
 let _timerStart=null,_timerInterval=null;
+function _renderTimer(){
+  if(_timerStart==null)return;
+  const e=Math.max(0,Math.floor((Date.now()-_timerStart)/1000));
+  $("timer").textContent=String(Math.floor(e/60)).padStart(2,"0")+":"+String(e%60).padStart(2,"0");
+}
 function startTimer(){
-  if(_timerInterval)return;_timerStart=Date.now();
-  _timerInterval=setInterval(()=>{
-    const e=Math.floor((Date.now()-_timerStart)/1000);
-    $("timer").textContent=String(Math.floor(e/60)).padStart(2,"0")+":"+String(e%60).padStart(2,"0");
-  },1000);
+  _timerStart=Date.now();
+  if(!_timerInterval)_timerInterval=setInterval(_renderTimer,1000);
+  _renderTimer();
+}
+function resumeTimer(startedAtSec){
+  if(startedAtSec==null)return;
+  _timerStart=startedAtSec*1000;
+  if(!_timerInterval)_timerInterval=setInterval(_renderTimer,1000);
+  _renderTimer();
 }
 function stopTimer(){if(_timerInterval){clearInterval(_timerInterval);_timerInterval=null}}
 
@@ -35,7 +49,7 @@ function sys(text,cls){
 }
 
 // ---------------------------------------------------------------------------
-// COLLAPSIBLE
+// COLLAPSIBLE — class-driven (no scrollHeight, no inline maxHeight, no timers)
 // ---------------------------------------------------------------------------
 function initCollapsible(){
   document.querySelectorAll(".card-head[data-collapse]").forEach(head=>{
@@ -43,22 +57,12 @@ function initCollapsible(){
     head.addEventListener("click",e=>{
       if(e.target.closest("button:not(.collapse-btn)"))return;
       const body=document.getElementById(head.dataset.collapse);
+      if(!body)return;
       const card=head.closest(".card");
       const btn=head.querySelector(".collapse-btn");
-      const isCollapsed=body.classList.contains("collapsed");
-      if(isCollapsed){
-        body.classList.remove("collapsed");
-        body.style.maxHeight=body.scrollHeight+"px";
-        if(btn)btn.textContent="\u25BC";
-        setTimeout(()=>{body.style.maxHeight="";if(card)card.classList.remove("is-collapsed")},350);
-      }else{
-        body.style.maxHeight=body.scrollHeight+"px";
-        body.offsetHeight;
-        body.classList.add("collapsed");
-        body.style.maxHeight="0";
-        if(card)card.classList.add("is-collapsed");
-        if(btn)btn.textContent="\u25B6";
-      }
+      const collapsed=body.classList.toggle("collapsed");
+      if(card)card.classList.toggle("is-collapsed",collapsed);
+      if(btn)btn.textContent=collapsed?"\u25B6":"\u25BC";
     });
   });
 }
@@ -122,6 +126,7 @@ function initToolsDropdown(){
   if(!btn||!menu)return;
   btn.addEventListener("click",e=>{e.stopPropagation();menu.classList.toggle("open")});
   document.addEventListener("click",()=>menu.classList.remove("open"));
+  menu.addEventListener("click",e=>e.stopPropagation());
 }
 
 // ---------------------------------------------------------------------------
@@ -163,7 +168,7 @@ function renderItem(item){
   const li=document.createElement("li");li.dataset.id=item.id;
   const name=document.createElement("span");name.className="name";name.textContent=item.filename;
   const stat=document.createElement("span");stat.className="stat "+item.status;
-  stat.textContent=item.status==="running"?`${Math.floor(100*item.processed/Math.max(item.total,1))}%`:item.status.toUpperCase();
+  stat.textContent=item.status==="running"?`${pct(item.processed,item.total)}%`:item.status.toUpperCase();
   li.append(name);
   if(item.total>0&&item.status==="running"){const c=document.createElement("span");c.className="counts";c.textContent=`${item.processed}/${item.total}`;li.append(c)}
   li.append(stat);$("queue").append(li);qState[item.id]=li;
@@ -178,16 +183,14 @@ function updateStats(){
   if(_statShowFraction){
     elPct.textContent=totalProcessed+"/"+totalArtists;
   }else{
-    const pct=totalArtists>0?Math.floor(100*totalProcessed/totalArtists):0;
-    elPct.textContent=pct+"% TOTAL";
+    elPct.textContent=pct(totalProcessed,totalArtists)+"% TOTAL";
   }
 
   const elClean=$("stat-clean");
   if(_cleanShowFraction){
     elClean.textContent=totalFound+"/"+totalProcessed;
   }else{
-    const foundPct=totalProcessed>0?Math.floor(100*totalFound/totalProcessed):0;
-    elClean.textContent=foundPct+"% FOUND";
+    elClean.textContent=pct(totalFound,totalProcessed)+"% FOUND";
   }
 }
 
@@ -216,7 +219,9 @@ function addContactToFeed(ev){
     else{const s=document.createElement("span");s.className="empty";s.textContent="\u2014";vals.append(s)}
     row.append(lbl,vals);block.append(row);
   }
-  grid.append(block);grid.scrollTop=grid.scrollHeight;
+  grid.append(block);
+  while(grid.children.length>FEED_BLOCK_CAP)grid.firstChild.remove();
+  grid.scrollTop=grid.scrollHeight;
 
   totalProcessed++;
   if(hasAnything)totalFound++;
@@ -236,11 +241,22 @@ function startStream(){
 
 function handleEvent(ev){
   if(ev.type==="snapshot"){$("queue").innerHTML="";Object.keys(qState).forEach(k=>delete qState[k]);
-    (ev.items||[]).forEach(i=>renderItem(i))}
+    totalArtists=0;totalProcessed=0;totalFound=0;
+    let resumeStart=null;
+    (ev.items||[]).forEach(i=>{
+      renderItem(i);
+      totalArtists+=(i.total||0);
+      totalProcessed+=(i.processed||0);
+      totalFound+=(i.found||0);
+      if(i.status==="running"&&i.started_at!=null)resumeStart=(resumeStart==null?i.started_at:Math.min(resumeStart,i.started_at));
+    });
+    updateStats();
+    if(resumeStart!=null)resumeTimer(resumeStart);else stopTimer();
+  }
   else if(ev.type==="item_added"){renderItem(ev.item);sys("+ "+ev.item.filename,"info")}
-  else if(ev.type==="item_started"){renderItem(ev.item);totalArtists+=(ev.item.total||0);updateStats();sys("\u25b6 "+ev.item.filename,"info")}
+  else if(ev.type==="item_started"){renderItem(ev.item);totalArtists+=(ev.item.total||0);updateStats();if(ev.item.started_at!=null)resumeTimer(ev.item.started_at);sys("\u25b6 "+ev.item.filename,"info")}
   else if(ev.type==="contact_done"){addContactToFeed(ev);
-    const li=qState[ev.item_id];if(li){const s=li.querySelector(".stat");if(s)s.textContent=`${Math.floor(100*ev.processed/ev.total)}%`;
+    const li=qState[ev.item_id];if(li){const s=li.querySelector(".stat");if(s)s.textContent=`${pct(ev.processed,ev.total)}%`;
       const c=li.querySelector(".counts");if(c)c.textContent=`${ev.processed}/${ev.total}`}}
   else if(ev.type==="item_done"){renderItem(ev.item);sys("\u2713 Done: "+ev.item.filename,"ok");checkAllDone()}
   else if(ev.type==="item_stopped"){renderItem(ev.item);sys("\u25a0 Stopped.","warn")}
@@ -255,7 +271,15 @@ function checkAllDone(){
 // ---------------------------------------------------------------------------
 // CROSS-TOOL PROGRESS BAR — polls Chartporter status
 // ---------------------------------------------------------------------------
+let _ctbStartedAt=null,_ctbTimerInterval=null;
+function _renderCtbTimer(){
+  const el=$("ctb-timer");if(!el)return;
+  if(_ctbStartedAt==null){el.textContent="00:00";return}
+  const e=Math.max(0,Math.floor((Date.now()-_ctbStartedAt*1000)/1000));
+  el.textContent=String(Math.floor(e/60)).padStart(2,"0")+":"+String(e%60).padStart(2,"0");
+}
 function initCrossToolBar(){
+  if(!_ctbTimerInterval)_ctbTimerInterval=setInterval(_renderCtbTimer,1000);
   setInterval(async()=>{
     try{
       const r=await fetch("/api/cross-status");const d=await r.json();
@@ -263,11 +287,14 @@ function initCrossToolBar(){
       const bar=$("cross-tool-bar");
       if(cp.running&&cp.total>0){
         bar.classList.add("visible");
-        const pct=Math.floor(100*cp.processed/cp.total);
-        $("ctb-fill").style.width=pct+"%";
+        const p=pct(cp.processed,cp.total);
+        $("ctb-fill").style.width=p+"%";
         $("ctb-stats").textContent=cp.processed+"/"+cp.total;
+        _ctbStartedAt=(cp.started_at!=null?cp.started_at:_ctbStartedAt);
+        _renderCtbTimer();
       }else{
         bar.classList.remove("visible");
+        _ctbStartedAt=null;
       }
     }catch(e){}
   },10000);
@@ -282,14 +309,61 @@ async function uploadFile(file){
   if(!r.ok){const e=await r.json().catch(()=>({error:"failed"}));sys("Upload error: "+(e.error||""),"bad")}
 }
 
+// Persistent in-UI export message (does not scroll away like the console).
+function showExportMsg(text,cls){
+  const el=$("export-msg");if(!el)return;
+  el.textContent=text||"";
+  el.className="export-msg"+(text?" show":"")+(cls?" "+cls:"");
+}
+
+// EXPORT — fetch + blob download; never navigates the page to a JSON body.
+async function exportContacts(){
+  showExportMsg("");
+  try{
+    const r=await fetch("/api/genitractor/export");
+    if(!r.ok){let msg=`${r.status}`;try{const j=await r.json();if(j.error)msg=j.error}catch(e){}
+      sys("Export error: "+msg,"bad");showExportMsg("Export unavailable: "+msg,"bad");return}
+    const blob=await r.blob();
+    const cd=r.headers.get("Content-Disposition")||"";
+    const m=/filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(cd);
+    const filename=(m&&decodeURIComponent(m[1].replace(/"$/,"")))||"Genitractor_Contacts.csv";
+    const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=filename;a.style.display="none";
+    document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);
+    sys("Downloaded: "+filename,"ok");
+  }catch(e){sys("Export error: "+e.message,"bad");showExportMsg("Export failed: "+e.message,"bad")}
+}
+
+// CLEAR — reset the queue server-side and the client feed/stat state.
+function clearAll(){
+  fetch("/api/genitractor/clear",{method:"POST"}).then(()=>{
+    totalProcessed=0;totalArtists=0;totalFound=0;
+    Object.keys(qState).forEach(k=>{if(qState[k])qState[k].remove();delete qState[k]});
+    $("feeds-grid").innerHTML="";
+    updateStats();showExportMsg("");
+    sys("Queue cleared.","info");
+  }).catch(e=>sys("Clear failed: "+e.message,"bad"));
+}
+
+function _safeInit(name,fn){try{fn()}catch(e){sys(name+" init failed: "+(e&&e.message||e),"bad")}}
+
 document.addEventListener("DOMContentLoaded",()=>{
   sys("Genitractor starting\u2026","info");
-  initClock();initCollapsible();initKeyModal();initConfirmModal();initToolsDropdown();initFeedback();initCrossToolBar();
-  $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
-  $("stat-pct").addEventListener("click",()=>{_statShowFraction=!_statShowFraction;updateStats()});
-  $("stat-clean").addEventListener("click",()=>{_cleanShowFraction=!_cleanShowFraction;updateStats()});
-  $("btn-run").addEventListener("click",()=>{fetch("/api/genitractor/start",{method:"POST"});sys("RUN","info");startTimer()});
-  $("btn-stop").addEventListener("click",()=>{showConfirm("Stop extraction?","This will halt Genius lookups.",()=>{fetch("/api/genitractor/stop",{method:"POST"});sys("STOP","warn");stopTimer()})});
-  $("btn-export-all").addEventListener("click",()=>{showConfirm("Export contacts?","This will download all found contacts as CSV.",()=>{window.location.href="/api/genitractor/export"})});
-  startStream();refreshStatus();
+  _safeInit("clock",initClock);
+  _safeInit("collapsible",initCollapsible);
+  _safeInit("keyModal",initKeyModal);
+  _safeInit("confirmModal",initConfirmModal);
+  _safeInit("toolsDropdown",initToolsDropdown);
+  _safeInit("feedback",initFeedback);
+  _safeInit("crossToolBar",initCrossToolBar);
+  _safeInit("controls",()=>{
+    $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
+    $("stat-pct").addEventListener("click",()=>{_statShowFraction=!_statShowFraction;updateStats()});
+    $("stat-clean").addEventListener("click",()=>{_cleanShowFraction=!_cleanShowFraction;updateStats()});
+    $("btn-run").addEventListener("click",()=>{fetch("/api/genitractor/start",{method:"POST"});sys("RUN","info");showExportMsg("");startTimer()});
+    $("btn-stop").addEventListener("click",()=>{showConfirm("Stop extraction?","This will halt Genius lookups.",()=>{fetch("/api/genitractor/stop",{method:"POST"});sys("STOP","warn");stopTimer()})});
+    $("btn-export-all").addEventListener("click",()=>{showConfirm("Export contacts?","This will download all found contacts as CSV.",exportContacts)});
+    const bc=$("btn-clear");if(bc)bc.addEventListener("click",()=>showConfirm("Clear queue?","This removes finished/errored items and resets the feed & stats. Running items are kept.",clearAll));
+  });
+  _safeInit("stream",startStream);
+  _safeInit("status",refreshStatus);
 });

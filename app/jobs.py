@@ -20,7 +20,7 @@ from typing import Optional, List
 
 import pandas as pd
 
-from app import config, audit as audit_mod, excel
+from app import config, audit as audit_mod, excel, csv_export
 
 PARALLEL_ARTISTS = 4  # Artists processed simultaneously within one CSV
 
@@ -78,6 +78,7 @@ class JobItem:
     review: int = 0
     drop: int = 0
     output_path: Optional[Path] = None
+    started_at: Optional[float] = None  # epoch seconds — set at the running transition
     _stop: bool = field(default=False, repr=False)
     use_gemini: bool = field(default=True)   # Whether AI bridge runs for this item
     verbose: bool = field(default=True)       # Emit debug events (always on, UI toggle controls display)
@@ -95,6 +96,7 @@ class JobItem:
             "review": self.review,
             "drop": self.drop,
             "has_output": self.output_path is not None and self.output_path.exists(),
+            "started_at": self.started_at,
             "use_gemini": self.use_gemini,
             "verbose": self.verbose,
             "use_genius": self.use_genius,
@@ -212,6 +214,7 @@ class JobManager:
     def _run_item(self, item: JobItem):
         with self._lock:
             item.status = "running"
+            item.started_at = time.time()
         self._broadcast({"type": "item_started", "item": item.to_dict()})
 
         # Read CSV
@@ -466,9 +469,9 @@ class JobManager:
         try:
             out_dir = config.OUTPUT_DIR
             stem = Path(item.filename).stem
-            out_path = out_dir / f"{stem}Output.xlsx"
+            out_path = out_dir / f"{stem}Output.csv"
             processed_df = df.iloc[:item.processed].copy() if item.processed < len(df) else df
-            excel.write_xlsx(processed_df, out_path)
+            csv_export.write_csv(processed_df, out_path)
             with self._lock:
                 item.output_path = out_path
         except Exception as e:

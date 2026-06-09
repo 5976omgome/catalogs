@@ -4,13 +4,17 @@ Requires a free Client Access Token from https://genius.com/api-clients
 Returns: instagram, twitter, facebook handles when available.
 Uses shared Session for FD safety.
 
-RATE LIMITING: Genius free tier allows ~5 req/sec. We use a global
+RATE LIMITING: Genius free tier allows ~2 req/sec. We use a global
 lock + sleep to ensure we never exceed this across all worker threads.
+On rate-limit responses (HTTP 429, Cloudflare 1015, or 403-HTML block
+pages) we apply escalating exponential backoff and, on exhaustion, return
+the typed ``RATE_LIMITED`` sentinel rather than silently returning None.
 """
 import re
 import time
+import random
 import threading
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 
 from app.sources._http import ai_session as _s
 from app import config, cache
@@ -21,6 +25,21 @@ _BASE = "https://api.genius.com"
 _genius_lock = threading.Lock()
 _last_request_time = 0.0
 _MIN_INTERVAL = 0.5  # 2 requests/second — tested safe, no 429s
+
+# Escalating backoff schedule (seconds) applied on rate-limit responses.
+_BACKOFF_SCHEDULE = [2, 4, 8, 16, 32]
+
+
+class _RateLimited:
+    """Typed sentinel signalling that Genius rate-limited us past backoff."""
+    __slots__ = ()
+
+    def __repr__(self):  # pragma: no cover - debugging aid
+        return "<genius.RATE_LIMITED>"
+
+
+# Module-level singleton — callers compare identity: `result is RATE_LIMITED`.
+RATE_LIMITED = _RateLimited()
 
 
 def _rate_limit():
@@ -37,16 +56,61 @@ def _rate_limit():
         time.sleep(wait)
 
 
+def _is_rate_limited(r) -> bool:
+    """Detect HTTP 429, Cloudflare 1015, and 403-HTML block pages."""
+    if r.status_code == 429:
+        return True
+    ct = (r.headers.get("Content-Type") or "").lower()
+    try:
+        body_head = (r.text or "")[:512].lower()
+    except Exception:
+        body_head = ""
+    # Cloudflare "error code: 1015" rate-limit page
+    if "1015" in body_head and ("error code" in body_head or "rate" in body_head):
+        return True
+    # 403 served as an HTML block/challenge page (Cloudflare WAF)
+    if r.status_code == 403 and ("text/html" in ct or "<html" in body_head):
+        return True
+    return False
+
+
+def _request_with_backoff(url, params, headers, timeout=10):
+    """GET with rate limiting + escalating backoff on rate-limit responses.
+
+    Returns the ``requests`` response on success/non-rate-limit status, or the
+    typed ``RATE_LIMITED`` sentinel if the backoff schedule is exhausted.
+    """
+    attempt = 0
+    while True:
+        _rate_limit()
+        r = _s.get(url, params=params, headers=headers, timeout=timeout)
+        # 401 is an auth problem, not a rate limit — let the caller handle it.
+        if r.status_code == 401:
+            return r
+        if _is_rate_limited(r):
+            if attempt >= len(_BACKOFF_SCHEDULE):
+                print(f"[genius] rate-limited (status {r.status_code}) — backoff exhausted", flush=True)
+                return RATE_LIMITED
+            base = _BACKOFF_SCHEDULE[attempt]
+            wait = base + random.uniform(0.0, base * 0.25)  # jitter
+            print(f"[genius] rate-limited (status {r.status_code}) — backing off {wait:.1f}s", flush=True)
+            time.sleep(wait)
+            attempt += 1
+            continue
+        return r
+
+
 def _normalize(s: str) -> str:
     return re.sub(r"[^a-z0-9]", "", s.lower()) if s else ""
 
 
-def get_socials(artist: str) -> Optional[Dict[str, str]]:
+def get_socials(artist: str) -> Optional[Union[Dict[str, str], _RateLimited]]:
     """Fetch social media handles for an artist from Genius.
 
     Returns dict like:
         {"instagram": "handle", "twitter": "handle", "facebook": "page_url"}
-    or None if artist not found or no key configured.
+    or None if artist not found or no key configured, or the ``RATE_LIMITED``
+    sentinel if Genius rate-limited us past the backoff schedule.
     """
     key = config.genius_token()
     if not key:
@@ -60,32 +124,18 @@ def get_socials(artist: str) -> Optional[Dict[str, str]]:
     headers = {"Authorization": f"Bearer {key}"}
 
     try:
-        # Rate limit before each API call
-        _rate_limit()
-
         # Search for artist (Genius search returns songs, we extract artist from them)
-        r = _s.get(
+        r = _request_with_backoff(
             f"{_BASE}/search",
             params={"q": artist, "per_page": 10},
             headers=headers,
             timeout=10,
         )
+        if r is RATE_LIMITED:
+            return RATE_LIMITED
         if r.status_code == 401:
             print(f"[genius] 401 Unauthorized — token may be invalid", flush=True)
             return None
-        if r.status_code == 429:
-            # Back off and retry once after 2 seconds
-            time.sleep(2.0)
-            _rate_limit()
-            r = _s.get(
-                f"{_BASE}/search",
-                params={"q": artist, "per_page": 10},
-                headers=headers,
-                timeout=10,
-            )
-            if r.status_code == 429:
-                print(f"[genius] 429 Rate limited for '{artist}' (after retry)", flush=True)
-                return None
         r.raise_for_status()
 
         data = r.json()
@@ -122,25 +172,15 @@ def get_socials(artist: str) -> Optional[Dict[str, str]]:
             cache.put(cache_key, {})
             return None
 
-        # Rate limit before second API call
-        _rate_limit()
-
         # Get full artist object with social links
-        r2 = _s.get(
+        r2 = _request_with_backoff(
             f"{_BASE}/artists/{artist_id}",
             params={"text_format": "plain"},
             headers=headers,
             timeout=10,
         )
-        if r2.status_code == 429:
-            time.sleep(2.0)
-            _rate_limit()
-            r2 = _s.get(
-                f"{_BASE}/artists/{artist_id}",
-                params={"text_format": "plain"},
-                headers=headers,
-                timeout=10,
-            )
+        if r2 is RATE_LIMITED:
+            return RATE_LIMITED
         if r2.status_code != 200:
             cache.put(cache_key, {})
             return None
@@ -154,15 +194,6 @@ def get_socials(artist: str) -> Optional[Dict[str, str]]:
         ig = artist_data.get("instagram_name") or ""
         tw = artist_data.get("twitter_name") or ""
         fb = artist_data.get("facebook_name") or ""
-        website = artist_data.get("url") or ""
-        # Genius "url" is the genius.com page — we want the artist's own website
-        # The actual website is in "custom_header_image_url" or header fields
-        # But the REAL website link is in "description_annotation" or not exposed.
-        # However, some artists have a dedicated website in their profile header.
-        # The best we can get from the API is the artist's Genius page URL.
-        # For actual artist websites, we check alternate_names or bio links.
-        # Actually — Genius exposes artist websites via the artist page HTML, not API.
-        # We'll use the Genius page URL as a fallback identifier.
 
         if ig:
             socials["instagram"] = ig.strip().lstrip("@")
@@ -171,10 +202,7 @@ def get_socials(artist: str) -> Optional[Dict[str, str]]:
         if fb:
             socials["facebook"] = fb.strip()
 
-        # Check for artist website — Genius doesn't have a direct field,
-        # but we can derive from the artist's header/image URLs or use
-        # the associated label/distributor website from Chartmetric data.
-        # For now, store the Genius profile URL for reference.
+        # Store the Genius profile URL for reference (no direct website field).
         genius_url = artist_data.get("url") or ""
         if genius_url:
             socials["genius_url"] = genius_url
