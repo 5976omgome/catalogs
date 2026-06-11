@@ -1,8 +1,9 @@
-"""Stats API — lifetime metrics for dashboard widgets."""
+"""Stats API — real-time metrics from the Artists library for dashboard."""
 from flask import Blueprint, jsonify
 from flask_login import login_required, current_user
+from sqlalchemy import func
 
-from app.database import Session, LifetimeStats
+from app.database import Session, Artist
 
 stats_bp = Blueprint("stats", __name__, url_prefix="/api/stats")
 
@@ -10,25 +11,37 @@ stats_bp = Blueprint("stats", __name__, url_prefix="/api/stats")
 @stats_bp.route("/lifetime")
 @login_required
 def lifetime():
-    """Return lifetime stats for the current user's dashboard widgets."""
+    """Dashboard widgets — computed from the actual Artists table."""
     session = Session()
     try:
-        stats = session.query(LifetimeStats).filter_by(user_id=current_user.id).first()
-        if not stats:
-            return jsonify({
-                "total_processed": 0,
-                "total_yield": 0,
-                "emails_sent": 0,
-            })
+        uid = current_user.id
+        total = session.query(func.count(Artist.id)).filter_by(user_id=uid).scalar() or 0
 
-        # Yield = (total_keep + total_found) / total_processed * 100
-        total = stats.total_processed or 1
-        yield_pct = round(((stats.total_keep + stats.total_found) / total) * 100, 1)
+        # Emails sent = artists with status "Email Sent" or "Follow Up Sent" or "Moving Forward"
+        sent_statuses = ['Email Sent', 'Follow Up Sent', 'Moving Forward']
+        emails_sent = session.query(func.count(Artist.id)).filter(
+            Artist.user_id == uid, Artist.status.in_(sent_statuses)
+        ).scalar() or 0
+
+        # Yield = emails_sent / total * 100
+        yield_pct = round((emails_sent / max(total, 1)) * 100, 1)
+
+        # Pipeline breakdown
+        by_status = dict(session.query(Artist.status, func.count(Artist.id)).filter_by(
+            user_id=uid).group_by(Artist.status).all())
+
+        # Batches count
+        batch_count = session.query(func.count(func.distinct(Artist.batch_label))).filter(
+            Artist.user_id == uid, Artist.batch_label != ""
+        ).scalar() or 0
 
         return jsonify({
-            "total_processed": stats.total_processed,
+            "total_processed": total,
             "total_yield": yield_pct,
-            "emails_sent": stats.emails_sent,
+            "emails_sent": emails_sent,
+            "batches": batch_count,
+            "moving_forward": by_status.get("Moving Forward", 0),
+            "not_sent": by_status.get("Not Sent", 0),
         })
     finally:
         Session.remove()
