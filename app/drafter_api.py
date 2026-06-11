@@ -295,3 +295,12 @@ def _drafter_worker(user_id, batch_label, status_filter):
     finally:
         _drafter_running = False
         Session.remove()
+
+
+
+@drafter_bp.route("/import", methods=["POST"])
+@login_required
+def drafter_import():
+    """Import a CSV for drafting — uses the same import logic as Artists page."""
+    from app.artists_api import import_csv
+    return import_csv()

@@ -117,10 +117,20 @@ export default function Settings() {
         </div>
       </section>
 
-      {/* Export */}
+      {/* Gmail / Drafter Connection */}
       <section className="settings-section">
-        <h2><Download size={14} /> Data Management</h2>
-        <p className="settings-hint">Import Chartmetric CSV exports into your Artists Library. Go to the Artists page and click "Import" to upload.</p>
+        <h2><Download size={14} /> Gmail Connection (Drafter + Follow Upper)</h2>
+        <p className="settings-hint">To use Drafter and Follow Upper, place your OAuth <code>credentials.json</code> in the project root. See GMAIL_SETUP.md for details.</p>
+        <div className="pref-grid">
+          <div className="pref-item">
+            <label>Gmail Account</label>
+            <input type="text" value="gavin@ignitethelabel.com" readOnly style={{opacity:.7,cursor:'default'}} />
+          </div>
+          <div className="pref-item">
+            <label>Authorize</label>
+            <button className="key-save" onClick={async()=>{try{await fetch('/api/drafter/authorize',{method:'POST'});alert('Gmail authorized!')}catch(e){alert(e.message)}}}>CONNECT GMAIL</button>
+          </div>
+        </div>
       </section>
     </div>
   )
