@@ -348,7 +348,7 @@ def update_artist(artist_id):
             return jsonify({"error": "Not found"}), 404
 
         data = request.get_json(silent=True) or {}
-        for field in ("status", "batch_label", "notes", "emails", "instagram", "facebook"):
+        for field in ("status", "batch_label", "notes", "emails", "instagram", "facebook", "solo_group"):
             if field in data:
                 setattr(artist, field, data[field])
         artist.updated_at = time.time()

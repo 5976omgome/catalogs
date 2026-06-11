@@ -5,6 +5,7 @@ import './Artists.css'
 const STATUSES = ['Not Sent', 'Email Sent', 'Follow Up Sent', 'Moving Forward', 'Wrong Email', 'Incorrect Email', 'No Email']
 const STATUS_COLORS = { 'Not Sent': 'neutral', 'Email Sent': 'blue', 'Follow Up Sent': 'peach', 'Moving Forward': 'green', 'Wrong Email': 'red', 'Incorrect Email': 'red', 'No Email': 'grey' }
 const MOMENTUM_COLORS = { 'Explosive Growth': 'bright-green', 'Growth': 'green', 'Steady': 'grey', 'Slowing': 'blue', 'Cooling': 'red' }
+const SORTABLE = new Set(['artist_name', 'solo_group', 'monthly_listeners', 'momentum', 'status', 'region', 'genres'])
 const WEEK_COLORS = ['#d50000','#f4511e','#e67c73','#f6bf26','#33b679','#039be5','#7986cb','#8e24aa','#616161','#a79b8e']
 
 const DEFAULT_COLS = ['artist_name', 'solo_group', 'emails', 'instagram', 'monthly_listeners', 'momentum', 'status', 'associated_labels', 'region', 'genres']
@@ -111,10 +112,10 @@ export default function Artists() {
   }, [total, activeTab])
 
   function handleSort(col) {
+    if (!SORTABLE.has(col)) return
     setSort(s => {
       if (s.col === col) return { col, dir: s.dir === 'asc' ? 'desc' : 'asc' }
-      // Momentum defaults to desc (Explosive Growth first)
-      const defaultDir = col === 'momentum' ? 'desc' : 'asc'
+      const defaultDir = (col === 'momentum' || col === 'monthly_listeners') ? 'desc' : 'asc'
       return { col, dir: defaultDir }
     })
     setPage(1)
@@ -124,6 +125,11 @@ export default function Artists() {
     await fetch(`/api/artists/update/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
     setArtists(prev => prev.map(a => a.id === id ? { ...a, status } : a))
     setEditingStatus(null)
+  }
+
+  async function updateField(id, field, value) {
+    await fetch(`/api/artists/update/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ [field]: value }) })
+    setArtists(prev => prev.map(a => a.id === id ? { ...a, [field]: value } : a))
   }
 
   async function handleImport(e) {
@@ -171,9 +177,14 @@ export default function Artists() {
         const wColor = getWeekColor(val, stats.batches)
         return <span className="pill-tag pill-week" style={{'--wc': wColor}}>{val.replace('Week Of ', '').replace(/^0/, '')}</span>
       case 'solo_group':
-        if (!val) return ''
-        const tc = val === 'License' ? 'green' : val === 'Buyout' ? 'peach' : val === 'A&R' ? 'blue' : 'neutral'
-        return <span className={`pill-tag pill-${tc}`}>{val}</span>
+        return (
+          <select className={`at-status pill-${val === 'License' ? 'green' : val === 'Buyout' ? 'peach' : val === 'Both' ? 'blue' : 'neutral'}`} value={val || ''} onChange={e => updateField(a.id, 'solo_group', e.target.value)} onClick={e => e.stopPropagation()}>
+            <option value="">—</option>
+            <option value="License">License</option>
+            <option value="Buyout">Buyout</option>
+            <option value="Both">Both</option>
+          </select>
+        )
       case 'monthly_listeners':
         return <span className="mono">{(val || 0).toLocaleString()}</span>
       case 'spotify_link':
@@ -288,8 +299,8 @@ export default function Artists() {
           <thead><tr>
             <th className="at-th-check"><input type="checkbox" checked={selected.size === artists.length && artists.length > 0} onChange={selectAll} /></th>
             {ALL_COLS.filter(c => visibleCols.includes(c.key)).map(c => (
-              <th key={c.key} onClick={() => handleSort(c.key)} className={sort.col === c.key ? 'sorted' : ''}>
-                {c.label}{sort.col === c.key && (sort.dir === 'asc' ? <ChevronUp size={9} /> : <ChevronDown size={9} />)}
+              <th key={c.key} onClick={() => handleSort(c.key)} className={`${sort.col === c.key ? 'sorted' : ''} ${SORTABLE.has(c.key) ? 'sortable' : ''}`}>
+                {c.label}{SORTABLE.has(c.key) && sort.col === c.key && (sort.dir === 'asc' ? <ChevronUp size={9} /> : <ChevronDown size={9} />)}
               </th>
             ))}
           </tr></thead>
