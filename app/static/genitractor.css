@@ -75,7 +75,7 @@ button:disabled{opacity:.35;cursor:not-allowed}
 .btn-feedback:hover{background:rgba(255,214,186,.15);transform:translateY(-.5px)}
 
 /* ── LAYOUT ── */
-main{max-width:1440px;margin:0 auto;width:100%;padding:10px 16px;display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;overflow:hidden}
+main{max-width:1440px;margin:0 auto;width:100%;padding:10px 16px;display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
 
 /* ── CARDS ── */
 .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;transition:border-color .2s var(--ease)}
