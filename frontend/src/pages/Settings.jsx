@@ -130,6 +130,13 @@ export default function Settings() {
             <label>Storage</label>
             <input type="text" value="Local (~/Documents/catalogs/data/)" readOnly style={{ opacity: .7 }} />
           </div>
+          <div className="pref-item">
+            <label>Animations</label>
+            <label className="toggle-row">
+              <input type="checkbox" defaultChecked={!document.documentElement.classList.contains('no-animations')} onChange={e => { document.documentElement.classList.toggle('no-animations', !e.target.checked); localStorage.setItem('animations', e.target.checked ? 'on' : 'off') }} />
+              <span className="toggle-label">{document.documentElement.classList.contains('no-animations') ? 'Disabled' : 'Enabled'}</span>
+            </label>
+          </div>
         </div>
       </section>
     </div>
