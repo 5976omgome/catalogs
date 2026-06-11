@@ -422,6 +422,13 @@ def export_artists():
 
         artists = q.order_by(Artist.imported_at.desc()).all()
 
+        # Page-only export (just 100 rows from a specific page)
+        page_only = request.args.get("page_only")
+        if page_only:
+            page_num = request.args.get("page", 1, type=int)
+            per_page = request.args.get("per_page", 100, type=int)
+            artists = artists[(page_num-1)*per_page : page_num*per_page]
+
         # Single column export
         column = request.args.get("column")
         if column:

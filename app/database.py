@@ -42,6 +42,8 @@ class User(Base):
     name = Column(String(128), default="")
     role = Column(String(32), default="viewer")  # admin, viewer
     timezone = Column(String(64), default="America/New_York")
+    totp_secret = Column(String(64), default=None)  # 2FA secret (None = not enabled)
+    totp_enabled = Column(Boolean, default=False)
     created_at = Column(Float, default=time.time)
 
     def set_password(self, password: str):
