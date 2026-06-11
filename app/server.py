@@ -19,8 +19,7 @@ app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32 MB max upload
 
 _manager = JobManager()
 
-# Pass-level mutual exclusion shared by the two Genius-consuming passes
-# (_genius_worker post-audit social pass + _geni_worker Genitractor extraction).
+# Pass-level mutual exclusion for the Genitractor Genius extraction pass.
 # Distinct from genius._genius_lock, which only paces individual request timing.
 genius_pass_lock = threading.Lock()
 
@@ -260,182 +259,9 @@ def api_stop_and_export(item_id: str):
 
 
 # ---------------------------------------------------------------------------
-# Genius Social Pass — runs AFTER main audit, one artist per 2 seconds
-# ---------------------------------------------------------------------------
-
-_genius_thread = None
-_genius_running = False
-_genius_stop = False
-
-
-@app.route("/api/genius/run", methods=["POST"])
-def api_genius_run():
-    """Start a slow Genius social pass on all finished items."""
-    global _genius_thread, _genius_running, _genius_stop
-
-    if _genius_running:
-        return jsonify({"error": "Genius pass already running"}), 409
-
-    key = config.genius_token()
-    if not key:
-        return jsonify({"error": "No Genius token configured"}), 400
-
-    _genius_stop = False
-
-    import threading
-    _genius_thread = threading.Thread(target=_genius_worker, daemon=True)
-    _genius_thread.start()
-
-    return jsonify({"ok": True, "message": "Genius pass started"})
-
-
-@app.route("/api/genius/stop", methods=["POST"])
-def api_genius_stop():
-    """Stop the running Genius pass."""
-    global _genius_stop
-    _genius_stop = True
-    return jsonify({"ok": True})
-
-
-@app.route("/api/genius/status")
-def api_genius_status():
-    """Check if Genius pass is running."""
-    return jsonify({"running": _genius_running})
-
-
-def _genius_worker():
-    """Process all completed items, updating CSV with socials. Paced via Genius limiter.
-
-    Holds ``genius_pass_lock`` for the whole pass so it never runs concurrently
-    with a Genitractor extraction run (both consume the Genius API).
-    """
-    global _genius_running, _genius_stop
-    _genius_running = True
-
-    from app.sources import genius
-    import pandas as pd
-
-    mgr = get_manager()
-
-    with genius_pass_lock:
-        try:
-            with mgr._lock:
-                items = [i for i in mgr._items
-                         if i.status in ("done", "stopped")
-                         and i.output_path and i.output_path.exists()]
-
-            if not items:
-                print("[genius-pass] No finished items to process.", flush=True)
-                return
-
-            total_found = 0
-            total_processed = 0
-
-            for item in items:
-                if _genius_stop:
-                    print("[genius-pass] Stopped by user.", flush=True)
-                    break
-
-                try:
-                    df = pd.read_csv(str(item.output_path), dtype=str,
-                                     keep_default_na=False, na_filter=False)
-                    df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
-                except Exception as e:
-                    print(f"[genius-pass] Failed to open {item.output_path.name}: {e}", flush=True)
-                    continue
-
-                # Find artist column
-                artist_col = None
-                for cand in ("artist", "Artist", "artist name", "Artist Name"):
-                    if cand in df.columns:
-                        artist_col = cand
-                        break
-                if not artist_col:
-                    print(f"[genius-pass] No artist column in {item.output_path.name}", flush=True)
-                    continue
-
-                # Ensure social columns exist
-                if "Instagram" not in df.columns:
-                    df["Instagram"] = ""
-                if "Facebook" not in df.columns:
-                    df["Facebook"] = ""
-
-                modified = False
-
-                for row_idx in range(len(df)):
-                    if _genius_stop:
-                        break
-
-                    artist_name = df.at[row_idx, artist_col]
-                    if not artist_name or str(artist_name).strip() == "":
-                        continue
-
-                    # Skip if already has socials
-                    existing_ig = df.at[row_idx, "Instagram"]
-                    existing_fb = df.at[row_idx, "Facebook"]
-                    if (existing_ig and str(existing_ig).strip()) or (existing_fb and str(existing_fb).strip()):
-                        continue
-
-                    total_processed += 1
-
-                    socials = genius.get_socials(str(artist_name).strip())
-
-                    # Typed rate-limited outcome — surface it instead of hammering.
-                    if socials is genius.RATE_LIMITED:
-                        print("[genius-pass] Rate-limited — stopping pass.", flush=True)
-                        socials = None
-                        mgr._broadcast({
-                            "type": "genius_progress",
-                            "artist": str(artist_name),
-                            "found": False,
-                            "rate_limited": True,
-                            "socials": {},
-                            "processed": total_processed,
-                            "total_found": total_found,
-                        })
-                        break
-
-                    if socials:
-                        if socials.get("instagram"):
-                            df.at[row_idx, "Instagram"] = f"https://instagram.com/{socials['instagram']}"
-                            modified = True
-                        if socials.get("facebook"):
-                            fb = socials["facebook"]
-                            df.at[row_idx, "Facebook"] = fb if fb.startswith("http") else f"https://facebook.com/{fb}"
-                            modified = True
-                        if socials.get("instagram") or socials.get("facebook"):
-                            total_found += 1
-
-                    # Broadcast progress via SSE
-                    mgr._broadcast({
-                        "type": "genius_progress",
-                        "artist": str(artist_name),
-                        "found": bool(socials),
-                        "socials": socials or {},
-                        "processed": total_processed,
-                        "total_found": total_found,
-                    })
-
-                if modified:
-                    try:
-                        csv_export.write_csv(df, item.output_path)
-                        print(f"[genius-pass] Saved {item.output_path.name} ({total_found} socials found)", flush=True)
-                    except Exception as e:
-                        print(f"[genius-pass] Save error: {e}", flush=True)
-
-            print(f"[genius-pass] Complete. {total_processed} artists checked, {total_found} socials found.", flush=True)
-            mgr._broadcast({"type": "genius_done", "processed": total_processed, "found": total_found})
-
-        except Exception as e:
-            print(f"[genius-pass] Error: {e}", flush=True)
-        finally:
-            _genius_running = False
-
-
-# ---------------------------------------------------------------------------
 # GENITRACTOR — Contact extraction tool (Genius-only, separate from main audit)
-# Processes CSVs to extract Instagram/Facebook/YouTube via Genius API
-# Exports a clean CSV with: Artist Name, Instagram, Facebook, YouTube
+# Processes CSVs to extract Instagram/Facebook via Genius API
+# Exports a clean CSV with: Artist Name, Instagram, Facebook, Match Confidence
 # ---------------------------------------------------------------------------
 
 import csv
@@ -605,6 +431,79 @@ def geni_clear():
     return jsonify({"ok": True})
 
 
+@app.route("/api/genitractor/import-from-chartporter", methods=["POST"])
+def geni_import_from_chartporter():
+    """Import files from Chartporter's queue into Genitractor.
+
+    Reads only queued Chartporter items, copies each source file into
+    GENI_UPLOAD_DIR with UUID prefix (preserving display filename),
+    creates a Genitractor queue item per file, emits item_added SSE events,
+    deduplicates by source path, and never mutates the Chartporter queue.
+    """
+    import shutil
+
+    mgr = get_manager()
+    imported = 0
+    skipped = 0
+    errors = 0
+
+    # Read only queued Chartporter items (point-in-time snapshot)
+    with mgr._lock:
+        queued_items = [i for i in mgr._items if i.status == "queued"]
+
+    # Collect existing source paths in Genitractor for dedup
+    existing_paths = set()
+    with _geni_lock:
+        for gi in _geni_items:
+            sp = gi.get("_source_path", "")
+            if sp:
+                existing_paths.add(sp)
+
+    if not queued_items:
+        return jsonify({"ok": True, "count": 0, "skipped": 0, "errors": 0,
+                        "message": "Chartporter queue is empty"})
+
+    for cp_item in queued_items:
+        src_path = cp_item.path
+        if src_path is None or not src_path.exists():
+            errors += 1
+            continue
+
+        src_str = str(src_path)
+        if src_str in existing_paths:
+            skipped += 1
+            continue
+
+        # Copy file to GENI_UPLOAD_DIR with UUID prefix
+        safe_name = f"{uuid.uuid4().hex[:8]}_{cp_item.filename}"
+        dest = GENI_UPLOAD_DIR / safe_name
+        try:
+            shutil.copy2(str(src_path), str(dest))
+        except Exception:
+            errors += 1
+            continue
+
+        item = {
+            "id": uuid.uuid4().hex[:12],
+            "filename": cp_item.filename,
+            "path": str(dest),
+            "status": "queued",
+            "processed": 0,
+            "total": 0,
+            "found": 0,
+            "started_at": None,
+            "error": "",
+            "_source_path": src_str,  # for dedup
+        }
+        with _geni_lock:
+            _geni_items.append(item)
+            existing_paths.add(src_str)
+        _geni_broadcast({"type": "item_added", "item": _geni_item_dict(item)})
+        imported += 1
+
+    return jsonify({"ok": True, "count": imported, "skipped": skipped, "errors": errors})
+
+
 @app.route("/api/genitractor/export")
 def geni_export():
     """Export all found contacts as a CSV (completed items only)."""
@@ -622,9 +521,9 @@ def geni_export():
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Artist Name", "Instagram", "Facebook", "Twitter"])
+    writer.writerow(["Artist Name", "Instagram", "Facebook", "Match Confidence"])
     for c in all_contacts:
-        writer.writerow([c.get("artist", ""), c.get("instagram", ""), c.get("facebook", ""), c.get("twitter", "")])
+        writer.writerow([c.get("artist", ""), c.get("instagram", ""), c.get("facebook", ""), c.get("match_confidence", "")])
 
     output.seek(0)
     return Response(
@@ -685,7 +584,7 @@ def _geni_worker(item):
     All mutations of shared item fields (status/processed/total/_contacts/found)
     happen under `_geni_lock`; Genius network I/O happens OUTSIDE the lock.
     The whole extraction pass holds `genius_pass_lock` so it never runs
-    concurrently with the post-audit Genius social pass.
+    concurrently with other Genius-consuming passes.
     """
     import pandas as pd
     from app.sources import genius
@@ -751,17 +650,19 @@ def _geni_worker(item):
                 if rate_limited:
                     socials = None  # backoff already applied inside get_socials
 
-                contact = {"artist": artist_name, "instagram": "", "facebook": "", "youtube": "", "twitter": ""}
+                contact = {
+                    "artist": artist_name,
+                    "instagram": "",
+                    "facebook": "",
+                    "match_confidence": "",
+                }
                 has_social = False
+
                 if socials:
-                    if socials.get("instagram"):
-                        contact["instagram"] = f"https://instagram.com/{socials['instagram']}"
-                    if socials.get("facebook"):
-                        fb = socials["facebook"]
-                        contact["facebook"] = fb if fb.startswith("http") else f"https://facebook.com/{fb}"
-                    if socials.get("twitter"):
-                        contact["twitter"] = f"https://x.com/{socials['twitter']}"
-                    has_social = bool(socials.get("instagram") or socials.get("facebook") or socials.get("twitter"))
+                    contact["instagram"] = socials.get("instagram", "")
+                    contact["facebook"] = socials.get("facebook", "")
+                    contact["match_confidence"] = socials.get("match_confidence", "")
+                    has_social = bool(socials.get("instagram") or socials.get("facebook"))
 
                 # Lock only to append the contact and bump counters (short critical section).
                 with _geni_lock:
@@ -776,7 +677,11 @@ def _geni_worker(item):
                     "type": "contact_done",
                     "item_id": item["id"],
                     "artist": artist_name,
-                    "socials": socials,
+                    "socials": {
+                        "instagram": contact["instagram"],
+                        "facebook": contact["facebook"],
+                        "match_confidence": contact["match_confidence"],
+                    },
                     "processed": processed,
                     "total": total,
                     "rate_limited": rate_limited,
