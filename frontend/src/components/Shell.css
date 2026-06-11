@@ -1,2 +1,48 @@
 .shell{display:flex;height:100vh;overflow:hidden}
 .shell-content{flex:1;overflow:hidden;min-width:0}
+
+/* ============================================================
+   ROUTE-BASED THEME COLORS — animates sidebar accent
+   ============================================================ */
+.shell{
+  --theme-accent:var(--teal);
+  --theme-accent-soft:var(--green-soft);
+  --theme-accent-border:var(--green-border);
+  --theme-glow:rgba(137,176,174,.2);
+  transition:--theme-accent .4s var(--ease),--theme-glow .4s var(--ease);
+}
+
+.shell.theme-dashboard{
+  --theme-accent:var(--teal);
+  --theme-accent-soft:var(--green-soft);
+  --theme-accent-border:var(--green-border);
+  --theme-glow:rgba(137,176,174,.15);
+}
+
+.shell.theme-settings{
+  --theme-accent:var(--slate);
+  --theme-accent-soft:rgba(85,91,110,.1);
+  --theme-accent-border:rgba(85,91,110,.25);
+  --theme-glow:rgba(85,91,110,.1);
+}
+
+.shell.theme-artists{
+  --theme-accent:#da4167;
+  --theme-accent-soft:rgba(218,65,103,.08);
+  --theme-accent-border:rgba(218,65,103,.2);
+  --theme-glow:rgba(218,65,103,.12);
+}
+
+.shell.theme-chartporter{
+  --theme-accent:var(--teal);
+  --theme-accent-soft:var(--green-soft);
+  --theme-accent-border:var(--green-border);
+  --theme-glow:rgba(137,176,174,.15);
+}
+
+.shell.theme-genitractor{
+  --theme-accent:#ffd100;
+  --theme-accent-soft:rgba(255,209,0,.08);
+  --theme-accent-border:rgba(255,209,0,.2);
+  --theme-glow:rgba(255,209,0,.12);
+}
