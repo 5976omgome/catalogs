@@ -31,17 +31,28 @@
 .at-col-check:hover{background:var(--bg-surface)}
 .at-col-check input{width:12px;height:12px;accent-color:var(--accent)}
 
-/* ── TABLE — full size, fills screen ── */
-.at-table-wrap{flex:1;overflow:auto;min-height:0;padding:0}
+/* ── TABLE — full size, GPU accelerated ── */
+.at-table-wrap{flex:1;overflow:auto;min-height:0;padding:0;will-change:scroll-position;-webkit-overflow-scrolling:touch}
 .at-table{width:100%;border-collapse:collapse;font-size:11px;table-layout:auto}
 .at-table thead{position:sticky;top:0;z-index:5;background:var(--bg-elevated)}
 .at-table th{padding:8px 10px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--text-tertiary);text-transform:uppercase;border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none;transition:color .1s}
 .at-table th:hover{color:var(--text)}.at-table th.sorted{color:var(--accent)}
 .at-table th svg{vertical-align:middle;margin-left:3px}
 .at-table td{padding:7px 10px;border-bottom:1px solid rgba(37,43,54,.3);color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;vertical-align:middle}
-.at-table tr{transition:background .08s var(--ease)}
+.at-table tr{transition:background .06s;will-change:background}
 .at-table tr:hover td{background:var(--bg-card-hover);color:var(--text)}
+.at-table tr.at-selected td{background:rgba(137,176,174,.06)}
 .at-table .at-loading,.at-table .at-empty{text-align:center;padding:60px;color:var(--text-quaternary);font-size:11px;letter-spacing:.08em}
+
+/* Checkbox column */
+.at-th-check,.at-td-check{width:28px;padding:7px 6px!important;text-align:center}
+.at-th-check input,.at-td-check input{width:13px;height:13px;accent-color:var(--accent);cursor:pointer}
+
+/* ── BATCH ACTION BAR — appears when rows selected ── */
+.at-batch-bar{display:flex;align-items:center;gap:6px;padding:6px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg-card);animation:fadeUp .15s var(--ease)}
+.at-batch-count{font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.06em;margin-right:4px}
+.at-batch-btn{cursor:pointer!important;transition:all .1s var(--ease)!important}
+.at-batch-btn:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.2)}
 
 /* ── PILL TAGS — same as tool topbar pills ── */
 .pill-tag{

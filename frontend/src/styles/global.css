@@ -53,6 +53,7 @@ html,body,#root{
   font-size:13px;line-height:1.5;
   -webkit-font-smoothing:antialiased;
   -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
   max-width:1440px;max-height:900px;
   margin:0 auto;
 }
