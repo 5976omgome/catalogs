@@ -1,0 +1,86 @@
+/* ============================================================
+   IGNITE VIRTUAL SCOUT — Global Design Tokens & Base Styles
+   ============================================================ */
+
+:root {
+  /* Dashboard — Crimson Hues */
+  --dash-bg: #250902;
+  --dash-surface: #38040e;
+  --dash-accent: #640d14;
+  --dash-highlight: #800e13;
+  --dash-cta: #ad2831;
+
+  /* Artists — Gothic Glam */
+  --artists-bg: #000000;
+  --artists-surface: #3d2645;
+  --artists-hover: #832161;
+  --artists-active: #da4167;
+  --artists-text: #f0eff4;
+
+  /* Settings — Cozy Neutrals */
+  --settings-bg: #e9e3e6;
+  --settings-surface: #ffffff;
+  --settings-border: #c3baba;
+  --settings-text: #736f72;
+  --settings-label: #9a8f97;
+
+  /* Sidebar — Muted Earthy Tones */
+  --sidebar-bg: #6d6875;
+  --sidebar-hover: #b5838d;
+  --sidebar-active: #e5989b;
+  --sidebar-text: #ffcdb2;
+  --sidebar-accent: #ffb4a2;
+
+  /* Shared */
+  --text-primary: #f0eff4;
+  --text-muted: #b2b2b2;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --error: #ef4444;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --radius: 8px;
+  --radius-sm: 4px;
+  --transition: 200ms ease;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  font-family: var(--font);
+  font-size: 13px;
+  background: var(--dash-bg);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: inherit; border: none; background: none; }
+input, select, textarea { font-family: inherit; font-size: inherit; }
+
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: var(--text-muted);
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.tool-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 16px;
+  letter-spacing: 1px;
+  opacity: 0.5;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
