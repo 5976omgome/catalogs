@@ -54,6 +54,21 @@ export default function Artists() {
   const [importing, setImporting] = useState(false)
   const [editingStatus, setEditingStatus] = useState(null)
   const [showColExport, setShowColExport] = useState(false)
+  const [selected, setSelected] = useState(new Set())
+
+  function toggleSelect(id) {
+    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+  function selectAll() {
+    setSelected(prev => prev.size === artists.length ? new Set() : new Set(artists.map(a => a.id)))
+  }
+  async function batchSetStatus(status) {
+    const ids = [...selected]
+    if (!ids.length) return
+    await fetch('/api/artists/batch-update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, status }) })
+    setArtists(prev => prev.map(a => selected.has(a.id) ? { ...a, status } : a))
+    setSelected(new Set())
+  }
 
   const fetchArtists = useCallback(async () => {
     setLoading(true)
@@ -231,10 +246,22 @@ export default function Artists() {
         </div>
       )}
 
+      {/* Batch action bar */}
+      {selected.size > 0 && (
+        <div className="at-batch-bar">
+          <span className="at-batch-count">{selected.size} selected</span>
+          {STATUSES.map(s => (
+            <button key={s} className={`pill-tag pill-${STATUS_COLORS[s] || 'neutral'} at-batch-btn`} onClick={() => batchSetStatus(s)}>{s}</button>
+          ))}
+          <button className="at-btn-clear" onClick={() => setSelected(new Set())}><X size={9} /> Deselect</button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="at-table-wrap">
         <table className="at-table">
           <thead><tr>
+            <th className="at-th-check"><input type="checkbox" checked={selected.size === artists.length && artists.length > 0} onChange={selectAll} /></th>
             {ALL_COLS.filter(c => visibleCols.includes(c.key)).map(c => (
               <th key={c.key} onClick={() => handleSort(c.key)} className={sort.col === c.key ? 'sorted' : ''}>
                 {c.label}{sort.col === c.key && (sort.dir === 'asc' ? <ChevronUp size={9} /> : <ChevronDown size={9} />)}
@@ -242,10 +269,11 @@ export default function Artists() {
             ))}
           </tr></thead>
           <tbody>
-            {loading && <tr><td colSpan={visibleCols.length} className="at-loading">Loading...</td></tr>}
-            {!loading && !artists.length && <tr><td colSpan={visibleCols.length} className="at-empty">No artists in this view.</td></tr>}
+            {loading && <tr><td colSpan={visibleCols.length + 1} className="at-loading">Loading...</td></tr>}
+            {!loading && !artists.length && <tr><td colSpan={visibleCols.length + 1} className="at-empty">No artists in this view.</td></tr>}
             {!loading && artists.map(a => (
-              <tr key={a.id}>
+              <tr key={a.id} className={selected.has(a.id) ? 'at-selected' : ''}>
+                <td className="at-td-check"><input type="checkbox" checked={selected.has(a.id)} onChange={() => toggleSelect(a.id)} /></td>
                 {ALL_COLS.filter(c => visibleCols.includes(c.key)).map(c => (
                   <td key={c.key}>{renderCell(a, c)}</td>
                 ))}
