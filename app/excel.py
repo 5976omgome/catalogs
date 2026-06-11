@@ -26,14 +26,12 @@ _THIN = Side(style="thin", color="D0D0D0")
 _BORDER = Border(left=_THIN, right=_THIN, top=_THIN, bottom=_THIN)
 
 # Columns we produce (in order). Original CSV columns are preserved too.
+# Social columns (Instagram/YouTube/Facebook) removed — socials live in Genitractor.
 AUDIT_COLUMNS = [
     "Status",
     "Status Reason",
     "iTunes Labels",
     "Deezer Labels",
-    "Instagram",
-    "YouTube",
-    "Facebook",
     "Earliest Year",
     "AI Note",
 ]
@@ -45,7 +43,6 @@ _WIDTHS = {
     "Recent Momentum": 13, "Status": 14, "Status Reason": 52,
     "iTunes Labels": 40, "Deezer Labels": 32,
     "Earliest Year": 12, "AI Note": 30,
-    "Instagram": 36, "YouTube": 44, "Facebook": 36,
 }
 
 

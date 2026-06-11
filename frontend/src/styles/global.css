@@ -1,0 +1,102 @@
+/* ============================================================
+   IGNITE VIRTUAL SCOUT — Global Styles
+   Uses the SAME design system as the existing tool pages
+   (Earthly Tones: Slate, Teal, Frost, Snow, Peach)
+   ============================================================ */
+
+*{box-sizing:border-box}
+
+:root{
+  --slate:#555b6e;
+  --teal:#89b0ae;
+  --frost:#bee3db;
+  --snow:#faf9f9;
+  --peach:#ffd6ba;
+
+  --bg:#0c0e12;
+  --bg-elevated:#12151a;
+  --bg-card:#161a20;
+  --bg-card-hover:#1b2028;
+  --bg-surface:#1f242d;
+
+  --border:#252b36;
+  --border-hover:#333b4a;
+  --border-focus:#4a5568;
+
+  --text:var(--snow);
+  --text-secondary:#c4c8cf;
+  --text-tertiary:var(--slate);
+  --text-quaternary:#3d4350;
+
+  --green:var(--teal);
+  --green-soft:rgba(137,176,174,.1);
+  --green-border:rgba(137,176,174,.25);
+  --red:#e87f8f;
+  --red-soft:rgba(232,127,143,.08);
+  --red-border:rgba(232,127,143,.2);
+  --yellow:var(--peach);
+  --yellow-soft:rgba(255,214,186,.08);
+  --yellow-border:rgba(255,214,186,.2);
+  --blue:var(--frost);
+  --blue-soft:rgba(190,227,219,.06);
+  --blue-border:rgba(190,227,219,.18);
+
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:20px;--s6:24px;--s8:32px;
+  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-full:9999px;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+
+html,body,#root{
+  margin:0;padding:0;height:100%;overflow:hidden;
+  background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Inter","Segoe UI",sans-serif;
+  font-size:13px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
+  max-width:1440px;max-height:900px;
+  margin:0 auto;
+}
+
+a{color:inherit;text-decoration:none}
+button{
+  font-family:inherit;font-size:10px;font-weight:700;
+  letter-spacing:.06em;
+  padding:var(--s2) var(--s3);border-radius:var(--r-sm);
+  border:1px solid var(--border);
+  background:var(--bg-surface);color:var(--text);
+  cursor:pointer;transition:all .15s var(--ease);
+}
+button:hover:not(:disabled){background:var(--bg-card-hover);border-color:var(--border-hover);transform:translateY(-.5px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
+button:active:not(:disabled){transform:translateY(0) scale(.95);box-shadow:0 1px 4px rgba(0,0,0,.15);transition:transform .06s,box-shadow .06s}
+button.primary{background:var(--teal);color:#0c0e12;border-color:var(--teal);box-shadow:0 0 12px rgba(137,176,174,.12)}
+button.primary:hover:not(:disabled){background:#9fc4c2;box-shadow:0 6px 20px rgba(137,176,174,.3);transform:translateY(-1.5px)}
+button.ghost{background:transparent;color:var(--text-tertiary);border-color:transparent}
+button.ghost:hover:not(:disabled){background:var(--bg-surface);color:var(--text-secondary)}
+button:disabled{opacity:.35;cursor:not-allowed}
+input,select,textarea{font-family:inherit;font-size:inherit}
+
+::selection{background:var(--teal);color:#0c0e12}
+
+.loading-screen{
+  display:flex;align-items:center;justify-content:center;
+  height:100vh;background:var(--bg);color:var(--text-tertiary);
+  font-size:10px;font-weight:700;letter-spacing:.2em;
+}
+
+.tool-placeholder{
+  display:flex;align-items:center;justify-content:center;
+  height:100%;background:var(--bg);color:var(--text-quaternary);
+  font-size:10px;font-weight:700;letter-spacing:.2em;
+}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;transition:background .2s}
+::-webkit-scrollbar-thumb:hover{background:var(--teal)}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-100%)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 8px rgba(137,176,174,.12)}50%{box-shadow:0 0 16px rgba(137,176,174,.25)}}
+@keyframes modalIn{from{opacity:0;transform:scale(.92) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}

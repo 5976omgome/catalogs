@@ -1,0 +1,143 @@
+.artists-page{height:100%;background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+
+.at-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg-elevated)}
+.at-toolbar-left,.at-toolbar-right{display:flex;align-items:center;gap:8px}
+.at-count{font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--text-tertiary)}
+.at-search{display:flex;align-items:center;gap:5px;padding:5px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);transition:border-color .12s var(--ease)}
+.at-search:focus-within{border-color:var(--accent-border)}
+.at-search svg{color:var(--text-quaternary)}
+.at-search input{border:none;background:none;color:var(--text);font-size:11px;width:150px;outline:none}
+.at-search input::placeholder{color:var(--text-quaternary)}
+.at-btn{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:700;letter-spacing:.04em;padding:5px 10px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--bg-surface);color:var(--text-secondary);cursor:pointer;transition:all .1s var(--ease)}
+.at-btn:hover{background:var(--bg-card-hover);color:var(--text);border-color:var(--border-hover)}
+.at-btn-report{color:var(--accent);border-color:var(--accent-border);background:var(--accent-soft)}
+
+/* ── WEEK TABS — Gmail-style colored labels ── */
+.at-tabs{display:flex;align-items:center;gap:1px;padding:4px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg-card);overflow-x:auto;scrollbar-width:none}
+.at-tabs::-webkit-scrollbar{height:0}
+.at-tab-group{display:inline-flex;align-items:center;position:relative}
+.at-tab{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:600;padding:5px 10px;border-radius:var(--r-full);border:1px solid transparent;background:transparent;color:var(--text-tertiary);cursor:pointer;white-space:nowrap;transition:all .12s var(--ease)}
+.at-tab:hover{background:var(--bg-surface);color:var(--text-secondary)}
+.at-tab.active{background:var(--bg-surface);color:var(--text);border-color:var(--border-hover)}
+.at-tab-dot{width:8px;height:8px;border-radius:2px;background:var(--tab-color);flex-shrink:0;transition:box-shadow .2s var(--ease)}
+.at-tab.active .at-tab-dot{box-shadow:0 0 8px var(--tab-color)}
+.at-tab-delete{display:none;position:absolute;right:-2px;top:-2px;width:14px;height:14px;border-radius:50%;background:var(--bg-card);border:1px solid var(--border);color:var(--text-quaternary);cursor:pointer;align-items:center;justify-content:center;font-size:0;transition:all .1s var(--ease)}
+.at-tab-group:hover .at-tab-delete{display:flex}
+.at-tab-delete:hover{background:var(--red-soft);color:var(--red);border-color:var(--red-border)}
+
+.at-filters{display:flex;align-items:center;gap:6px;padding:8px 16px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;background:var(--bg-card)}
+.at-filters select,.at-filters input{font-size:10px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);outline:none}
+.at-filters select:focus,.at-filters input:focus{border-color:var(--accent-border)}
+.at-btn-clear{display:inline-flex;align-items:center;gap:3px;font-size:8px;font-weight:600;padding:4px 8px;border-radius:var(--r-sm);border:none;background:var(--red-soft);color:var(--red);cursor:pointer}
+
+.at-col-picker{display:flex;flex-wrap:wrap;gap:5px;padding:8px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg-card)}
+.at-col-check{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--text-secondary);cursor:pointer;padding:3px 6px;border-radius:4px}
+.at-col-check:hover{background:var(--bg-surface)}
+.at-col-check input{width:12px;height:12px;accent-color:var(--accent)}
+
+/* ── TABLE — horizontal scroll, one row per artist ── */
+.at-table-wrap{flex:1;overflow:auto;min-height:0;will-change:scroll-position;-webkit-overflow-scrolling:touch}
+.at-table{width:max-content;min-width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
+.at-table thead{position:sticky;top:0;z-index:5;background:var(--bg-elevated)}
+.at-table th{padding:8px 12px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--text-tertiary);text-transform:uppercase;border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none;transition:color .1s}
+.at-table th:hover{color:var(--text)}.at-table th.sorted{color:var(--accent)}
+.at-table th svg{vertical-align:middle;margin-left:3px}
+.at-table td{padding:7px 12px;border-bottom:1px solid rgba(37,43,54,.3);color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.at-table tr{transition:background .06s;will-change:background}
+.at-table tr:hover td{background:var(--bg-card-hover);color:var(--text)}
+.at-table tr.at-selected td{background:rgba(137,176,174,.06)}
+.at-table .at-loading,.at-table .at-empty{text-align:center;padding:60px;color:var(--text-quaternary);font-size:11px;letter-spacing:.08em;white-space:normal}
+
+/* Checkbox column */
+.at-th-check,.at-td-check{width:28px;padding:7px 6px!important;text-align:center}
+.at-th-check input,.at-td-check input{width:13px;height:13px;accent-color:var(--accent);cursor:pointer}
+
+/* ── BATCH ACTION BAR — appears when rows selected ── */
+.at-batch-bar{display:flex;align-items:center;gap:6px;padding:6px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg-card);animation:fadeUp .15s var(--ease)}
+.at-batch-count{font-size:9px;font-weight:700;color:var(--accent);letter-spacing:.06em;margin-right:4px}
+.at-batch-btn{cursor:pointer!important;transition:all .1s var(--ease)!important}
+.at-batch-btn:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.2)}
+
+/* ── PILL TAGS — same as tool topbar pills ── */
+.pill-tag{
+  display:inline-flex;align-items:center;gap:3px;
+  font-size:8px;font-weight:700;letter-spacing:.04em;
+  padding:3px 8px;border-radius:9999px;
+  white-space:nowrap;cursor:default;
+  transition:all .12s var(--ease);
+}
+/* Momentum — distinct colors per level */
+.pill-bright-green{color:#22c55e;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3)}
+.pill-green{color:#4ade80;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25)}
+.pill-grey{color:#9ca3af;background:rgba(156,163,175,.08);border:1px solid rgba(156,163,175,.2)}
+.pill-blue{color:#60a5fa;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2)}
+.pill-red{color:#e87f8f;background:rgba(232,127,143,.08);border:1px solid rgba(232,127,143,.2)}
+.pill-peach{color:#ffd6ba;background:rgba(255,214,186,.08);border:1px solid rgba(255,214,186,.2)}
+.pill-neutral{color:var(--text-tertiary);background:var(--bg-surface);border:1px solid var(--border)}
+.pill-date{color:var(--wc,#ffd100);background:rgba(0,0,0,0);border:1px solid var(--wc,#ffd100);opacity:.9}
+.pill-date svg{flex-shrink:0;opacity:.7}
+.pill-week{color:var(--wc,#ffd100);background:rgba(0,0,0,0);border:1px solid color-mix(in srgb, var(--wc,#ffd100) 40%, transparent)}
+.pill-week svg{flex-shrink:0;opacity:.7}
+
+/* Status pill — clickable */
+.pill-cell{position:relative;display:inline-flex}
+.pill-cell .pill-tag{cursor:pointer}
+.pill-cell .pill-tag:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.pill-dropdown{
+  position:absolute;top:calc(100% + 4px);left:0;z-index:20;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:4px;min-width:130px;box-shadow:0 8px 24px rgba(0,0,0,.5);
+  animation:popIn .12s var(--ease);
+}
+.pill-opt{
+  display:block;width:100%;text-align:left;
+  font-size:9px;font-weight:600;padding:6px 10px;border-radius:4px;
+  border:none;background:none;color:var(--text-secondary);cursor:pointer;
+  transition:background .08s var(--ease);
+}
+.pill-opt:hover{background:var(--bg-surface);color:var(--text)}
+
+/* Cell-specific */
+.at-link{color:var(--accent);text-decoration:none;font-size:10px}.at-link:hover{text-decoration:underline}
+.email-cell{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--frost);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.email-cell svg{flex-shrink:0;opacity:.6}
+.notes-cell{font-size:9px;color:var(--text-quaternary);font-style:italic;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mono{font-family:ui-monospace,"SF Mono",monospace;font-size:11px;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+
+/* Export dropdown */
+.at-export-wrap{position:relative;display:inline-flex}
+.at-export-dropdown{position:absolute;top:calc(100% + 4px);right:0;z-index:20;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-md);padding:4px;min-width:150px;max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5);animation:popIn .12s var(--ease)}
+.at-export-divider{height:1px;background:var(--border);margin:4px 0}
+.at-export-label{display:block;font-size:8px;font-weight:700;letter-spacing:.1em;color:var(--text-quaternary);padding:4px 10px;text-transform:uppercase}
+
+/* Pagination */
+.at-pagination{display:flex;align-items:center;justify-content:center;gap:12px;padding:8px;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg-elevated)}
+.at-pagination button{font-size:10px;padding:5px 12px}
+.at-pagination span{font-size:10px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+
+/* Import Modal */
+.at-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;display:flex;align-items:center;justify-content:center}
+.at-modal{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;width:340px;position:relative;animation:popIn .15s var(--ease)}
+.at-modal h3{font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--accent);margin-bottom:6px}
+.at-modal p{font-size:10px;color:var(--text-tertiary);margin-bottom:14px;line-height:1.5}
+.at-import-field{margin-bottom:14px}
+.at-import-field label{display:block;font-size:8px;font-weight:700;letter-spacing:.1em;color:var(--text-quaternary);text-transform:uppercase;margin-bottom:4px}
+.at-import-field input{width:100%;padding:7px 10px;font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);outline:none}
+.at-import-field input:focus{border-color:var(--accent-border)}
+.at-import-btn{display:block;text-align:center;cursor:pointer}
+.at-import-btn span{display:inline-block;padding:10px 24px;font-size:10px;font-weight:700;letter-spacing:.08em;background:var(--accent);color:#0c0e12;border-radius:var(--r-sm);transition:all .1s var(--ease)}
+.at-import-btn:hover span{background:var(--accent-hover)}
+.at-modal-close{position:absolute;top:10px;right:10px;border:none;background:none;color:var(--text-tertiary);cursor:pointer}
+
+@keyframes popIn{from{opacity:0;transform:scale(.94) translateY(4px)}to{opacity:1;transform:scale(1) translateY(0)}}
+
+
+
+/* Week select in import */
+.at-week-select{width:100%;padding:8px 10px;font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);outline:none;cursor:pointer}
+.at-week-select:focus{border-color:var(--accent-border)}
+
+/* Confirm dialog */
+.at-modal-confirm{width:280px}
+.at-confirm-actions{display:flex;gap:8px;margin-top:12px}
+.at-confirm-actions button{flex:1}

@@ -4,13 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>IGNITE: VIRTUAL SCOUT</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/legacy-static/styles.css">
+  <script>if(window.self!==window.top)document.documentElement.classList.add('embedded')</script>
+  <style>
+    .embedded .topbar,.embedded .powered-footer,.embedded .cross-tool-bar{display:none!important}
+    .embedded .queue-bar{position:relative!important;top:0!important}
+    .embedded html,.embedded body{height:100%!important;max-height:100%!important;overflow:hidden!important}
+    .embedded main{max-width:100%;padding-top:0}
+  </style>
 </head>
 <body>
   <!-- STICKY TOP BAR — always visible -->
   <header class="topbar">
     <div class="brand-group">
-      <a href="https://ignitethelabel.com" target="_blank" rel="noopener" class="brand-logo-link"><img src="logos/ignite.svg" alt="IGNITE" class="brand-logo"></a>
+      <a href="https://ignitethelabel.com" target="_blank" rel="noopener" class="brand-logo-link"><img src="/logos/ignite.svg" alt="IGNITE" class="brand-logo"></a>
       <div class="brand-text">
         <div class="brand">VIRTUAL SCOUT</div>
         <div class="brand-sub">CATALOG INTELLIGENCE</div>
@@ -70,7 +77,6 @@
           <span class="ftoggle f-drop on" id="gf-drop">FLAGGED</span>
           <span class="ftoggle f-review on" id="gf-review">REVIEW</span>
           <span class="ftoggle f-keep on" id="gf-keep">CLEAN</span>
-          <span class="ftoggle f-socials on" id="gf-socials">SOCIALS</span>
           <span class="ftoggle f-debug off" id="gf-debug">DEBUG</span>
         </div>
         <button class="ghost collapse-btn">&#9660;</button>
@@ -87,12 +93,12 @@
       <div class="footer-left">
         <span class="footer-label">POWERED BY</span>
         <div class="footer-logos">
-          <a class="logo-link" href="https://kiro.dev" target="_blank" rel="noopener"><img src="logos/kiro.svg" alt="Kiro"></a>
-          <a class="logo-link" href="https://chartmetric.com" target="_blank" rel="noopener"><img src="logos/chartmetric.svg" alt="Chartmetric"></a>
-          <a class="logo-link" href="https://music.apple.com" target="_blank" rel="noopener"><img src="logos/itunes.svg" alt="iTunes"></a>
-          <a class="logo-link" href="https://deezer.com" target="_blank" rel="noopener"><img src="logos/deezer.svg" alt="Deezer"></a>
-          <a class="logo-link" href="https://ai.google.dev/gemini-api/docs" target="_blank" rel="noopener"><img src="logos/gemini.svg" alt="Gemini"></a>
-          <a class="logo-link logo-ignite" href="https://ignitethelabel.com" target="_blank" rel="noopener"><img src="logos/ignite.svg" alt="Ignite"></a>
+          <a class="logo-link" href="https://kiro.dev" target="_blank" rel="noopener"><img src="/logos/kiro.svg" alt="Kiro"></a>
+          <a class="logo-link" href="https://chartmetric.com" target="_blank" rel="noopener"><img src="/logos/chartmetric.svg" alt="Chartmetric"></a>
+          <a class="logo-link" href="https://music.apple.com" target="_blank" rel="noopener"><img src="/logos/itunes.svg" alt="iTunes"></a>
+          <a class="logo-link" href="https://deezer.com" target="_blank" rel="noopener"><img src="/logos/deezer.svg" alt="Deezer"></a>
+          <a class="logo-link" href="https://ai.google.dev/gemini-api/docs" target="_blank" rel="noopener"><img src="/logos/gemini.svg" alt="Gemini"></a>
+          <a class="logo-link logo-ignite" href="https://ignitethelabel.com" target="_blank" rel="noopener"><img src="/logos/ignite.svg" alt="Ignite"></a>
         </div>
       </div>
       <span class="footer-credit">IGNITE THE LABEL &middot; Q2 2026</span>
@@ -179,6 +185,6 @@
     <a href="/genitractor" class="ctb-btn genitractor">OPEN</a>
   </div>
 
-  <script src="app.js"></script>
+  <script src="/legacy-static/app.js"></script>
 </body>
 </html>
