@@ -220,7 +220,10 @@ export default function Artists() {
             <button className="at-btn" onClick={e => { e.stopPropagation(); setShowColExport(!showColExport) }}><Download size={11} /> Export</button>
             {showColExport && (
               <div className="at-export-dropdown" onClick={e => e.stopPropagation()}>
-                <button className="pill-opt" onClick={() => { handleExport(); setShowColExport(false) }}>Export Current View</button>
+                <span className="at-export-label">EXPORT</span>
+                <button className="pill-opt" onClick={() => { window.open('/api/artists/export','_blank'); setShowColExport(false) }}>All Artists</button>
+                {activeTab !== 'all' && <button className="pill-opt" onClick={() => { handleExport(); setShowColExport(false) }}>This Week ({activeTab.replace('Week Of ','')})</button>}
+                <button className="pill-opt" onClick={() => { const p = new URLSearchParams({page,per_page:100,sort:sort.col,dir:sort.dir}); if(activeTab!=='all')p.set('batch_label',activeTab); Object.entries(filters).forEach(([k,v])=>{if(v)p.set(k,v)}); window.open(`/api/artists/export?${p}&page_only=1`,'_blank'); setShowColExport(false) }}>This Page (100)</button>
                 <div className="at-export-divider" />
                 <span className="at-export-label">SINGLE COLUMN</span>
                 {ALL_COLS.filter(c => c.key !== 'chartmetric_id').map(c => (

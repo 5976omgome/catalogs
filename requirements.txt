@@ -7,3 +7,5 @@ pandas>=2.1,<3.0
 python-dotenv>=1.0
 sqlalchemy>=2.0
 bcrypt>=4.0
+pyotp>=2.9
+qrcode>=7.4
