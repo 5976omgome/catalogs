@@ -39,6 +39,7 @@
       <button id="btn-stop" class="warn">STOP</button>
       <button id="btn-export-all" class="ghost">EXPORT</button>
       <button id="btn-clear" class="ghost">CLEAR</button>
+      <button id="btn-import" class="ghost">IMPORT</button>
       <span class="pill-divider"></span>
       <span class="timer" id="timer">00:00</span>
       <span class="stat-pct clickable" id="stat-pct" title="Click to toggle fraction">0% TOTAL</span>
@@ -143,6 +144,20 @@
           <button class="primary fb-submit" id="fb-submit" disabled>SUBMIT</button>
           <span class="fb-submit-status" id="fb-submit-status"></span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Modal -->
+  <div class="modal-overlay" id="import-modal">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <h2>Import Artists</h2>
+        <button class="ghost modal-close" id="import-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <button class="primary import-action" id="import-disk">IMPORT FROM DISK</button>
+        <button class="ghost import-action" id="import-chartporter">IMPORT FROM CHARTPORTER</button>
       </div>
     </div>
   </div>

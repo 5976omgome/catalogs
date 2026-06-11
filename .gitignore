@@ -6,3 +6,8 @@ __pycache__/
 Outputs/
 *.xlsx
 .cache.db
+data/
+.geni_uploads/
+GeniOutputs/
+feedback/
+frontend/node_modules/

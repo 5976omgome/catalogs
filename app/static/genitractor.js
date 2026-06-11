@@ -201,15 +201,19 @@ function addContactToFeed(ev){
   const nm=document.createElement("span");nm.className="aname";nm.textContent=ev.artist;
   const badge=document.createElement("span");
   const socials=ev.socials||{};
-  const hasAnything=socials.instagram||socials.facebook||socials.twitter;
+  const hasAnything=socials.instagram||socials.facebook;
   badge.className="badge "+(hasAnything?"found":"empty");
   badge.textContent=hasAnything?"FOUND":"NONE";
-  head.append(nm,badge);block.append(head);
+  head.append(nm,badge);
+  // Show UNCERTAIN marker when match_confidence is "Uncertain"
+  if(socials.match_confidence==="Uncertain"){
+    const unc=document.createElement("span");unc.className="badge uncertain";unc.textContent="UNCERTAIN";head.append(unc);
+  }
+  block.append(head);
 
   const rows=[
-    ["IG",socials.instagram?"https://instagram.com/"+socials.instagram:""],
-    ["FB",socials.facebook?(socials.facebook.startsWith("http")?socials.facebook:"https://facebook.com/"+socials.facebook):""],
-    ["X",socials.twitter?"https://x.com/"+socials.twitter:""]
+    ["IG",socials.instagram||""],
+    ["FB",socials.facebook||""]
   ];
   for(const[label,url] of rows){
     const row=document.createElement("div");row.className="src";
@@ -226,7 +230,7 @@ function addContactToFeed(ev){
   totalProcessed++;
   if(hasAnything)totalFound++;
   updateStats();
-  sys(`${hasAnything?"\u2713":"\u2014"} ${ev.artist}`,hasAnything?"ok":"");
+  sys(`${hasAnything?"\u2713":"\u2014"} ${ev.artist}${socials.match_confidence==="Uncertain"?" [?]":""}`,hasAnything?"ok":"");
 }
 
 // ---------------------------------------------------------------------------
@@ -301,6 +305,33 @@ function initCrossToolBar(){
 }
 
 // ---------------------------------------------------------------------------
+// IMPORT MODAL — Import from disk or from Chartporter
+// ---------------------------------------------------------------------------
+function initImportModal(){
+  const modal=$("import-modal"),close=$("import-close");
+  if(!modal||!close)return;
+  $("btn-import").addEventListener("click",()=>{modal.classList.add("open");
+    const first=modal.querySelector(".import-action");if(first)first.focus()});
+  close.addEventListener("click",()=>modal.classList.remove("open"));
+  modal.addEventListener("click",e=>{if(e.target===modal)modal.classList.remove("open")});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&modal.classList.contains("open"))modal.classList.remove("open")});
+  $("import-disk").addEventListener("click",()=>{$("file-input").click();modal.classList.remove("open")});
+  $("import-chartporter").addEventListener("click",importFromChartporter);
+}
+
+async function importFromChartporter(){
+  const modal=$("import-modal");
+  try{
+    const r=await fetch("/api/genitractor/import-from-chartporter",{method:"POST"});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||"Import failed");
+    if(d.count>0)sys("Imported "+d.count+" file(s) from Chartporter","ok");
+    else sys("Chartporter queue is empty — nothing to import.","warn");
+    modal.classList.remove("open");
+  }catch(e){sys("Import error: "+e.message,"bad");modal.classList.remove("open")}
+}
+
+// ---------------------------------------------------------------------------
 // UPLOAD + INIT
 // ---------------------------------------------------------------------------
 async function uploadFile(file){
@@ -355,6 +386,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   _safeInit("toolsDropdown",initToolsDropdown);
   _safeInit("feedback",initFeedback);
   _safeInit("crossToolBar",initCrossToolBar);
+  _safeInit("importModal",initImportModal);
   _safeInit("controls",()=>{
     $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
     $("stat-pct").addEventListener("click",()=>{_statShowFraction=!_statShowFraction;updateStats()});
