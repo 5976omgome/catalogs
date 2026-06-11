@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Settings, Users, BarChart3, Zap, LogOut } from 'lucide-react'
+import { LayoutDashboard, Settings, Users, BarChart3, Zap, Mail, MailPlus, LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import './Sidebar.css'
 
@@ -10,6 +10,8 @@ const SUBTITLES = {
   '/artists': 'ARTIST LIBRARY',
   '/tools/chartporter': 'CATALOG INTELLIGENCE',
   '/tools/genitact': 'CONTACT EXTRACTION',
+  '/tools/drafter': 'OUTREACH DRAFTING',
+  '/tools/followup': 'FOLLOW-UP DRAFTING',
 }
 
 const TITLES = {
@@ -18,11 +20,15 @@ const TITLES = {
   '/artists': 'IGNITE: ARTISTS',
   '/tools/chartporter': 'IGNITE: CHARTPORTER',
   '/tools/genitact': 'IGNITE: GENITACT',
+  '/tools/drafter': 'IGNITE: DRAFTER',
+  '/tools/followup': 'IGNITE: FOLLOW UPPER',
 }
 
 const TOOLTIPS = {
   chartporter: 'Audits artist catalogs for ownership conflicts by cross-referencing iTunes and Deezer label data.',
   genitact: 'Extracts Instagram and Facebook contacts from Genius artist profiles using balanced name-matching.',
+  drafter: 'Creates Gmail drafts for filtered artists from your library. One draft per artist with your outreach template.',
+  followup: 'Scans Gmail Follow Ups labels and creates reply drafts for threads that haven\'t been followed up yet.',
 }
 
 export default function Sidebar() {
@@ -100,6 +106,20 @@ export default function Sidebar() {
             <span className="sb-label">Genitact</span>
           </NavLink>
           <div className="sb-tooltip">{TOOLTIPS.genitact}</div>
+        </div>
+        <div className="sb-item-wrap">
+          <NavLink to="/tools/drafter" className="sb-item">
+            <Mail size={16} />
+            <span className="sb-label">Drafter</span>
+          </NavLink>
+          <div className="sb-tooltip">{TOOLTIPS.drafter}</div>
+        </div>
+        <div className="sb-item-wrap">
+          <NavLink to="/tools/followup" className="sb-item">
+            <MailPlus size={16} />
+            <span className="sb-label">Follow Upper</span>
+          </NavLink>
+          <div className="sb-tooltip">{TOOLTIPS.followup}</div>
         </div>
       </nav>
 
