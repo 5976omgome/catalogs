@@ -9,6 +9,7 @@
   --theme-accent-soft:var(--green-soft);
   --theme-accent-border:var(--green-border);
   --theme-glow:rgba(137,176,174,.2);
+  --theme-sidebar-bg:#12151a;
   transition:--theme-accent .4s var(--ease),--theme-glow .4s var(--ease);
 }
 
@@ -17,6 +18,7 @@
   --theme-accent-soft:var(--green-soft);
   --theme-accent-border:var(--green-border);
   --theme-glow:rgba(137,176,174,.15);
+  --theme-sidebar-bg:#0c0e12;
 }
 
 .shell.theme-settings{
@@ -24,6 +26,7 @@
   --theme-accent-soft:rgba(85,91,110,.1);
   --theme-accent-border:rgba(85,91,110,.25);
   --theme-glow:rgba(85,91,110,.1);
+  --theme-sidebar-bg:#12151a;
 }
 
 .shell.theme-artists{
@@ -31,6 +34,7 @@
   --theme-accent-soft:rgba(218,65,103,.08);
   --theme-accent-border:rgba(218,65,103,.2);
   --theme-glow:rgba(218,65,103,.12);
+  --theme-sidebar-bg:#0a0610;
 }
 
 .shell.theme-chartporter{
@@ -38,6 +42,7 @@
   --theme-accent-soft:rgba(44,125,160,.1);
   --theme-accent-border:rgba(44,125,160,.25);
   --theme-glow:rgba(44,125,160,.15);
+  --theme-sidebar-bg:#012a4a;
 }
 
 .shell.theme-genitract{
@@ -45,6 +50,7 @@
   --theme-accent-soft:rgba(250,214,67,.08);
   --theme-accent-border:rgba(250,214,67,.25);
   --theme-glow:rgba(250,214,67,.12);
+  --theme-sidebar-bg:#805b10;
 }
 
 
@@ -54,6 +60,7 @@
   --theme-accent-soft:rgba(156,249,69,.08);
   --theme-accent-border:rgba(156,249,69,.25);
   --theme-glow:rgba(156,249,69,.12);
+  --theme-sidebar-bg:#421869;
 }
 
 .shell.theme-followup{
@@ -61,4 +68,5 @@
   --theme-accent-soft:rgba(250,163,7,.08);
   --theme-accent-border:rgba(250,163,7,.25);
   --theme-glow:rgba(250,163,7,.12);
+  --theme-sidebar-bg:#03071e;
 }

@@ -3,11 +3,11 @@
    ============================================================ */
 .sidebar{
   width:48px;height:100vh;
-  background:var(--bg-elevated);
+  background:var(--theme-sidebar-bg, #12151a);
   display:flex;flex-direction:column;
   overflow:hidden;flex-shrink:0;
   border-right:1px solid var(--border);
-  transition:width .25s cubic-bezier(.4,0,.2,1);
+  transition:width .25s cubic-bezier(.4,0,.2,1), background .4s var(--ease);
   will-change:width;
   z-index:50;
 }

@@ -58,6 +58,7 @@ function startStream(){
 function handleEvent(ev){
   if(ev.type==="started"){startTimer();sys("Drafter running…","info")}
   else if(ev.type==="total"){totalArtists=ev.count;sys("Processing "+ev.count+" artists.","info");updateStats()}
+  else if(ev.type==="sys"){sys(ev.text,ev.cls||"")}
   else if(ev.type==="drafted"){totalProcessed++;totalCreated++;addToFeed(ev.artist,ev.email,"drafted");sys("✓ "+ev.artist,"ok");updateStats()}
   else if(ev.type==="skip"){totalProcessed++;addToFeed(ev.artist||"Unknown","","skip");sys("— "+ev.artist+" ("+ev.reason+")","");updateStats()}
   else if(ev.type==="error_artist"){totalProcessed++;sys("✗ "+ev.artist+": "+ev.error,"bad");updateStats()}

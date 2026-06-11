@@ -69,8 +69,8 @@ button:disabled{opacity:.35;cursor:not-allowed}
 .tool-option{display:block;padding:6px 10px;border-radius:var(--r-sm);font-size:10px;font-weight:600;color:var(--text-secondary);transition:background .1s var(--ease)}
 .tool-option:hover{background:var(--bg-surface);color:var(--text)}
 .tool-option.active{opacity:.4;pointer-events:none}
-.tool-chartporter-opt::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#89b0ae;margin-right:6px}
-.tool-genitractor-opt::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#ffd100;margin-right:6px}
+.tool-chartporter-opt::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#2c7da0;margin-right:6px}
+.tool-genitractor-opt::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#fad643;margin-right:6px}
 .btn-feedback{font-size:8px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:var(--r-full);background:var(--peach-soft);border:1px solid var(--peach-border);color:var(--peach);cursor:pointer;font-family:inherit;transition:all .15s var(--ease)}
 .btn-feedback:hover{background:rgba(255,214,186,.15);transform:translateY(-.5px)}
 
