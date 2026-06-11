@@ -136,10 +136,46 @@ def spa_catchall():
 def api_status():
     store = config.keys_store()
     s = store.status()
+
+    # Get key previews and genius count from DB
+    genius_count = 0
+    genius_preview = ""
+    groq_preview = ""
+    gemini_preview = ""
+    try:
+        from app.database import Session as DbSession, ApiKey
+        from flask_login import current_user as cu
+        session = DbSession()
+        try:
+            if hasattr(cu, 'id') and cu.is_authenticated:
+                uid = cu.id
+                gk = session.query(ApiKey).filter_by(user_id=uid, service="genius").all()
+                genius_count = len(gk)
+                if gk:
+                    genius_preview = gk[0].key_value[:4]
+                rk = session.query(ApiKey).filter_by(user_id=uid, service="groq").first()
+                if rk:
+                    groq_preview = rk.key_value[:4]
+                mk = session.query(ApiKey).filter_by(user_id=uid, service="gemini").first()
+                if mk:
+                    gemini_preview = mk.key_value[:4]
+        finally:
+            DbSession.remove()
+    except Exception:
+        pass
+
+    groq_val = config.groq_api_key() or ""
+    gemini_val = config.gemini_api_key() or ""
+    genius_val = config.genius_token() or ""
+
     return jsonify({
         "groq_set": s["groq_api_key"]["set"],
         "gemini_set": s["gemini_api_key"]["set"],
         "genius_set": s["genius_token"]["set"],
+        "groq_preview": groq_preview or (groq_val[:4] if groq_val else ""),
+        "gemini_preview": gemini_preview or (gemini_val[:4] if gemini_val else ""),
+        "genius_preview": genius_preview or (genius_val[:4] if genius_val else ""),
+        "genius_count": genius_count or (1 if genius_val else 0),
     })
 
 

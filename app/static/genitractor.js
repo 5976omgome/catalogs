@@ -75,7 +75,9 @@ async function refreshStatus(){
     const r=await fetch("/api/status");const s=await r.json();
     $("pill-genius").className="pill clickable "+(s.genius_set?"ok":"missing");
     if(!s.genius_set)sys("\u26a0 Genius not configured \u2014 click pill to add key.","warn");
-    else sys("\u2713 Genius ready.","ok");
+    else{
+      sys("\u2713 Genius ready ("+s.genius_preview+"\u2022\u2022\u2022\u2022) \u2014 "+s.genius_count+" key"+(s.genius_count!==1?"s":"")+" active","ok");
+    }
     sys("Genitact ready.","info");
   }catch(e){sys("Server connection failed: "+e.message,"bad")}
 }
