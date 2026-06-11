@@ -4,7 +4,7 @@ import './Artists.css'
 
 const STATUSES = ['Not Sent', 'Email Sent', 'Follow Up Sent', 'Moving Forward', 'Wrong Email']
 const STATUS_COLORS = { 'Not Sent': 'neutral', 'Email Sent': 'blue', 'Follow Up Sent': 'peach', 'Moving Forward': 'green', 'Wrong Email': 'red' }
-const MOMENTUM_COLORS = { 'Growth': 'green', 'Explosive Growth': 'green', 'Steady': 'blue', 'Slowing': 'peach', 'Cooling': 'red' }
+const MOMENTUM_COLORS = { 'Explosive Growth': 'bright-green', 'Growth': 'green', 'Steady': 'grey', 'Slowing': 'blue', 'Cooling': 'red' }
 
 const DEFAULT_COLS = ['artist_name', 'solo_group', 'emails', 'instagram', 'monthly_listeners', 'momentum', 'status', 'associated_labels', 'region', 'genres', 'batch_label']
 const ALL_COLS = [
