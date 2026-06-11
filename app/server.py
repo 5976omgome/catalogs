@@ -2,20 +2,48 @@
 
 SSE note: does NOT set 'Connection' header (that was the hop-by-hop crash
 on Waitress). Waitress handles keep-alive/close itself.
+
+The React SPA is served from app/static/dist/ for all non-API routes.
+Legacy tool pages (index.html, genitractor.html) remain at /tools/* paths.
 """
 import json
+import os
 import threading
 import time
 import uuid
 from pathlib import Path
 
-from flask import Flask, request, Response, jsonify, send_file
+from flask import Flask, request, Response, jsonify, send_file, send_from_directory
+from flask_login import login_required
 
 from app import config, excel, csv_export
 from app.jobs import JobManager
+from app.database import init_db
+from app.auth import auth_bp, login_manager
+from app.settings_api import settings_bp
+from app.stats_api import stats_bp
 
-app = Flask(__name__, static_folder="static", static_url_path="")
+# ---------------------------------------------------------------------------
+# App factory
+# ---------------------------------------------------------------------------
+
+app = Flask(__name__, static_folder="static", static_url_path="/legacy-static")
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32 MB max upload
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "ignite-virtual-scout-secret-2026")
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["REMEMBER_COOKIE_DURATION"] = 86400 * 30  # 30 days
+
+# Initialize extensions
+login_manager.init_app(app)
+
+# Register blueprints
+app.register_blueprint(auth_bp)
+app.register_blueprint(settings_bp)
+app.register_blueprint(stats_bp)
+
+# Initialize database (creates tables + seeds admin)
+init_db()
 
 _manager = JobManager()
 
@@ -29,17 +57,53 @@ def get_manager() -> JobManager:
 
 
 # ---------------------------------------------------------------------------
-# Static / index
+# React SPA + Legacy tool pages
 # ---------------------------------------------------------------------------
+
+DIST_DIR = Path(__file__).parent / "static" / "dist"
+
 
 @app.route("/")
 def index():
+    """Serve the React SPA (or fallback to legacy if dist/ not built yet)."""
+    if (DIST_DIR / "index.html").exists():
+        return send_from_directory(str(DIST_DIR), "index.html")
     return app.send_static_file("index.html")
 
 
 @app.route("/genitractor")
 def genitractor_page():
     return app.send_static_file("genitractor.html")
+
+
+# Serve React SPA static assets (JS/CSS bundles from Vite build)
+@app.route("/assets/<path:filename>")
+def spa_assets(filename):
+    return send_from_directory(str(DIST_DIR / "assets"), filename)
+
+
+# Serve logos and other public files from dist/
+@app.route("/logos/<path:filename>")
+def logos(filename):
+    # Try dist first, then legacy static
+    dist_logos = DIST_DIR / "logos" / filename
+    if dist_logos.exists():
+        return send_from_directory(str(DIST_DIR / "logos"), filename)
+    return send_from_directory(str(Path(__file__).parent / "static" / "logos"), filename)
+
+
+# SPA catch-all — serves React index.html for all frontend routes
+# Must be AFTER all /api/* routes and legacy pages
+@app.route("/login")
+@app.route("/dashboard")
+@app.route("/settings")
+@app.route("/artists")
+@app.route("/tools/chartporter")
+@app.route("/tools/genitractor")
+def spa_catchall():
+    if (DIST_DIR / "index.html").exists():
+        return send_from_directory(str(DIST_DIR), "index.html")
+    return "React app not built. Run: cd frontend && npm run build", 404
 
 
 # ---------------------------------------------------------------------------

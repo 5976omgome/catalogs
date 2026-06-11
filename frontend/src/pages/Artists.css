@@ -1,0 +1,31 @@
+.artists-page {
+  min-height: 100vh;
+  background: var(--artists-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.artists-empty {
+  text-align: center;
+  color: var(--artists-text);
+}
+
+.artists-empty h2 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.artists-empty p {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.artists-hint {
+  margin-top: 12px;
+  font-size: 10px;
+  color: var(--artists-active);
+  opacity: 0.6;
+}
