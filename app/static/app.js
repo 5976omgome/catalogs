@@ -79,10 +79,10 @@ function updateStats(){
 // ---------------------------------------------------------------------------
 // GLOBAL FILTERS — shared across all feeds
 // ---------------------------------------------------------------------------
-const gFilters={drop:true,review:true,keep:true,socials:true,debug:false};
+const gFilters={drop:true,review:true,keep:true,debug:false};
 
 function initGlobalFilters(){
-  ["drop","review","keep","socials","debug"].forEach(key=>{
+  ["drop","review","keep","debug"].forEach(key=>{
     const el=$("gf-"+key);
     el.classList.toggle("on",gFilters[key]);
     el.classList.toggle("off",!gFilters[key]);
@@ -313,19 +313,6 @@ function addArtistToFeed(ev){
 
   if(ev.status_reason){const reason=document.createElement("div");reason.className="reason";
     reason.innerHTML='<span class="arrow">\u2192</span>'+ev.status_reason.replace(/</g,"&lt;");block.append(reason)}
-  // Genius socials — render as a proper source row alongside Chartmetric/iTunes/Deezer
-  if(gFilters.socials){
-    const row=document.createElement("div");row.className="src";
-    const lbl=document.createElement("div");lbl.className="src-name";lbl.textContent="GENIUS";
-    const vals=document.createElement("div");vals.className="src-vals";
-    if(ev.socials&&(ev.socials.instagram||ev.socials.twitter||ev.socials.facebook||ev.socials.youtube)){
-      if(ev.socials.instagram){const a=document.createElement("a");a.href="https://instagram.com/"+ev.socials.instagram;a.target="_blank";a.rel="noopener";a.className="social-link";a.textContent="IG: @"+ev.socials.instagram;vals.append(a)}
-      if(ev.socials.twitter){const a=document.createElement("a");a.href="https://x.com/"+ev.socials.twitter;a.target="_blank";a.rel="noopener";a.className="social-link";a.textContent="X: @"+ev.socials.twitter;vals.append(a)}
-      if(ev.socials.facebook){const a=document.createElement("a");a.href="https://facebook.com/"+ev.socials.facebook;a.target="_blank";a.rel="noopener";a.className="social-link";a.textContent="FB: "+ev.socials.facebook;vals.append(a)}
-      if(ev.socials.youtube){const a=document.createElement("a");a.href=ev.socials.youtube;a.target="_blank";a.rel="noopener";a.className="social-link";a.textContent="YT: "+ev.socials.youtube.replace(/https?:\/\/(www\.)?youtube\.com\/?/,"");vals.append(a)}
-    }else{const e=document.createElement("span");e.className="empty";e.textContent="\u2014";vals.append(e)}
-    row.append(lbl,vals);block.append(row)
-  }
   if(ev.debug&&gFilters.debug){const dbg=document.createElement("div");dbg.className="debug-info";
     dbg.textContent=ev.debug.steps.join(" | ");block.append(dbg)}
 
@@ -374,15 +361,6 @@ function handleEvent(ev){
   else if(ev.type==="item_done"){renderItem(ev.item);updateStats();sys("\u2713 Done: "+ev.item.filename,"ok");checkAllDone()}
   else if(ev.type==="item_stopped"){renderItem(ev.item);updateStats();sys("\u25a0 Stopped: "+ev.item.filename,"warn")}
   else if(ev.type==="item_error"){renderItem(ev.item);sys("\u2717 Error: "+(ev.item.error||ev.item.filename),"bad")}
-  else if(ev.type==="genius_progress"){
-    const s=ev.socials||{};const parts=[];
-    if(s.instagram)parts.push("IG");if(s.facebook)parts.push("FB");
-    const found=parts.length?parts.join("+"):"—";
-    sys(`[genius] ${ev.artist} → ${found} (${ev.total_found} found / ${ev.processed} checked)`,ev.found?"ok":"")
-  }
-  else if(ev.type==="genius_done"){
-    sys(`[genius] ✓ Complete: ${ev.found} socials from ${ev.processed} artists.`,"ok");
-  }
 }
 
 function checkAllDone(){
