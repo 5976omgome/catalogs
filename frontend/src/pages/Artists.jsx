@@ -135,7 +135,7 @@ export default function Artists() {
             </span>
             {editingStatus === a.id && (
               <div className="pill-dropdown" onClick={e => e.stopPropagation()}>
-                {STATUSES.map(s => <option key={s} className={`pill-opt pill-${STATUS_COLORS[s]}`} onClick={() => updateStatus(a.id, s)}>{s}</option>)}
+                {STATUSES.map(s => <button key={s} className={`pill-opt pill-${STATUS_COLORS[s]}`} onClick={() => updateStatus(a.id, s)}>{s}</button>)}
               </div>
             )}
           </div>
