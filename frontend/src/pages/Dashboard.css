@@ -1,10 +1,11 @@
 .dashboard {
   min-height: 100vh;
-  background: var(--dash-bg);
-  padding: 24px 28px;
+  background: linear-gradient(180deg, var(--dash-bg) 0%, var(--dash-bg-deep) 100%);
+  padding: 28px 32px;
   display: flex;
   flex-direction: column;
   gap: 24px;
+  animation: fadeIn 300ms ease;
 }
 
 /* Widgets — horizontal row */
@@ -17,122 +18,158 @@
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 18px 20px;
+  gap: 16px;
+  padding: 22px 24px;
   background: var(--dash-surface);
-  border: 1px solid rgba(255,255,255,0.05);
+  border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: var(--radius);
-  transition: transform var(--transition), box-shadow var(--transition);
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.widget::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
 }
 
 .widget:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow-lg);
+  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--dash-surface-hover);
 }
 
 .widget-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.04);
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.04);
   color: var(--widget-color);
+  flex-shrink: 0;
 }
 
 .widget-data {
   display: flex;
   flex-direction: column;
+  gap: 3px;
 }
 
 .widget-value {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 800;
   color: var(--text-primary);
-  line-height: 1.2;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
 }
 
 .widget-label {
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.8px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin-top: 2px;
 }
 
 /* Mission */
 .dash-mission {
   flex: 1;
   background: var(--dash-surface);
-  border: 1px solid rgba(255,255,255,0.05);
+  border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: var(--radius);
   overflow-y: auto;
+  position: relative;
+}
+
+.dash-mission::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
 }
 
 .dash-mission-header {
-  padding: 24px 28px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding: 28px 32px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .dash-mission-header h2 {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 3px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 4px;
   color: var(--dash-cta);
 }
 
 .dash-tagline {
   font-size: 9px;
-  letter-spacing: 1.5px;
+  font-weight: 500;
+  letter-spacing: 2px;
   color: var(--text-muted);
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .dash-mission-body {
-  padding: 24px 28px;
+  padding: 28px 32px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 28px;
 }
 
 .dash-mission-body h3 {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--sidebar-active);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(229, 152, 155, 0.1);
 }
 
 .dash-mission-body p {
   font-size: 12px;
-  line-height: 1.7;
-  color: var(--text-muted);
+  line-height: 1.8;
+  color: var(--text-secondary);
 }
 
 .dash-mission-body ul, .dash-mission-body ol {
-  padding-left: 18px;
+  padding-left: 20px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .dash-mission-body li {
   font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-muted);
+  line-height: 1.7;
+  color: var(--text-secondary);
 }
 
 .dash-mission-body li strong {
   color: var(--text-primary);
+  font-weight: 600;
 }
 
 .dash-goal {
-  margin-top: 10px;
+  margin-top: 12px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--dash-cta);
   letter-spacing: 0.5px;
+  padding: 10px 14px;
+  background: rgba(173, 40, 49, 0.06);
+  border: 1px solid rgba(173, 40, 49, 0.1);
+  border-radius: var(--radius-sm);
 }

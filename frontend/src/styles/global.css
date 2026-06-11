@@ -2,13 +2,19 @@
    IGNITE VIRTUAL SCOUT — Global Design Tokens & Base Styles
    ============================================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
 :root {
   /* Dashboard — Crimson Hues */
   --dash-bg: #250902;
+  --dash-bg-deep: #1a0601;
   --dash-surface: #38040e;
+  --dash-surface-hover: #4a0612;
   --dash-accent: #640d14;
   --dash-highlight: #800e13;
   --dash-cta: #ad2831;
+  --dash-cta-hover: #c93039;
+  --dash-glow: rgba(173, 40, 49, 0.3);
 
   /* Artists — Gothic Glam */
   --artists-bg: #000000;
@@ -18,29 +24,45 @@
   --artists-text: #f0eff4;
 
   /* Settings — Cozy Neutrals */
-  --settings-bg: #e9e3e6;
+  --settings-bg: #f2eff0;
   --settings-surface: #ffffff;
-  --settings-border: #c3baba;
-  --settings-text: #736f72;
+  --settings-border: #ddd8da;
+  --settings-text: #4a4548;
   --settings-label: #9a8f97;
+  --settings-input-bg: #fafafa;
 
   /* Sidebar — Muted Earthy Tones */
-  --sidebar-bg: #6d6875;
-  --sidebar-hover: #b5838d;
+  --sidebar-bg: #2d2a30;
+  --sidebar-surface: #3a3640;
+  --sidebar-hover: rgba(181, 131, 141, 0.12);
+  --sidebar-active-bg: rgba(229, 152, 155, 0.12);
   --sidebar-active: #e5989b;
-  --sidebar-text: #ffcdb2;
+  --sidebar-text: #d4c4c8;
   --sidebar-accent: #ffb4a2;
+  --sidebar-muted: #8a8490;
+  --sidebar-divider: rgba(255, 255, 255, 0.06);
 
   /* Shared */
   --text-primary: #f0eff4;
-  --text-muted: #b2b2b2;
+  --text-secondary: #d4d0d6;
+  --text-muted: #9a96a0;
   --success: #4ade80;
+  --success-bg: rgba(74, 222, 128, 0.08);
   --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.08);
   --error: #ef4444;
-  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --radius: 8px;
-  --radius-sm: 4px;
-  --transition: 200ms ease;
+  --error-bg: rgba(239, 68, 68, 0.08);
+
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.08);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.1);
+  --shadow-xl: 0 24px 80px rgba(0,0,0,0.4);
+  --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -52,20 +74,30 @@ html, body, #root {
   background: var(--dash-bg);
   color: var(--text-primary);
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 a { color: inherit; text-decoration: none; }
-button { cursor: pointer; font-family: inherit; border: none; background: none; }
+button { cursor: pointer; font-family: inherit; border: none; background: none; color: inherit; }
 input, select, textarea { font-family: inherit; font-size: inherit; }
+
+::selection {
+  background: var(--dash-cta);
+  color: white;
+}
 
 .loading-screen {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100vh;
+  background: var(--dash-bg);
   color: var(--text-muted);
-  font-size: 14px;
-  letter-spacing: 1px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
 }
 
 .tool-placeholder {
@@ -73,14 +105,32 @@ input, select, textarea { font-family: inherit; font-size: inherit; }
   align-items: center;
   justify-content: center;
   height: 100%;
+  background: var(--dash-bg);
   color: var(--text-muted);
-  font-size: 16px;
-  letter-spacing: 1px;
-  opacity: 0.5;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
