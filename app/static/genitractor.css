@@ -4,7 +4,7 @@
    ============================================================================ */
 *{box-sizing:border-box}
 :root{
-  --accent:#ffd100;--accent-soft:rgba(255,209,0,.08);--accent-border:rgba(255,209,0,.25);--accent-hover:#ffee32;
+  --accent:#fad643;--accent-soft:rgba(250,214,67,.08);--accent-border:rgba(250,214,67,.25);--accent-hover:#ffe169;
   --bg:#0c0e12;--bg-elevated:#12151a;--bg-card:#161a20;--bg-card-hover:#1b2028;--bg-surface:#1f242d;
   --border:#252b36;--border-hover:#333b4a;
   --text:#faf9f9;--text-secondary:#c4c8cf;--text-tertiary:#555b6e;--text-quaternary:#3d4350;
