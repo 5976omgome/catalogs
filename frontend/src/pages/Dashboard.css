@@ -1,0 +1,138 @@
+.dashboard {
+  min-height: 100vh;
+  background: var(--dash-bg);
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Widgets — horizontal row */
+.dash-widgets {
+  display: flex;
+  gap: 16px;
+}
+
+.widget {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  background: var(--dash-surface);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: var(--radius);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.widget:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+.widget-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  color: var(--widget-color);
+}
+
+.widget-data {
+  display: flex;
+  flex-direction: column;
+}
+
+.widget-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.widget-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Mission */
+.dash-mission {
+  flex: 1;
+  background: var(--dash-surface);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: var(--radius);
+  overflow-y: auto;
+}
+
+.dash-mission-header {
+  padding: 24px 28px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.dash-mission-header h2 {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--dash-cta);
+}
+
+.dash-tagline {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.dash-mission-body {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dash-mission-body h3 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--sidebar-active);
+  margin-bottom: 8px;
+}
+
+.dash-mission-body p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.dash-mission-body ul, .dash-mission-body ol {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dash-mission-body li {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.dash-mission-body li strong {
+  color: var(--text-primary);
+}
+
+.dash-goal {
+  margin-top: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dash-cta);
+  letter-spacing: 0.5px;
+}

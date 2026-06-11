@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 40" fill="none">
+  <rect x="4" y="28" width="4" height="4" rx="0.5" fill="#FF0092"/>
+  <rect x="10" y="24" width="4" height="8" rx="0.5" fill="#FF0092"/>
+  <rect x="10" y="28" width="4" height="4" rx="0.5" fill="#FEEB00"/>
+  <rect x="16" y="20" width="4" height="12" rx="0.5" fill="#00CA5B"/>
+  <rect x="16" y="24" width="4" height="8" rx="0.5" fill="#00CA5B"/>
+  <rect x="22" y="16" width="4" height="16" rx="0.5" fill="#00C2F7"/>
+  <rect x="28" y="12" width="4" height="20" rx="0.5" fill="#6E50E2"/>
+  <text x="38" y="27" font-family="-apple-system,SF Pro Display,Inter,sans-serif" font-size="14" font-weight="700" fill="white" letter-spacing="-0.01em">deezer</text>
+</svg>
