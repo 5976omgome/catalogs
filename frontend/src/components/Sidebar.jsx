@@ -9,7 +9,7 @@ const SUBTITLES = {
   '/settings': 'CONFIGURATION',
   '/artists': 'ARTIST LIBRARY',
   '/tools/chartporter': 'CATALOG INTELLIGENCE',
-  '/tools/genitractor': 'CONTACT EXTRACTION',
+  '/tools/genitact': 'CONTACT EXTRACTION',
 }
 
 const TITLES = {
@@ -17,7 +17,12 @@ const TITLES = {
   '/settings': 'IGNITE: SETTINGS',
   '/artists': 'IGNITE: ARTISTS',
   '/tools/chartporter': 'IGNITE: CHARTPORTER',
-  '/tools/genitractor': 'IGNITE: GENITRACTOR',
+  '/tools/genitact': 'IGNITE: GENITACT',
+}
+
+const TOOLTIPS = {
+  chartporter: 'Audits artist catalogs for ownership conflicts by cross-referencing iTunes and Deezer label data against known major-label and third-party distributors.',
+  genitact: 'Extracts Instagram and Facebook contacts from Genius artist profiles using balanced name-matching with confidence scoring.',
 }
 
 export default function Sidebar() {
@@ -43,58 +48,66 @@ export default function Sidebar() {
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
-      {/* Brand header — same structure as the tool topbars */}
+      {/* Brand */}
       <div className="sb-brand">
         <img src="/logos/ignite.svg" alt="IGNITE" className="sb-logo-img" />
         {!collapsed && (
-          <div className="sb-brand-text">
-            <span className="sb-title">VIRTUAL SCOUT</span>
-            <span className="sb-subtitle">{subtitle}</span>
-          </div>
+          <>
+            <div className="sb-brand-text">
+              <span className="sb-title">VIRTUAL SCOUT</span>
+              <span className="sb-subtitle">{subtitle}</span>
+            </div>
+            <span className="sb-clock">{clock}</span>
+          </>
         )}
-        {!collapsed && <span className="sb-clock">{clock}</span>}
       </div>
 
       {/* Nav */}
       <nav className="sb-nav">
-        <NavLink to="/dashboard" className="sb-item" title="Dashboard">
-          <LayoutDashboard size={18} />
+        <NavLink to="/dashboard" className="sb-item">
+          <LayoutDashboard size={16} />
           {!collapsed && <span>Dashboard</span>}
         </NavLink>
-        <NavLink to="/settings" className="sb-item" title="Settings">
-          <Settings size={18} />
+        <NavLink to="/settings" className="sb-item">
+          <Settings size={16} />
           {!collapsed && <span>Settings</span>}
         </NavLink>
 
         <div className="sb-divider">
-          {!collapsed && <span className="sb-section">LIBRARY</span>}
+          {!collapsed && <span className="sb-section">Library</span>}
         </div>
-        <NavLink to="/artists" className="sb-item" title="Artists">
-          <Users size={18} />
+        <NavLink to="/artists" className="sb-item">
+          <Users size={16} />
           {!collapsed && <span>Artists</span>}
         </NavLink>
 
         <div className="sb-divider">
-          {!collapsed && <span className="sb-section">TOOLS</span>}
+          {!collapsed && <span className="sb-section">Tools</span>}
         </div>
-        <NavLink to="/tools/chartporter" className="sb-item" title="Chartporter">
-          <BarChart3 size={18} />
-          {!collapsed && <span>Chartporter</span>}
-        </NavLink>
-        <NavLink to="/tools/genitractor" className="sb-item" title="Genitractor">
-          <Zap size={18} />
-          {!collapsed && <span>Genitractor</span>}
-        </NavLink>
+        <div className="sb-item-wrap">
+          <NavLink to="/tools/chartporter" className="sb-item">
+            <BarChart3 size={16} />
+            {!collapsed && <span>Chartporter</span>}
+          </NavLink>
+          {!collapsed && <div className="sb-tooltip">{TOOLTIPS.chartporter}</div>}
+        </div>
+        <div className="sb-item-wrap">
+          <NavLink to="/tools/genitact" className="sb-item">
+            <Zap size={16} />
+            {!collapsed && <span>Genitact</span>}
+          </NavLink>
+          {!collapsed && <div className="sb-tooltip">{TOOLTIPS.genitact}</div>}
+        </div>
       </nav>
 
       {/* Footer */}
       <div className="sb-footer">
-        <button className="sb-item sb-logout" onClick={logout} title="Log out">
-          <LogOut size={18} />
+        <button className="sb-item sb-logout" onClick={logout}>
+          <LogOut size={16} />
           {!collapsed && <span>Log Out</span>}
         </button>
-        <button className="sb-toggle" onClick={() => setCollapsed(!collapsed)} title={collapsed ? 'Expand' : 'Collapse'}>
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        <button className="sb-toggle" onClick={() => setCollapsed(!collapsed)}>
+          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
       </div>
     </aside>

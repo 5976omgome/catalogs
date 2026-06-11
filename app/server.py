@@ -116,6 +116,7 @@ def logos(filename):
 @app.route("/settings")
 @app.route("/artists")
 @app.route("/tools/chartporter")
+@app.route("/tools/genitact")
 @app.route("/tools/genitractor")
 def spa_catchall():
     if (DIST_DIR / "index.html").exists():
