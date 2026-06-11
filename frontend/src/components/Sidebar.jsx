@@ -48,17 +48,17 @@ export default function Sidebar() {
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
-      {/* Brand */}
+      {/* Brand — two rows: logo+title on top, subtitle+clock below */}
       <div className="sb-brand">
         <img src="/logos/ignite.svg" alt="IGNITE" className="sb-logo-img" />
         {!collapsed && (
-          <>
-            <div className="sb-brand-text">
+          <div className="sb-brand-content">
+            <div className="sb-brand-row">
               <span className="sb-title">VIRTUAL SCOUT</span>
-              <span className="sb-subtitle">{subtitle}</span>
+              <span className="sb-clock">{clock}</span>
             </div>
-            <span className="sb-clock">{clock}</span>
-          </>
+            <span className="sb-subtitle">{subtitle}</span>
+          </div>
         )}
       </div>
 
