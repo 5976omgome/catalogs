@@ -69,3 +69,10 @@
   color:var(--text);font-size:11px;outline:none;transition:border-color .15s var(--ease);
 }
 .pref-item input:focus{border-color:var(--teal);box-shadow:0 0 0 2px var(--green-soft)}
+
+
+
+/* Animation toggle */
+.toggle-row{display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm)}
+.toggle-row input{width:14px;height:14px;accent-color:var(--teal);cursor:pointer}
+.toggle-label{font-size:10px;color:var(--text-secondary)}
