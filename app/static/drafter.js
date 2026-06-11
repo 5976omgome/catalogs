@@ -35,6 +35,7 @@ function updateStats(){
 function addToFeed(artist,email,type){
   const grid=$("feeds-grid");
   const block=document.createElement("div");block.className="ablock";
+  block.dataset.cat=type==="drafted"?"drafted":"skipped";
   const head=document.createElement("div");head.className="ahead";
   const nm=document.createElement("span");nm.className="aname";nm.textContent=artist;
   const badge=document.createElement("span");
@@ -61,7 +62,7 @@ function handleEvent(ev){
   else if(ev.type==="sys"){sys(ev.text,ev.cls||"")}
   else if(ev.type==="drafted"){totalProcessed++;totalCreated++;addToFeed(ev.artist,ev.email,"drafted");sys("✓ "+ev.artist,"ok");updateStats()}
   else if(ev.type==="skip"){totalProcessed++;addToFeed(ev.artist||"Unknown","","skip");sys("— "+ev.artist+" ("+ev.reason+")","");updateStats()}
-  else if(ev.type==="error_artist"){totalProcessed++;sys("✗ "+ev.artist+": "+ev.error,"bad");updateStats()}
+  else if(ev.type==="error_artist"){totalProcessed++;addToFeed(ev.artist||"Error","","error");sys("✗ "+ev.artist+": "+ev.error,"bad");updateStats()}
   else if(ev.type==="done"){stopTimer();sys("✓ Done: "+ev.created+" drafts created, "+ev.skipped+" skipped.","ok")}
   else if(ev.type==="stopped"){stopTimer();sys("■ Stopped.","warn")}
   else if(ev.type==="error"){stopTimer();sys("✗ "+ev.message,"bad")}
@@ -84,10 +85,19 @@ async function loadWeeks(){
   }catch(e){}
 }
 
+const gFilters={drafted:true,skipped:true,error:true};
+function initFilters(){
+  [["gf-drafted","drafted"],["gf-skipped","skipped"],["gf-error","error"]].forEach(([id,key])=>{
+    const el=$(id);if(!el)return;
+    el.addEventListener("click",()=>{gFilters[key]=!gFilters[key];el.classList.toggle("on",gFilters[key]);el.classList.toggle("off",!gFilters[key]);applyFilters()});
+  });
+}
+function applyFilters(){document.querySelectorAll("#feeds-grid .ablock").forEach(b=>{b.style.display=gFilters[b.dataset.cat]?"":"none"})}
+
 // Init
 document.addEventListener("DOMContentLoaded",()=>{
   sys("Drafter starting…","info");
-  initClock();initCollapsible();initToolsDropdown();
+  initClock();initCollapsible();initToolsDropdown();initFilters();
   startStream();checkAuth();loadWeeks();
 
   $("stat-pct").addEventListener("click",()=>{_statShowFraction=!_statShowFraction;updateStats()});

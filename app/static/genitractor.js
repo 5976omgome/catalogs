@@ -204,13 +204,15 @@ function addContactToFeed(ev){
   const badge=document.createElement("span");
   const socials=ev.socials||{};
   const hasAnything=socials.instagram||socials.facebook;
+  const isUncertain=socials.match_confidence==="Uncertain";
+  const cat=hasAnything?(isUncertain?"uncertain":"found"):"none";
   badge.className="badge "+(hasAnything?"found":"empty");
   badge.textContent=hasAnything?"FOUND":"NONE";
   head.append(nm,badge);
-  // Show UNCERTAIN marker when match_confidence is "Uncertain"
-  if(socials.match_confidence==="Uncertain"){
+  if(isUncertain){
     const unc=document.createElement("span");unc.className="badge uncertain";unc.textContent="UNCERTAIN";head.append(unc);
   }
+  block.dataset.cat=cat;
   block.append(head);
 
   const rows=[
@@ -377,6 +379,20 @@ function clearAll(){
   }).catch(e=>sys("Clear failed: "+e.message,"bad"));
 }
 
+const gFilters={found:true,uncertain:true,none:true};
+function initFilters(){
+  [["gf-found","found"],["gf-uncertain","uncertain"],["gf-none","none"]].forEach(([id,key])=>{
+    const el=$(id);if(!el)return;
+    el.addEventListener("click",()=>{gFilters[key]=!gFilters[key];el.classList.toggle("on",gFilters[key]);el.classList.toggle("off",!gFilters[key]);applyFilters()});
+  });
+}
+function applyFilters(){
+  document.querySelectorAll("#feeds-grid .ablock").forEach(b=>{
+    const c=b.dataset.cat;
+    b.style.display=gFilters[c]?"":"none";
+  });
+}
+
 function _safeInit(name,fn){try{fn()}catch(e){sys(name+" init failed: "+(e&&e.message||e),"bad")}}
 
 document.addEventListener("DOMContentLoaded",()=>{
@@ -389,6 +405,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   _safeInit("feedback",initFeedback);
   _safeInit("crossToolBar",initCrossToolBar);
   _safeInit("importModal",initImportModal);
+  _safeInit("filters",initFilters);
   _safeInit("controls",()=>{
     $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
     $("stat-pct").addEventListener("click",()=>{_statShowFraction=!_statShowFraction;updateStats()});
