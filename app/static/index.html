@@ -6,7 +6,12 @@
   <title>IGNITE: VIRTUAL SCOUT</title>
   <link rel="stylesheet" href="/legacy-static/styles.css">
   <script>if(window.self!==window.top)document.documentElement.classList.add('embedded')</script>
-  <style>.embedded .topbar,.embedded .powered-footer,.embedded .cross-tool-bar{display:none!important}.embedded .queue-bar{top:0}.embedded body{padding-top:0}</style>
+  <style>
+    .embedded .topbar,.embedded .powered-footer,.embedded .cross-tool-bar{display:none!important}
+    .embedded .queue-bar{position:relative!important;top:0!important}
+    .embedded html,.embedded body{height:100%!important;max-height:100%!important;overflow:hidden!important}
+    .embedded main{max-width:100%;padding-top:0}
+  </style>
 </head>
 <body>
   <!-- STICKY TOP BAR — always visible -->
