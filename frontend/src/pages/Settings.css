@@ -1,107 +1,129 @@
 .settings {
   min-height: 100vh;
   background: var(--settings-bg);
-  padding: 28px 32px;
+  padding: 32px 36px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 24px;
   color: var(--settings-text);
+  animation: fadeIn 300ms ease;
 }
 
 .settings-header h1 {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 800;
   color: #2d2a2e;
-  letter-spacing: 0.5px;
+  letter-spacing: -0.3px;
 }
 
 .settings-header p {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--settings-label);
-  margin-top: 4px;
+  margin-top: 6px;
+  font-weight: 400;
 }
 
 .settings-section {
   background: var(--settings-surface);
   border: 1px solid var(--settings-border);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: 28px;
+  box-shadow: var(--shadow-sm);
 }
 
 .settings-section h2 {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: 10px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   color: #2d2a2e;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+.settings-section h2 svg {
+  color: var(--settings-label);
 }
 
 .settings-hint {
   font-size: 11px;
   color: var(--settings-label);
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  line-height: 1.5;
 }
 
 /* Key Grid */
 .key-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 18px;
+}
+
+.key-slot {
+  padding: 14px 16px;
+  background: var(--settings-input-bg);
+  border: 1px solid var(--settings-border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition);
+}
+
+.key-slot:hover {
+  border-color: #b5838d;
 }
 
 .key-slot label {
   display: block;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--settings-label);
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 
 .key-input-row {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
 }
 
 .key-input-row input {
   flex: 1;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border: 1px solid var(--settings-border);
   border-radius: var(--radius-sm);
-  background: #f8f7f8;
+  background: white;
   color: #2d2a2e;
   font-size: 12px;
   outline: none;
-  transition: border-color var(--transition);
+  transition: all var(--transition);
 }
 
 .key-input-row input:focus {
-  border-color: var(--sidebar-hover);
+  border-color: #b5838d;
+  box-shadow: 0 0 0 3px rgba(181, 131, 141, 0.1);
 }
 
 .key-save {
-  padding: 8px 12px;
-  background: var(--sidebar-bg);
+  padding: 10px 14px;
+  background: #2d2a30;
   color: white;
   border-radius: var(--radius-sm);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 1px;
-  transition: background var(--transition);
+  letter-spacing: 1.5px;
+  transition: all var(--transition);
 }
 
 .key-save:hover {
-  background: var(--sidebar-hover);
+  background: #b5838d;
+  transform: translateY(-1px);
 }
 
 .key-status {
-  width: 20px;
+  width: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -110,42 +132,54 @@
 .key-status.valid { color: var(--success); }
 .key-status.invalid { color: var(--error); }
 
+.status-slot {
+  background: var(--success-bg);
+  border-color: rgba(74, 222, 128, 0.15);
+}
+
 .status-indicator {
   font-size: 11px;
+  font-weight: 500;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .status-indicator.ok {
-  color: var(--success);
+  color: #16a34a;
 }
 
 /* Preferences */
 .pref-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  margin-top: 12px;
+  gap: 18px;
+  margin-top: 16px;
 }
 
 .pref-item label {
   display: block;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--settings-label);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .pref-item input, .pref-item select {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border: 1px solid var(--settings-border);
   border-radius: var(--radius-sm);
-  background: #f8f7f8;
+  background: white;
   color: #2d2a2e;
   font-size: 12px;
   outline: none;
+  transition: all var(--transition);
+}
+
+.pref-item input:focus, .pref-item select:focus {
+  border-color: #b5838d;
+  box-shadow: 0 0 0 3px rgba(181, 131, 141, 0.1);
 }
