@@ -11,7 +11,13 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 # Flask-Login setup
 login_manager = LoginManager()
-login_manager.session_protection = "strong"
+login_manager.session_protection = "basic"
+
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    """Return 401 JSON instead of redirecting — fixes login after logout."""
+    return jsonify({"error": "Not authenticated"}), 401
 
 
 class AuthUser(UserMixin):
@@ -80,7 +86,6 @@ def login():
 
 
 @auth_bp.route("/logout", methods=["POST"])
-@login_required
 def logout():
     logout_user()
     return jsonify({"ok": True})
