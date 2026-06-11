@@ -1,12 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Upload, Download, Search, Filter, X, ChevronUp, ChevronDown, FileText, Calendar, Mail } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Upload, Download, Search, Filter, X, ChevronUp, ChevronDown, FileText, Mail, Trash2 } from 'lucide-react'
 import './Artists.css'
 
 const STATUSES = ['Not Sent', 'Email Sent', 'Follow Up Sent', 'Moving Forward', 'Wrong Email', 'Incorrect Email', 'No Email']
 const STATUS_COLORS = { 'Not Sent': 'neutral', 'Email Sent': 'blue', 'Follow Up Sent': 'peach', 'Moving Forward': 'green', 'Wrong Email': 'red', 'Incorrect Email': 'red', 'No Email': 'grey' }
 const MOMENTUM_COLORS = { 'Explosive Growth': 'bright-green', 'Growth': 'green', 'Steady': 'grey', 'Slowing': 'blue', 'Cooling': 'red' }
-
-// Gmail-style label colors — cycles through for each week
 const WEEK_COLORS = ['#d50000','#f4511e','#e67c73','#f6bf26','#33b679','#039be5','#7986cb','#8e24aa','#616161','#a79b8e']
 
 const DEFAULT_COLS = ['artist_name', 'solo_group', 'emails', 'instagram', 'monthly_listeners', 'momentum', 'status', 'associated_labels', 'region', 'genres']
@@ -32,9 +30,29 @@ const ALL_COLS = [
   { key: 'chartmetric_id', label: 'CM ID' },
 ]
 
+// Get the previous Sunday for any date
+function getSunday(date) {
+  const d = new Date(date)
+  d.setDate(d.getDate() - d.getDay())
+  return `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`
+}
+
+// Generate week options (Sundays from Jan 2025 to Dec 2026)
+function getWeekOptions() {
+  const weeks = []
+  const start = new Date(2025, 0, 5) // First Sunday of 2025
+  const end = new Date(2026, 11, 31)
+  let d = new Date(start)
+  while (d <= end) {
+    weeks.push(`${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`)
+    d.setDate(d.getDate() + 7)
+  }
+  return weeks
+}
+
 function getWeekColor(weekLabel, allWeeks) {
   const idx = allWeeks.indexOf(weekLabel)
-  return WEEK_COLORS[idx % WEEK_COLORS.length]
+  return WEEK_COLORS[idx >= 0 ? idx % WEEK_COLORS.length : 0]
 }
 
 export default function Artists() {
@@ -50,11 +68,14 @@ export default function Artists() {
   const [showFilters, setShowFilters] = useState(false)
   const [stats, setStats] = useState({ total: 0, momentums: [], regions: [], batches: [], statuses: [] })
   const [showImport, setShowImport] = useState(false)
-  const [importBatch, setImportBatch] = useState('')
+  const [importWeek, setImportWeek] = useState(getSunday(new Date()))
   const [importing, setImporting] = useState(false)
   const [editingStatus, setEditingStatus] = useState(null)
   const [showColExport, setShowColExport] = useState(false)
   const [selected, setSelected] = useState(new Set())
+  const [confirmDelete, setConfirmDelete] = useState(null)
+
+  const weekOptions = useMemo(() => getWeekOptions(), [])
 
   function toggleSelect(id) {
     setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -106,15 +127,20 @@ export default function Artists() {
     setImporting(true)
     const fd = new FormData()
     fd.append('file', file)
-    fd.append('batch_label', importBatch)
+    fd.append('batch_label', importWeek)
     try {
       const r = await fetch('/api/artists/import', { method: 'POST', body: fd })
       const d = await r.json()
-      if (d.ok) { fetchArtists(); setShowImport(false); setImportBatch('') }
+      if (d.ok) { fetchArtists(); setShowImport(false) }
       else alert(d.error || 'Import failed')
     } catch (e) { console.error(e) }
     setImporting(false)
     e.target.value = ''
+  }
+
+  async function deleteWeek(weekLabel) {
+    const r = await fetch('/api/artists/delete-batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ batch_label: weekLabel }) })
+    if (r.ok) { setConfirmDelete(null); if (activeTab === weekLabel) setActiveTab('all'); fetchArtists() }
   }
 
   function handleExport() {
@@ -145,7 +171,7 @@ export default function Artists() {
       case 'batch_label':
         if (!val) return ''
         const wColor = getWeekColor(val, stats.batches)
-        return <span className="pill-tag pill-week" style={{'--week-color': wColor}}><Calendar size={9} />{val.replace('Week Of ', '')}</span>
+        return <span className="pill-tag pill-week" style={{'--wc': wColor}}>{val.replace('Week Of ', '').replace(/^0/, '')}</span>
       case 'solo_group':
         if (!val) return ''
         const tc = val === 'License' ? 'green' : val === 'Buyout' ? 'peach' : val === 'A&R' ? 'blue' : 'neutral'
@@ -169,7 +195,6 @@ export default function Artists() {
 
   return (
     <div className="artists-page" onClick={() => { setEditingStatus(null); setShowColExport(false) }}>
-      {/* Toolbar */}
       <div className="at-toolbar">
         <div className="at-toolbar-left">
           <span className="at-count">{total.toLocaleString()} ARTISTS</span>
@@ -205,15 +230,30 @@ export default function Artists() {
           All
         </button>
         {stats.batches.map((b, i) => (
-          <button key={b} className={`at-tab ${activeTab === b ? 'active' : ''}`} onClick={() => { setActiveTab(b); setPage(1) }}
-            style={{'--tab-color': WEEK_COLORS[i % WEEK_COLORS.length]}}>
-            <span className="at-tab-dot" />
-            {b.replace('Week Of ', '')}
-          </button>
+          <div key={b} className="at-tab-group">
+            <button className={`at-tab ${activeTab === b ? 'active' : ''}`} onClick={() => { setActiveTab(b); setPage(1) }}
+              style={{'--tab-color': WEEK_COLORS[i % WEEK_COLORS.length]}}>
+              <span className="at-tab-dot" />
+              {b.replace('Week Of ', '').replace(/^0/, '')}
+            </button>
+            <button className="at-tab-delete" title={`Delete all artists in ${b}`} onClick={e => { e.stopPropagation(); setConfirmDelete(b) }}>
+              <X size={8} />
+            </button>
+          </div>
         ))}
       </div>
 
-      {/* Filters */}
+      {/* Batch actions */}
+      {selected.size > 0 && (
+        <div className="at-batch-bar">
+          <span className="at-batch-count">{selected.size} selected</span>
+          {STATUSES.slice(0, 5).map(s => (
+            <button key={s} className={`pill-tag pill-${STATUS_COLORS[s] || 'neutral'} at-batch-btn`} onClick={() => batchSetStatus(s)}>{s}</button>
+          ))}
+          <button className="at-btn-clear" onClick={() => setSelected(new Set())}><X size={9} /> Deselect</button>
+        </div>
+      )}
+
       {showFilters && (
         <div className="at-filters">
           <select value={filters.momentum} onChange={e => { setFilters(f => ({ ...f, momentum: e.target.value })); setPage(1) }}>
@@ -234,7 +274,6 @@ export default function Artists() {
         </div>
       )}
 
-      {/* Column picker */}
       {showColPicker && (
         <div className="at-col-picker">
           {ALL_COLS.map(c => (
@@ -246,18 +285,6 @@ export default function Artists() {
         </div>
       )}
 
-      {/* Batch action bar */}
-      {selected.size > 0 && (
-        <div className="at-batch-bar">
-          <span className="at-batch-count">{selected.size} selected</span>
-          {STATUSES.map(s => (
-            <button key={s} className={`pill-tag pill-${STATUS_COLORS[s] || 'neutral'} at-batch-btn`} onClick={() => batchSetStatus(s)}>{s}</button>
-          ))}
-          <button className="at-btn-clear" onClick={() => setSelected(new Set())}><X size={9} /> Deselect</button>
-        </div>
-      )}
-
-      {/* Table */}
       <div className="at-table-wrap">
         <table className="at-table">
           <thead><tr>
@@ -291,21 +318,53 @@ export default function Artists() {
         </div>
       )}
 
-      {/* Import Modal */}
+      {/* Import Modal — Calendar week picker */}
       {showImport && (
         <div className="at-modal-overlay" onClick={() => setShowImport(false)}>
           <div className="at-modal" onClick={e => e.stopPropagation()}>
-            <h3>IMPORT ARTISTS</h3>
-            <p>Upload your scout sheet. The "Search" column date is auto-extracted as the Week tag.</p>
+            <h3>IMPORT INTO WEEK</h3>
+            <p>Select a week (Sunday date), then upload one or more files. Multiple files can be imported into the same week.</p>
             <div className="at-import-field">
-              <label>Week Tag (auto-detected from Search column if present)</label>
-              <input placeholder="Week Of 06/07" value={importBatch} onChange={e => setImportBatch(e.target.value)} />
+              <label>Week (Sunday)</label>
+              <select className="at-week-select" value={importWeek} onChange={e => setImportWeek(e.target.value)}>
+                {weekOptions.map(w => <option key={w} value={w}>{w}</option>)}
+              </select>
             </div>
             <label className="at-import-btn">
-              <input type="file" accept=".csv,.tsv" onChange={handleImport} style={{ display: 'none' }} />
-              <span>{importing ? 'IMPORTING...' : 'SELECT FILE'}</span>
+              <input type="file" accept=".csv,.tsv" multiple onChange={async e => {
+                const files = [...(e.target.files || [])]
+                if (!files.length) return
+                setImporting(true)
+                for (const file of files) {
+                  const fd = new FormData()
+                  fd.append('file', file)
+                  fd.append('batch_label', importWeek)
+                  await fetch('/api/artists/import', { method: 'POST', body: fd })
+                }
+                setImporting(false)
+                fetchArtists()
+                setShowImport(false)
+                e.target.value = ''
+              }} style={{ display: 'none' }} />
+              <span>{importing ? 'IMPORTING...' : 'SELECT FILE(S)'}</span>
             </label>
             <button className="at-modal-close" onClick={() => setShowImport(false)}><X size={14} /></button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete week confirmation */}
+      {confirmDelete && (
+        <div className="at-modal-overlay" onClick={() => setConfirmDelete(null)}>
+          <div className="at-modal at-modal-confirm" onClick={e => e.stopPropagation()}>
+            <h3>DELETE WEEK</h3>
+            <p>Delete all artists in <strong>{confirmDelete}</strong>? This cannot be undone.</p>
+            <div className="at-confirm-actions">
+              <button className="at-btn" style={{background:'var(--red-soft)',color:'var(--red)',borderColor:'var(--red-border)'}} onClick={() => deleteWeek(confirmDelete)}>
+                <Trash2 size={11} /> Delete All
+              </button>
+              <button className="at-btn" onClick={() => setConfirmDelete(null)}>Cancel</button>
+            </div>
           </div>
         </div>
       )}
