@@ -209,6 +209,15 @@ def import_csv():
                 skipped += 1
                 continue
 
+            # Dedupe: skip if artist already exists for this user (prevents double outreach)
+            existing = session.query(Artist).filter(
+                Artist.user_id == current_user.id,
+                Artist.artist_name == artist_name
+            ).first()
+            if existing:
+                skipped += 1
+                continue
+
             # Determine the batch/week label
             week_label = batch_label or current_search_date
 
