@@ -1,6 +1,12 @@
 .shell{display:flex;height:100vh;overflow:hidden}
 .shell-content{flex:1;overflow:hidden;min-width:0}
 
+/* Guaranteed page transition — replays on every route change because
+   Shell.jsx keys this wrapper by pathname. Gives every navigation a
+   clear, visible entrance regardless of per-page animations. */
+.route-view{height:100%;animation:routeIn .34s var(--ease) both}
+@keyframes routeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
 /* ============================================================
    ROUTE-BASED THEME COLORS — animates sidebar accent + background
    ============================================================ */

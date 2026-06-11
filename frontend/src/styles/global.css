@@ -117,14 +117,20 @@ input,select,textarea{font-family:inherit;font-size:inherit;transition:border-co
 @keyframes slideFromBottom{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @keyframes subtleBreathe{0%,100%{opacity:.85}50%{opacity:1}}
 
-/* ── DISABLE ANIMATIONS ── */
-@media(prefers-reduced-motion:reduce){
-  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
-}
+/* ── DISABLE ANIMATIONS ──
+   Animations are ON by default and controlled SOLELY by the in-app
+   toggle (Settings → System → Animations).
+   We intentionally do NOT auto-disable via prefers-reduced-motion:
+   many macOS users keep the OS "Reduce Motion" accessibility setting
+   enabled, and Firefox/Safari honor it — which previously killed
+   every animation in the app regardless of the in-app toggle.
+   Users who want motion off can use the toggle, which adds
+   html.no-animations to the document root. */
 html.no-animations *,
 html.no-animations *::before,
 html.no-animations *::after{
   animation-duration:.001ms!important;
   animation-iteration-count:1!important;
   transition-duration:.001ms!important;
+  scroll-behavior:auto!important;
 }
