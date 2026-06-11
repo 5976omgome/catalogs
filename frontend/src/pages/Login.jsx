@@ -36,13 +36,14 @@ export default function Login() {
         </div>
         <form onSubmit={handleSubmit} className="login-form">
           <div className="login-field">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">Username</label>
             <input
               id="email"
-              type="email"
+              type="text"
+              autoComplete="username"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="you@ignitethelabel.com"
+              placeholder="admin"
               required
               autoFocus
             />
