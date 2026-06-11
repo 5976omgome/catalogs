@@ -20,7 +20,9 @@ export default function Shell() {
     <div className={`shell ${theme}`}>
       <Sidebar />
       <main className="shell-content">
-        <Outlet />
+        <div className="route-view" key={location.pathname}>
+          <Outlet />
+        </div>
       </main>
     </div>
   )
