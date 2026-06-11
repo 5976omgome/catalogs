@@ -34,31 +34,31 @@
 }
 
 .shell.theme-chartporter{
-  --theme-accent:var(--teal);
-  --theme-accent-soft:var(--green-soft);
-  --theme-accent-border:var(--green-border);
-  --theme-glow:rgba(137,176,174,.15);
+  --theme-accent:#2c7da0;
+  --theme-accent-soft:rgba(44,125,160,.1);
+  --theme-accent-border:rgba(44,125,160,.25);
+  --theme-glow:rgba(44,125,160,.15);
 }
 
 .shell.theme-genitract{
-  --theme-accent:#ffd100;
-  --theme-accent-soft:rgba(255,209,0,.08);
-  --theme-accent-border:rgba(255,209,0,.2);
-  --theme-glow:rgba(255,209,0,.12);
+  --theme-accent:#fad643;
+  --theme-accent-soft:rgba(250,214,67,.08);
+  --theme-accent-border:rgba(250,214,67,.25);
+  --theme-glow:rgba(250,214,67,.12);
 }
 
 
 
 .shell.theme-drafter{
-  --theme-accent:#89b0ae;
-  --theme-accent-soft:rgba(137,176,174,.1);
-  --theme-accent-border:rgba(137,176,174,.25);
-  --theme-glow:rgba(137,176,174,.15);
+  --theme-accent:#9cf945;
+  --theme-accent-soft:rgba(156,249,69,.08);
+  --theme-accent-border:rgba(156,249,69,.25);
+  --theme-glow:rgba(156,249,69,.12);
 }
 
 .shell.theme-followup{
-  --theme-accent:#89b0ae;
-  --theme-accent-soft:rgba(137,176,174,.1);
-  --theme-accent-border:rgba(137,176,174,.25);
-  --theme-glow:rgba(137,176,174,.15);
+  --theme-accent:#faa307;
+  --theme-accent-soft:rgba(250,163,7,.08);
+  --theme-accent-border:rgba(250,163,7,.25);
+  --theme-glow:rgba(250,163,7,.12);
 }
