@@ -1,7 +1,9 @@
 """Genius API — pulls artist social media links.
 
 Requires a free Client Access Token from https://genius.com/api-clients
-Returns: instagram, twitter, facebook handles when available.
+Returns: Instagram and Facebook profile URLs when available, plus a
+``match_confidence`` flag (Exact|Uncertain) describing how confidently the
+resolved Genius artist matches the queried name.
 Uses shared Session for FD safety.
 
 RATE LIMITING: Genius free tier allows ~2 req/sec. We use a global
@@ -14,6 +16,7 @@ import re
 import time
 import random
 import threading
+import unicodedata
 from typing import Optional, Dict, Union
 
 from app.sources._http import ai_session as _s
@@ -100,23 +103,117 @@ def _request_with_backoff(url, params, headers, timeout=10):
         return r
 
 
-def _normalize(s: str) -> str:
+# ---------------------------------------------------------------------------
+# Name normalization
+# ---------------------------------------------------------------------------
+# Join/feature tokens removed before punctuation stripping. ``&`` is matched
+# as a literal symbol; ``x`` and ``and`` only as whole words so "Maxwell" and
+# "Anderson" are not damaged.
+_JOIN_RE = re.compile(
+    r"\bfeaturing\b|\bfeat\.?\b|\bft\.?\b|&|\band\b|\bx\b"
+)
+
+
+def _normalize_name(s: str) -> str:
+    """Richer, ordered artist-name normalizer used for balanced matching.
+
+    Applies, in this exact sequence:
+      1. null guard
+      2. NFKD decomposition + diacritic/accent strip
+      3. case-fold
+      4. remove join/feature tokens (feat./featuring/ft./&/whole-word x/and)
+      5. strip punctuation to ``[a-z0-9\\s]``
+      6. remove a single leading "the "
+      7. collapse internal whitespace
+      8. trim
+    """
+    if not s:
+        return ""
+    # 2. strip accents/diacritics
+    decomposed = unicodedata.normalize("NFKD", s)
+    no_accents = "".join(c for c in decomposed if not unicodedata.combining(c))
+    # 3. case-fold
+    folded = no_accents.casefold()
+    # 4. remove join/feature tokens
+    joined = _JOIN_RE.sub(" ", folded)
+    # 5. strip punctuation (keep alnum + whitespace)
+    cleaned = re.sub(r"[^a-z0-9\s]", " ", joined)
+    # 6. remove a single leading "the"
+    cleaned = re.sub(r"^\s*the\s+", " ", cleaned)
+    # 7-8. collapse whitespace + trim
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def _cache_key_normalize(s: str) -> str:
+    """Legacy alphanumeric-only normalizer — kept stable for cache keys.
+
+    Used ONLY to derive ``cache_key`` so existing cache entries are not
+    orphaned by the richer matching normalizer above.
+    """
     return re.sub(r"[^a-z0-9]", "", s.lower()) if s else ""
 
 
-def get_socials(artist: str) -> Optional[Union[Dict[str, str], _RateLimited]]:
-    """Fetch social media handles for an artist from Genius.
+# ---------------------------------------------------------------------------
+# IG / FB handle → URL normalization (single source of truth)
+# ---------------------------------------------------------------------------
+def ig_to_url(raw: str) -> str:
+    """Normalize an Instagram handle or URL into a canonical profile URL.
 
-    Returns dict like:
-        {"instagram": "handle", "twitter": "handle", "facebook": "page_url"}
-    or None if artist not found or no key configured, or the ``RATE_LIMITED``
-    sentinel if Genius rate-limited us past the backoff schedule.
+    - case-insensitive ``http(s)://`` passthrough (double-prefix protection)
+    - empty / whitespace-only → ``""``
+    - else strip ``@``, surrounding whitespace, leading/trailing slashes,
+      then prepend exactly one ``https://instagram.com/``
+    """
+    v = (raw or "").strip()
+    if not v:
+        return ""
+    if v.lower().startswith(("http://", "https://")):
+        return v
+    v = v.lstrip("@").strip()
+    v = v.strip("/")
+    if not v:
+        return ""
+    return f"https://instagram.com/{v}"
+
+
+def fb_to_url(raw: str) -> str:
+    """Normalize a Facebook handle or URL into a canonical profile URL.
+
+    - case-insensitive ``http(s)://`` passthrough (double-prefix protection)
+    - empty / whitespace-only → ``""``
+    - else strip surrounding whitespace and leading/trailing slashes, then
+      prepend exactly one ``https://facebook.com/``
+    """
+    v = (raw or "").strip()
+    if not v:
+        return ""
+    if v.lower().startswith(("http://", "https://")):
+        return v
+    v = v.strip("/")
+    if not v:
+        return ""
+    return f"https://facebook.com/{v}"
+
+
+def get_socials(artist: str) -> Optional[Union[Dict[str, str], _RateLimited]]:
+    """Fetch Instagram/Facebook handles for an artist from Genius.
+
+    Returns one of:
+      - ``{"instagram": <url-or-"">, "facebook": <url-or-"">,
+         "match_confidence": "Exact"|"Uncertain"}`` on an accepted match,
+      - ``None`` if no key configured, no hits, or no acceptable match,
+      - the ``RATE_LIMITED`` sentinel if Genius rate-limited us past backoff.
+
+    Matching examines up to the first 10 search hits in Genius order: an exact
+    normalized-equality match wins (``Exact``); otherwise the lowest-index
+    close (normalized prefix/substring) match wins (``Uncertain``); otherwise
+    the artist is rejected (negative-cached) and ``None`` is returned.
     """
     key = config.genius_token()
     if not key:
         return None
 
-    cache_key = f"genius_socials:{_normalize(artist)}"
+    cache_key = f"genius_socials:{_cache_key_normalize(artist)}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached if cached else None
@@ -124,7 +221,7 @@ def get_socials(artist: str) -> Optional[Union[Dict[str, str], _RateLimited]]:
     headers = {"Authorization": f"Bearer {key}"}
 
     try:
-        # Search for artist (Genius search returns songs, we extract artist from them)
+        # Search for artist (Genius search returns songs; extract the artist).
         r = _request_with_backoff(
             f"{_BASE}/search",
             params={"q": artist, "per_page": 10},
@@ -145,34 +242,38 @@ def get_socials(artist: str) -> Optional[Union[Dict[str, str], _RateLimited]]:
             cache.put(cache_key, {})
             return None
 
-        # Find the artist ID from search results
-        an = _normalize(artist)
-        artist_id = None
-        artist_match_name = None
+        # --- Balanced top-10 artist matching ---------------------------------
+        nq = _normalize_name(artist)
+        exact_id = None
+        close_id = None
 
-        for hit in hits:
-            result = hit.get("result", {})
-            primary = result.get("primary_artist", {})
-            if primary:
-                name = _normalize(primary.get("name", ""))
-                if name == an or an in name or name in an:
-                    artist_id = primary.get("id")
-                    artist_match_name = primary.get("name", "")
-                    break
+        for hit in hits[:10]:
+            primary = hit.get("result", {}).get("primary_artist", {}) or {}
+            nh = _normalize_name(primary.get("name", ""))
+            if not nh:
+                continue  # guard degenerate empty normalized hit names
+            if nh == nq:
+                exact_id = primary.get("id")
+                break  # exact is unbeatable; stop scanning
+            if close_id is None and nq and (
+                nh.startswith(nq) or nq.startswith(nh) or nq in nh or nh in nq
+            ):
+                # keep the first (lowest-index, most-relevant) close match
+                close_id = primary.get("id")
 
-        if not artist_id:
-            first_hit = hits[0].get("result", {}).get("primary_artist", {})
-            if first_hit:
-                first_name = _normalize(first_hit.get("name", ""))
-                if len(an) >= 3 and (an[:3] in first_name or first_name[:3] in an):
-                    artist_id = first_hit.get("id")
-                    artist_match_name = first_hit.get("name", "")
+        if exact_id is not None:
+            artist_id, confidence = exact_id, "Exact"
+        elif close_id is not None:
+            artist_id, confidence = close_id, "Uncertain"
+        else:
+            cache.put(cache_key, {})  # negative cache
+            return None
 
-        if not artist_id:
+        if artist_id is None:
             cache.put(cache_key, {})
             return None
 
-        # Get full artist object with social links
+        # Get full artist object with social links.
         r2 = _request_with_backoff(
             f"{_BASE}/artists/{artist_id}",
             params={"text_format": "plain"},
@@ -190,30 +291,20 @@ def get_socials(artist: str) -> Optional[Union[Dict[str, str], _RateLimited]]:
             cache.put(cache_key, {})
             return None
 
-        socials = {}
         ig = artist_data.get("instagram_name") or ""
-        tw = artist_data.get("twitter_name") or ""
         fb = artist_data.get("facebook_name") or ""
 
-        if ig:
-            socials["instagram"] = ig.strip().lstrip("@")
-        if tw:
-            socials["twitter"] = tw.strip().lstrip("@")
-        if fb:
-            socials["facebook"] = fb.strip()
+        result = {
+            "instagram": ig_to_url(ig),
+            "facebook": fb_to_url(fb),
+            "match_confidence": confidence,
+        }
 
-        # Store the Genius profile URL for reference (no direct website field).
-        genius_url = artist_data.get("url") or ""
-        if genius_url:
-            socials["genius_url"] = genius_url
+        if result["instagram"] or result["facebook"]:
+            print(f"[genius] \u2713 '{artist}' \u2192 {confidence}", flush=True)
 
-        if socials:
-            found_keys = [k for k in socials if k != "genius_url"]
-            if found_keys:
-                print(f"[genius] \u2713 '{artist}' \u2192 {found_keys}", flush=True)
-
-        cache.put(cache_key, socials if socials else {})
-        return socials if socials else None
+        cache.put(cache_key, result)
+        return result
 
     except Exception as e:
         print(f"[genius] Error for '{artist}': {e}", flush=True)

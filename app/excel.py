@@ -31,9 +31,6 @@ AUDIT_COLUMNS = [
     "Status Reason",
     "iTunes Labels",
     "Deezer Labels",
-    "Instagram",
-    "YouTube",
-    "Facebook",
     "Earliest Year",
     "AI Note",
 ]
@@ -45,7 +42,6 @@ _WIDTHS = {
     "Recent Momentum": 13, "Status": 14, "Status Reason": 52,
     "iTunes Labels": 40, "Deezer Labels": 32,
     "Earliest Year": 12, "AI Note": 30,
-    "Instagram": 36, "YouTube": 44, "Facebook": 36,
 }
 
 
