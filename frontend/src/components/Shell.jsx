@@ -7,7 +7,7 @@ const ROUTE_THEMES = {
   '/settings': 'theme-settings',
   '/artists': 'theme-artists',
   '/tools/chartporter': 'theme-chartporter',
-  '/tools/genitractor': 'theme-genitractor',
+  '/tools/genitact': 'theme-genitract',
 }
 
 export default function Shell() {

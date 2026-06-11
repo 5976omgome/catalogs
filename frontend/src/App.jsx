@@ -30,7 +30,7 @@ function AppRoutes() {
         <Route path="settings" element={<Settings />} />
         <Route path="artists" element={<Artists />} />
         <Route path="tools/chartporter" element={<Chartporter />} />
-        <Route path="tools/genitractor" element={<Genitractor />} />
+        <Route path="tools/genitact" element={<Genitractor />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
