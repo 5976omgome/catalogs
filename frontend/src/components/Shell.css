@@ -2,14 +2,14 @@
 .shell-content{flex:1;overflow:hidden;min-width:0}
 
 /* ============================================================
-   ROUTE-BASED THEME COLORS — animates sidebar accent
+   ROUTE-BASED THEME COLORS — animates sidebar accent + background
    ============================================================ */
 .shell{
   --theme-accent:var(--teal);
   --theme-accent-soft:var(--green-soft);
   --theme-accent-border:var(--green-border);
   --theme-glow:rgba(137,176,174,.2);
-  --theme-sidebar-bg:#12151a;
+  --theme-sidebar-bg:#060708;
   transition:--theme-accent .4s var(--ease),--theme-glow .4s var(--ease);
 }
 
@@ -18,7 +18,7 @@
   --theme-accent-soft:var(--green-soft);
   --theme-accent-border:var(--green-border);
   --theme-glow:rgba(137,176,174,.15);
-  --theme-sidebar-bg:#0c0e12;
+  --theme-sidebar-bg:#060708;
 }
 
 .shell.theme-settings{
@@ -26,7 +26,7 @@
   --theme-accent-soft:rgba(85,91,110,.1);
   --theme-accent-border:rgba(85,91,110,.25);
   --theme-glow:rgba(85,91,110,.1);
-  --theme-sidebar-bg:#12151a;
+  --theme-sidebar-bg:#070809;
 }
 
 .shell.theme-artists{
@@ -34,7 +34,7 @@
   --theme-accent-soft:rgba(218,65,103,.08);
   --theme-accent-border:rgba(218,65,103,.2);
   --theme-glow:rgba(218,65,103,.12);
-  --theme-sidebar-bg:#0a0610;
+  --theme-sidebar-bg:#050308;
 }
 
 .shell.theme-chartporter{
@@ -42,7 +42,7 @@
   --theme-accent-soft:rgba(44,125,160,.1);
   --theme-accent-border:rgba(44,125,160,.25);
   --theme-glow:rgba(44,125,160,.15);
-  --theme-sidebar-bg:#012a4a;
+  --theme-sidebar-bg:#020a12;
 }
 
 .shell.theme-genitract{
@@ -50,17 +50,15 @@
   --theme-accent-soft:rgba(250,214,67,.08);
   --theme-accent-border:rgba(250,214,67,.25);
   --theme-glow:rgba(250,214,67,.12);
-  --theme-sidebar-bg:#805b10;
+  --theme-sidebar-bg:#080602;
 }
-
-
 
 .shell.theme-drafter{
   --theme-accent:#9cf945;
   --theme-accent-soft:rgba(156,249,69,.08);
   --theme-accent-border:rgba(156,249,69,.25);
   --theme-glow:rgba(156,249,69,.12);
-  --theme-sidebar-bg:#421869;
+  --theme-sidebar-bg:#060310;
 }
 
 .shell.theme-followup{
@@ -68,5 +66,5 @@
   --theme-accent-soft:rgba(250,163,7,.08);
   --theme-accent-border:rgba(250,163,7,.25);
   --theme-glow:rgba(250,163,7,.12);
-  --theme-sidebar-bg:#03071e;
+  --theme-sidebar-bg:#030206;
 }
