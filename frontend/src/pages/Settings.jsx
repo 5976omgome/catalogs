@@ -103,12 +103,8 @@ export default function Settings() {
         <h2><Clock size={14} /> Preferences</h2>
         <div className="pref-grid">
           <div className="pref-item">
-            <label>Timezone</label>
-            <select value={timezone} onChange={e => setTimezone(e.target.value)}>
-              {Intl.supportedValuesOf('timeZone').slice(0, 50).map(tz => (
-                <option key={tz} value={tz}>{tz}</option>
-              ))}
-            </select>
+            <label>Timezone (auto-detected)</label>
+            <input type="text" value={timezone} readOnly style={{opacity:.7,cursor:'default'}} />
           </div>
           <div className="pref-item">
             <label>Scouting Email 1</label>

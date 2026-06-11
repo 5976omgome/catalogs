@@ -13,7 +13,7 @@
   padding:var(--s4) var(--s3);
   border-bottom:1px solid var(--border);min-height:56px;
 }
-.sb-logo-img{width:24px;height:24px;flex-shrink:0;filter:brightness(0) invert(.85) sepia(.3) saturate(.6) hue-rotate(130deg);opacity:.85}
+.sb-logo-img{width:36px;height:36px;flex-shrink:0;filter:brightness(0) invert(.85) sepia(.3) saturate(.6) hue-rotate(130deg);opacity:.9}
 .sb-brand-text{display:flex;flex-direction:column;gap:1px;white-space:nowrap;overflow:hidden}
 .sb-title{font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--snow)}
 .sb-subtitle{font-size:8px;font-weight:500;letter-spacing:.28em;color:var(--teal);opacity:.7}
