@@ -79,10 +79,10 @@ function updateStats(){
 // ---------------------------------------------------------------------------
 // GLOBAL FILTERS — shared across all feeds
 // ---------------------------------------------------------------------------
-const gFilters={drop:true,review:true,keep:true,debug:false};
+const gFilters={drop:true,review:true,keep:true};
 
 function initGlobalFilters(){
-  ["drop","review","keep","debug"].forEach(key=>{
+  ["drop","review","keep"].forEach(key=>{
     const el=$("gf-"+key);
     el.classList.toggle("on",gFilters[key]);
     el.classList.toggle("off",!gFilters[key]);
@@ -314,8 +314,6 @@ function addArtistToFeed(ev){
 
   if(ev.status_reason){const reason=document.createElement("div");reason.className="reason";
     reason.innerHTML='<span class="arrow">\u2192</span>'+ev.status_reason.replace(/</g,"&lt;");block.append(reason)}
-  if(ev.debug&&gFilters.debug){const dbg=document.createElement("div");dbg.className="debug-info";
-    dbg.textContent=ev.debug.steps.join(" | ");block.append(dbg)}
 
   feed.log.append(block);
   while(feed.log.children.length>FEED_BLOCK_CAP)feed.log.firstChild.remove();
