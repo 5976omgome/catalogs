@@ -564,3 +564,44 @@ def delete_batch():
         return jsonify({"error": str(e)}), 500
     finally:
         Session.remove()
+
+
+
+@artists_bp.route("/dedupe", methods=["POST"])
+@login_required
+def dedupe_artists():
+    """Remove duplicate artists. Keeps the oldest entry (lowest id), deletes copies.
+    
+    Matches by exact artist_name (case-sensitive). Returns count of removed dupes.
+    """
+    session = Session()
+    try:
+        from sqlalchemy import func
+        uid = current_user.id
+
+        # Find artist names that appear more than once
+        dupes = session.query(Artist.artist_name, func.count(Artist.id).label('cnt')) \
+            .filter_by(user_id=uid) \
+            .group_by(Artist.artist_name) \
+            .having(func.count(Artist.id) > 1) \
+            .all()
+
+        removed = 0
+        for name, cnt in dupes:
+            # Get all entries for this name, ordered by id (oldest first)
+            entries = session.query(Artist).filter_by(
+                user_id=uid, artist_name=name
+            ).order_by(Artist.id.asc()).all()
+
+            # Keep the first (oldest), delete the rest
+            for entry in entries[1:]:
+                session.delete(entry)
+                removed += 1
+
+        session.commit()
+        return jsonify({"ok": True, "removed": removed, "dupes_found": len(dupes)})
+    except Exception as e:
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        Session.remove()
