@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Upload, Download, Search, Filter, X, ChevronUp, ChevronDown, FileText, Mail, Trash2 } from 'lucide-react'
+import { Upload, Download, Search, Filter, X, ChevronUp, ChevronDown, FileText, Mail, Trash2, Copy } from 'lucide-react'
 import './Artists.css'
 
 const STATUSES = ['Not Sent', 'Email Sent', 'Follow Up Sent', 'Moving Forward', 'Wrong Email', 'Incorrect Email', 'No Email']
@@ -230,6 +230,7 @@ export default function Artists() {
             )}
           </div>
           <button className="at-btn at-btn-report" onClick={() => window.open('/api/reports/summary','_blank')}><FileText size={11} /> Report</button>
+          <button className="at-btn" onClick={async e => { e.stopPropagation(); const r = await fetch('/api/artists/dedupe',{method:'POST'}); const d = await r.json(); if(d.removed>0){alert(`Removed ${d.removed} duplicate(s)`);fetchArtists()}else{alert('No duplicates found')} }}><Copy size={11} /> Dedupe</button>
         </div>
       </div>
 
