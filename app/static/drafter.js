@@ -100,4 +100,15 @@ document.addEventListener("DOMContentLoaded",()=>{
   });
   $("btn-stop").addEventListener("click",()=>{fetch("/api/drafter/stop",{method:"POST"});sys("STOP","warn")});
   $("btn-clear").addEventListener("click",()=>{$("feeds-grid").innerHTML="";$("sys-log").innerHTML="";totalProcessed=0;totalArtists=0;totalCreated=0;updateStats();sys("Cleared.","info")});
+  $("file-input").addEventListener("change",async e=>{
+    for(const f of e.target.files){
+      const fd=new FormData();fd.append("file",f);
+      const r=await fetch("/api/drafter/import",{method:"POST",body:fd});
+      const d=await r.json();
+      if(d.ok)sys("+ Imported "+d.imported+" artists from "+f.name,"ok");
+      else sys("Import error: "+(d.error||""),"bad");
+    }
+    e.target.value="";
+    loadWeeks();
+  });
 });
