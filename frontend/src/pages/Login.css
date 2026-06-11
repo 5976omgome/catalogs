@@ -1,164 +1,41 @@
-.login-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  position: relative;
-  overflow: hidden;
+.login-page{display:flex;align-items:center;justify-content:center;height:100vh;position:relative;overflow:hidden}
+.login-bg{position:absolute;inset:0;background:var(--bg);z-index:0}
+
+.login-card{
+  position:relative;z-index:1;width:380px;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--r-lg);padding:var(--s8) var(--s6);
+  box-shadow:0 24px 80px rgba(0,0,0,.6);
+  animation:fadeUp .4s var(--ease) both;
 }
 
-.login-bg {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 20% 10%, rgba(128, 14, 19, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 80%, rgba(100, 13, 20, 0.1) 0%, transparent 40%),
-    radial-gradient(ellipse at 50% 50%, #1a0501 0%, #0a0201 100%);
-  z-index: 0;
-}
+.login-logo{text-align:center;margin-bottom:var(--s6)}
+.login-logo img{width:40px;height:40px;margin-bottom:var(--s3);filter:brightness(0) invert(.85) sepia(.3) saturate(.6) hue-rotate(130deg);opacity:.85}
+.login-logo h1{font-size:13px;font-weight:800;letter-spacing:.16em;color:var(--snow);margin-bottom:var(--s1)}
+.login-logo p{font-size:8px;font-weight:500;letter-spacing:.28em;color:var(--teal);opacity:.7;text-transform:uppercase}
 
-.login-bg::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h60v60H0z' fill='none'/%3E%3Cpath d='M30 0v60M0 30h60' stroke='rgba(255,255,255,0.015)' stroke-width='0.5'/%3E%3C/svg%3E");
-  opacity: 0.5;
-}
+.login-form{display:flex;flex-direction:column;gap:var(--s4)}
 
-.login-card {
-  position: relative;
-  z-index: 1;
-  width: 400px;
-  background: rgba(15, 3, 5, 0.8);
-  border: 1px solid rgba(173, 40, 49, 0.15);
-  border-radius: var(--radius-lg);
-  padding: 48px 40px;
-  backdrop-filter: blur(24px);
-  box-shadow:
-    0 32px 100px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(255, 255, 255, 0.02) inset,
-    0 1px 0 rgba(255, 255, 255, 0.03) inset;
-  animation: fadeIn 400ms ease;
+.login-field{display:flex;flex-direction:column;gap:var(--s1)}
+.login-field label{font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--slate);text-transform:uppercase}
+.login-field input{
+  padding:var(--s3);font-size:13px;
+  color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);
+  outline:none;transition:border-color .2s var(--ease),box-shadow .2s var(--ease);
 }
+.login-field input:focus{border-color:var(--teal);box-shadow:0 0 0 3px var(--green-soft)}
+.login-field input::placeholder{color:var(--text-quaternary)}
 
-.login-logo {
-  text-align: center;
-  margin-bottom: 36px;
-}
+.login-error{font-size:10px;color:var(--red);text-align:center;padding:var(--s2);background:var(--red-soft);border:1px solid var(--red-border);border-radius:var(--r-sm)}
 
-.login-logo img {
-  width: 52px;
-  height: 52px;
-  margin-bottom: 16px;
-  filter: brightness(1.3) drop-shadow(0 0 12px rgba(173, 40, 49, 0.3));
+.login-submit{
+  margin-top:var(--s2);padding:var(--s3);
+  background:var(--teal);color:#0c0e12;border-color:var(--teal);border-radius:var(--r-sm);
+  font-size:10px;font-weight:700;letter-spacing:.1em;
+  box-shadow:0 2px 8px rgba(137,176,174,.2);
 }
+.login-submit:hover:not(:disabled){background:#9fc4c2;box-shadow:0 6px 20px rgba(137,176,174,.3);transform:translateY(-1.5px)}
+.login-submit:active:not(:disabled){transform:scale(.95);box-shadow:0 1px 4px rgba(137,176,174,.15);transition:transform .06s}
+.login-submit:disabled{opacity:.35;cursor:not-allowed}
 
-.login-logo h1 {
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 4px;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-}
-
-.login-logo p {
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.login-field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.login-field label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.login-field input {
-  padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 400;
-  transition: all var(--transition);
-  outline: none;
-}
-
-.login-field input:focus {
-  border-color: var(--dash-cta);
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: 0 0 0 3px rgba(173, 40, 49, 0.12), 0 0 20px rgba(173, 40, 49, 0.05);
-}
-
-.login-field input::placeholder {
-  color: rgba(255, 255, 255, 0.2);
-  font-weight: 400;
-}
-
-.login-error {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--error);
-  text-align: center;
-  padding: 10px 14px;
-  background: var(--error-bg);
-  border: 1px solid rgba(239, 68, 68, 0.15);
-  border-radius: var(--radius-sm);
-  animation: fadeIn 200ms ease;
-}
-
-.login-submit {
-  margin-top: 10px;
-  padding: 14px;
-  background: var(--dash-cta);
-  color: white;
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 2.5px;
-  transition: all var(--transition);
-  box-shadow: 0 4px 16px rgba(173, 40, 49, 0.25);
-}
-
-.login-submit:hover:not(:disabled) {
-  background: var(--dash-cta-hover);
-  box-shadow: 0 6px 24px rgba(173, 40, 49, 0.35);
-  transform: translateY(-1px);
-}
-
-.login-submit:active:not(:disabled) {
-  transform: translateY(0) scale(0.98);
-  box-shadow: 0 2px 8px rgba(173, 40, 49, 0.2);
-}
-
-.login-submit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.login-footer {
-  text-align: center;
-  margin-top: 32px;
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 1.5px;
-  color: var(--text-muted);
-  opacity: 0.3;
-}
+.login-footer{text-align:center;margin-top:var(--s6);font-size:8px;letter-spacing:.2em;color:var(--text-quaternary)}
