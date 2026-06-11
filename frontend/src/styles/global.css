@@ -1,7 +1,5 @@
 /* ============================================================
-   IGNITE VIRTUAL SCOUT — Global Styles
-   Uses the SAME design system as the existing tool pages
-   (Earthly Tones: Slate, Teal, Frost, Snow, Peach)
+   IGNITE VIRTUAL SCOUT — Global Styles + Premium Animations
    ============================================================ */
 
 *{box-sizing:border-box}
@@ -44,6 +42,8 @@
   --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:20px;--s6:24px;--s8:32px;
   --r-sm:6px;--r-md:10px;--r-lg:14px;--r-full:9999px;
   --ease:cubic-bezier(.4,0,.2,1);
+  --ease-out:cubic-bezier(0,.0,.2,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
 }
 
 html,body,#root{
@@ -66,13 +66,14 @@ button{
   cursor:pointer;transition:all .15s var(--ease);
 }
 button:hover:not(:disabled){background:var(--bg-card-hover);border-color:var(--border-hover);transform:translateY(-.5px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
-button:active:not(:disabled){transform:translateY(0) scale(.95);box-shadow:0 1px 4px rgba(0,0,0,.15);transition:transform .06s,box-shadow .06s}
-button.primary{background:var(--teal);color:#0c0e12;border-color:var(--teal);box-shadow:0 0 12px rgba(137,176,174,.12)}
-button.primary:hover:not(:disabled){background:#9fc4c2;box-shadow:0 6px 20px rgba(137,176,174,.3);transform:translateY(-1.5px)}
+button:active:not(:disabled){transform:translateY(0) scale(.96);box-shadow:none;transition:transform .06s}
+button.primary{background:var(--teal);color:#0c0e12;border-color:var(--teal);box-shadow:0 2px 8px rgba(137,176,174,.15)}
+button.primary:hover:not(:disabled){background:#9fc4c2;box-shadow:0 6px 20px rgba(137,176,174,.25);transform:translateY(-1px)}
+button.primary:active:not(:disabled){transform:scale(.96);box-shadow:0 1px 4px rgba(137,176,174,.1)}
 button.ghost{background:transparent;color:var(--text-tertiary);border-color:transparent}
 button.ghost:hover:not(:disabled){background:var(--bg-surface);color:var(--text-secondary)}
 button:disabled{opacity:.35;cursor:not-allowed}
-input,select,textarea{font-family:inherit;font-size:inherit}
+input,select,textarea{font-family:inherit;font-size:inherit;transition:border-color .2s var(--ease),box-shadow .2s var(--ease)}
 
 ::selection{background:var(--teal);color:#0c0e12}
 
@@ -80,6 +81,7 @@ input,select,textarea{font-family:inherit;font-size:inherit}
   display:flex;align-items:center;justify-content:center;
   height:100vh;background:var(--bg);color:var(--text-tertiary);
   font-size:10px;font-weight:700;letter-spacing:.2em;
+  animation:fadeIn .5s var(--ease);
 }
 
 .tool-placeholder{
@@ -88,21 +90,41 @@ input,select,textarea{font-family:inherit;font-size:inherit}
   font-size:10px;font-weight:700;letter-spacing:.2em;
 }
 
+/* ── SCROLLBAR ── */
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;transition:background .25s}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;transition:background .25s var(--ease)}
 ::-webkit-scrollbar-thumb:hover{background:var(--teal)}
 
-/* ── PREMIUM ANIMATIONS ── */
+/* ══════════════════════════════════════════════════════════════
+   PREMIUM ANIMATIONS — comprehensive motion system
+   ══════════════════════════════════════════════════════════════ */
+
+/* Keyframes */
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 @keyframes scaleIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+@keyframes popIn{from{opacity:0;transform:scale(.94) translateY(3px)}to{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 @keyframes glowPulse{0%,100%{box-shadow:0 0 6px rgba(137,176,174,.08)}50%{box-shadow:0 0 14px rgba(137,176,174,.2)}}
+@keyframes attentionPulse{0%,100%{box-shadow:0 0 0 rgba(232,127,143,0)}50%{box-shadow:0 0 8px rgba(232,127,143,.25)}}
 @keyframes modalIn{from{opacity:0;transform:scale(.97) translateY(4px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes modalOverlayIn{from{opacity:0}to{opacity:1}}
 @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes feedIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideFromBottom{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes subtleBreathe{0%,100%{opacity:.85}50%{opacity:1}}
 
-/* Disable animations (user preference OR manual toggle) */
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
-html.no-animations *,html.no-animations *::before,html.no-animations *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+/* ── DISABLE ANIMATIONS ── */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+html.no-animations *,
+html.no-animations *::before,
+html.no-animations *::after{
+  animation-duration:.001ms!important;
+  animation-iteration-count:1!important;
+  transition-duration:.001ms!important;
+}
