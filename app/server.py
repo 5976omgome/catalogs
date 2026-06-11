@@ -76,10 +76,27 @@ def genitractor_page():
     return app.send_static_file("genitractor.html")
 
 
+# Legacy tool pages served at /legacy/* for iframe embedding in React shell
+@app.route("/legacy/chartporter")
+def legacy_chartporter():
+    return app.send_static_file("index.html")
+
+
+@app.route("/legacy/genitractor")
+def legacy_genitractor():
+    return app.send_static_file("genitractor.html")
+
+
 # Serve React SPA static assets (JS/CSS bundles from Vite build)
 @app.route("/assets/<path:filename>")
 def spa_assets(filename):
     return send_from_directory(str(DIST_DIR / "assets"), filename)
+
+
+# Serve legacy tool static files (JS/CSS/HTML for iframe embedding)
+@app.route("/legacy-static/<path:filename>")
+def legacy_static_files(filename):
+    return send_from_directory(str(Path(__file__).parent / "static"), filename)
 
 
 # Serve logos and other public files from dist/
