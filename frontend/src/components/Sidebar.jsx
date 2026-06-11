@@ -4,10 +4,26 @@ import { LayoutDashboard, Settings, Users, BarChart3, Zap, ChevronLeft, ChevronR
 import { useAuth } from '../context/AuthContext'
 import './Sidebar.css'
 
+const SUBTITLES = {
+  '/dashboard': 'CATALOG SCOUTING',
+  '/settings': 'CONFIGURATION',
+  '/artists': 'ARTIST LIBRARY',
+  '/tools/chartporter': 'CATALOG INTELLIGENCE',
+  '/tools/genitractor': 'CONTACT EXTRACTION',
+}
+
+const TITLES = {
+  '/dashboard': 'IGNITE: DASHBOARD',
+  '/settings': 'IGNITE: SETTINGS',
+  '/artists': 'IGNITE: ARTISTS',
+  '/tools/chartporter': 'IGNITE: CHARTPORTER',
+  '/tools/genitractor': 'IGNITE: GENITRACTOR',
+}
+
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [clock, setClock] = useState('')
-  const { logout, user } = useAuth()
+  const { logout } = useAuth()
   const location = useLocation()
 
   useEffect(() => {
@@ -19,29 +35,21 @@ export default function Sidebar() {
     return () => clearInterval(id)
   }, [])
 
-  // Update page title based on route
   useEffect(() => {
-    const titles = {
-      '/dashboard': 'IGNITE: DASHBOARD',
-      '/settings': 'IGNITE: SETTINGS',
-      '/artists': 'IGNITE: ARTISTS',
-      '/tools/chartporter': 'IGNITE: CHARTPORTER',
-      '/tools/genitractor': 'IGNITE: GENITRACTOR',
-    }
-    document.title = titles[location.pathname] || 'IGNITE: VIRTUAL SCOUT'
+    document.title = TITLES[location.pathname] || 'IGNITE: VIRTUAL SCOUT'
   }, [location.pathname])
+
+  const subtitle = SUBTITLES[location.pathname] || 'CATALOG SCOUTING'
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
-      {/* Brand */}
+      {/* Brand header — same structure as the tool topbars */}
       <div className="sb-brand">
-        <div className="sb-logo">
-          <img src="/logos/ignite.svg" alt="IGNITE" className="sb-logo-img" />
-        </div>
+        <img src="/logos/ignite.svg" alt="IGNITE" className="sb-logo-img" />
         {!collapsed && (
           <div className="sb-brand-text">
-            <span className="sb-title">Virtual Scout</span>
-            <span className="sb-subtitle">Contact Extraction</span>
+            <span className="sb-title">VIRTUAL SCOUT</span>
+            <span className="sb-subtitle">{subtitle}</span>
           </div>
         )}
         {!collapsed && <span className="sb-clock">{clock}</span>}
