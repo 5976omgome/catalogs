@@ -22,6 +22,8 @@ from app.database import init_db
 from app.auth import auth_bp, login_manager
 from app.settings_api import settings_bp
 from app.stats_api import stats_bp
+from app.artists_api import artists_bp
+from app.reports_api import reports_bp
 
 # ---------------------------------------------------------------------------
 # App factory
@@ -41,6 +43,8 @@ login_manager.init_app(app)
 app.register_blueprint(auth_bp)
 app.register_blueprint(settings_bp)
 app.register_blueprint(stats_bp)
+app.register_blueprint(artists_bp)
+app.register_blueprint(reports_bp)
 
 # Initialize database (creates tables + seeds admin)
 init_db()

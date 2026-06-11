@@ -119,8 +119,8 @@ export default function Settings() {
 
       {/* Export */}
       <section className="settings-section">
-        <h2><Download size={14} /> Export Format</h2>
-        <p className="settings-hint">Configure which columns appear in CSV exports. (Coming in Phase 2)</p>
+        <h2><Download size={14} /> Data Management</h2>
+        <p className="settings-hint">Import Chartmetric CSV exports into your Artists Library. Go to the Artists page and click "Import" to upload.</p>
       </section>
     </div>
   )
