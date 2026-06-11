@@ -97,6 +97,23 @@
 }
 .pill-opt:hover{background:var(--bg-surface);color:var(--text)}
 
+/* ── STATUS SELECT — native select styled as pill ── */
+.at-status{
+  appearance:none;-webkit-appearance:none;
+  font-size:8px;font-weight:700;letter-spacing:.04em;
+  padding:3px 8px;border-radius:9999px;
+  cursor:pointer;outline:none;
+  transition:all .1s var(--ease);
+  background-image:none;
+}
+.at-status:hover{transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.at-status.pill-neutral{color:var(--text-tertiary);background:var(--bg-surface);border:1px solid var(--border)}
+.at-status.pill-blue{color:#60a5fa;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2)}
+.at-status.pill-peach{color:#ffd6ba;background:rgba(255,214,186,.08);border:1px solid rgba(255,214,186,.2)}
+.at-status.pill-green{color:#4ade80;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25)}
+.at-status.pill-red{color:#e87f8f;background:rgba(232,127,143,.08);border:1px solid rgba(232,127,143,.2)}
+.at-status.pill-grey{color:#9ca3af;background:rgba(156,163,175,.08);border:1px solid rgba(156,163,175,.2)}
+
 /* Cell-specific */
 .at-link{color:var(--accent);text-decoration:none;font-size:10px}.at-link:hover{text-decoration:underline}
 .email-cell{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--frost);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
