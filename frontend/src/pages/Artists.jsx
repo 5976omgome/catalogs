@@ -111,7 +111,12 @@ export default function Artists() {
   }, [total, activeTab])
 
   function handleSort(col) {
-    setSort(s => s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' })
+    setSort(s => {
+      if (s.col === col) return { col, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+      // Momentum defaults to desc (Explosive Growth first)
+      const defaultDir = col === 'momentum' ? 'desc' : 'asc'
+      return { col, dir: defaultDir }
+    })
     setPage(1)
   }
 
@@ -183,7 +188,7 @@ export default function Artists() {
       case 'instagram':
         return val ? <a href={val} target="_blank" rel="noopener" className="at-link">{val.replace(/https?:\/\/(www\.)?instagram\.com\//,'').replace('/','')}</a> : ''
       case 'emails':
-        return val ? <span className="email-cell" title={val}><Mail size={10} />{val.split(',')[0].trim()}</span> : ''
+        return val ? <span className="email-cell" title={val}>{val}</span> : ''
       case 'notes':
         return val ? <span className="notes-cell" title={val}>{val.split('\n')[0].substring(0, 40)}</span> : ''
       case 'career_stage':

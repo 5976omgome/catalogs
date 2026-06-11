@@ -58,6 +58,41 @@ _COL_MAP = {
 
 _INT_FIELDS = {"spotify_followers", "monthly_listeners", "instagram_followers"}
 
+# Email regex — extracts only valid email addresses from any surrounding text
+_EMAIL_RE = re.compile(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}')
+
+# Momentum sort order for custom ranking
+_MOMENTUM_ORDER = {'Explosive Growth': 0, 'Growth': 1, 'Steady': 2, 'Slowing': 3, 'Cooling': 4}
+
+
+def _extract_emails(raw):
+    """Extract only raw email addresses from text. Strips all labels/prefixes."""
+    if not raw or not raw.strip():
+        return ""
+    # Check for "nothing" values
+    cleaned = raw.strip().strip('"').strip()
+    if cleaned in ('', '-', '--', 'N/A', 'n/a', 'none', 'None', ' '):
+        return ""
+    # Find all email patterns
+    emails = _EMAIL_RE.findall(cleaned)
+    return ", ".join(emails) if emails else ""
+
+
+def _clean_instagram(raw):
+    """Extract just the handle from Instagram URLs or raw text."""
+    if not raw or not raw.strip():
+        return ""
+    val = raw.strip().strip('"').strip()
+    if val in ('', '-', '--', ' '):
+        return ""
+    # Strip URL prefix
+    val = re.sub(r'https?://(www\.)?instagram\.com/', '', val)
+    val = val.rstrip('/').split('?')[0]
+    if not val or val == '-':
+        return ""
+    return val
+
+
 # Search column date pattern: MM/DD/YY at the start
 _DATE_RE = re.compile(r'^(\d{2}/\d{2}/\d{2})')
 
@@ -177,12 +212,16 @@ def import_csv():
             # Determine the batch/week label
             week_label = batch_label or current_search_date
 
-            # Clean up emails (may have quotes, newlines, multiple)
-            raw_emails = mapped.get("emails", "")
-            if raw_emails:
-                # Normalize email field: strip quotes, newlines, extra spaces
-                raw_emails = raw_emails.replace('"', '').replace('\n', ', ').strip()
-                raw_emails = re.sub(r'\s*,\s*', ', ', raw_emails).strip(', ')
+            # Clean up emails — extract only raw email addresses
+            raw_emails = _extract_emails(mapped.get("emails", ""))
+
+            # Clean Instagram
+            raw_ig = _clean_instagram(mapped.get("instagram", ""))
+
+            # Default momentum: if empty or monthly=0 with no growth data, set to Steady
+            momentum_val = mapped.get("momentum", "").strip()
+            if not momentum_val:
+                momentum_val = "Steady"
 
             artist = Artist(
                 user_id=current_user.id,
@@ -199,7 +238,7 @@ def import_csv():
                 moods=mapped.get("moods", ""),
                 activities=mapped.get("activities", ""),
                 career_stage=mapped.get("career_stage", ""),
-                momentum=mapped.get("momentum", ""),
+                momentum=momentum_val,
                 spotify_followers=mapped.get("spotify_followers", 0),
                 monthly_listeners=mapped.get("monthly_listeners", 0),
                 instagram_followers=mapped.get("instagram_followers", 0),
@@ -208,7 +247,7 @@ def import_csv():
                 first_release=mapped.get("first_release", ""),
                 latest_release=mapped.get("latest_release", ""),
                 emails=raw_emails,
-                instagram=mapped.get("instagram", ""),
+                instagram=raw_ig,
                 facebook=mapped.get("facebook", ""),
                 status=mapped.get("status", "") or "Not Sent",
                 batch_label=week_label,
@@ -258,10 +297,32 @@ def list_artists():
         if search:
             q = q.filter(Artist.artist_name.ilike(f"%{search}%"))
 
+        # Sort — custom momentum order, otherwise standard column sort
         sort_by = request.args.get("sort", "imported_at")
         sort_dir = request.args.get("dir", "desc")
-        col = getattr(Artist, sort_by, Artist.imported_at)
-        q = q.order_by(col.desc() if sort_dir == "desc" else col.asc())
+
+        if sort_by == "momentum":
+            # Custom order: Explosive Growth=0, Growth=1, Steady=2, Slowing=3, Cooling=4
+            from sqlalchemy import case
+            momentum_order = case(
+                (Artist.momentum == "Explosive Growth", 0),
+                (Artist.momentum == "Growth", 1),
+                (Artist.momentum == "Steady", 2),
+                (Artist.momentum == "Slowing", 3),
+                (Artist.momentum == "Cooling", 4),
+                else_=2  # default to Steady position
+            )
+            if sort_dir == "desc":
+                # "descending" = highest value first = Explosive Growth at top
+                q = q.order_by(momentum_order.asc(), Artist.artist_name.asc())
+            else:
+                q = q.order_by(momentum_order.desc(), Artist.artist_name.asc())
+        else:
+            col = getattr(Artist, sort_by, Artist.imported_at)
+            if sort_dir == "desc":
+                q = q.order_by(col.desc(), Artist.artist_name.asc())
+            else:
+                q = q.order_by(col.asc(), Artist.artist_name.asc())
 
         total = q.count()
         page = request.args.get("page", 1, type=int)
