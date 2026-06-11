@@ -43,8 +43,8 @@
 
 .sb-brand-row{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
 .sb-title{font-size:9px;font-weight:800;letter-spacing:.12em;color:var(--snow);white-space:nowrap}
-.sb-clock{font-size:8px;font-weight:600;font-family:ui-monospace,"SF Mono",monospace;color:var(--text-quaternary);font-variant-numeric:tabular-nums;white-space:nowrap}
-.sb-subtitle{font-size:7px;font-weight:600;letter-spacing:.18em;color:var(--theme-accent);opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .3s var(--ease)}
+.sb-clock{font-size:8px;font-weight:600;font-family:ui-monospace,"SF Mono",monospace;color:var(--text-secondary);font-variant-numeric:tabular-nums;white-space:nowrap}
+.sb-subtitle{font-size:7px;font-weight:600;letter-spacing:.18em;color:var(--theme-accent);opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .3s var(--ease)}
 
 /* ── Nav ── */
 .sb-nav{
@@ -97,7 +97,7 @@
 }
 .sb-section{
   font-size:7px;font-weight:700;letter-spacing:.2em;
-  color:var(--text-quaternary);text-transform:uppercase;
+  color:var(--text-tertiary);text-transform:uppercase;
   opacity:0;transform:translateX(-4px);
   transition:opacity .15s .08s var(--ease),transform .15s .08s var(--ease);
 }
