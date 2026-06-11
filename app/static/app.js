@@ -154,8 +154,9 @@ async function refreshStatus(){
     if(!s.groq_set&&!s.gemini_set)sys("⚠ No AI keys — click pills to add.","warn");
     if(s.groq_set)sys("✓ Groq ready.","ok");
     if(s.gemini_set)sys("✓ Gemini ready.","ok");
-    sys("✓ iTunes + Deezer ready.","ok");
-    sys("Virtual Scout ready.","info");
+    sys("✓ iTunes ready.","ok");
+    sys("✓ Deezer ready.","ok");
+    sys("Chartport ready.","info");
   }catch(e){sys("Server connection failed: "+e.message,"bad")}
 }
 
@@ -527,7 +528,7 @@ async function handleFbSubmit(){
 function _safeInit(name,fn){try{fn()}catch(e){sys(name+" init failed: "+(e&&e.message||e),"bad")}}
 
 document.addEventListener("DOMContentLoaded",()=>{
-  sys("Virtual Scout starting\u2026","info");
+  sys("Chartport starting\u2026","info");
   _safeInit("clock",initClock);
   _safeInit("globalFilters",initGlobalFilters);
   _safeInit("collapsible",initCollapsible);

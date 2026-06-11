@@ -76,7 +76,7 @@ async function refreshStatus(){
     $("pill-genius").className="pill clickable "+(s.genius_set?"ok":"missing");
     if(!s.genius_set)sys("\u26a0 Genius not configured \u2014 click pill to add key.","warn");
     else sys("\u2713 Genius ready.","ok");
-    sys("Genitractor ready.","info");
+    sys("Genitact ready.","info");
   }catch(e){sys("Server connection failed: "+e.message,"bad")}
 }
 
@@ -190,7 +190,7 @@ function updateStats(){
   if(_cleanShowFraction){
     elClean.textContent=totalFound+"/"+totalProcessed;
   }else{
-    elClean.textContent=pct(totalFound,totalProcessed)+"% FOUND";
+    elClean.textContent=pct(totalFound,totalProcessed)+"% CLEAN";
   }
 }
 
@@ -378,7 +378,7 @@ function clearAll(){
 function _safeInit(name,fn){try{fn()}catch(e){sys(name+" init failed: "+(e&&e.message||e),"bad")}}
 
 document.addEventListener("DOMContentLoaded",()=>{
-  sys("Genitractor starting\u2026","info");
+  sys("Genitact starting\u2026","info");
   _safeInit("clock",initClock);
   _safeInit("collapsible",initCollapsible);
   _safeInit("keyModal",initKeyModal);
