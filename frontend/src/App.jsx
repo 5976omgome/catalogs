@@ -4,6 +4,8 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Settings from './pages/Settings'
 import Artists from './pages/Artists'
+import Chartporter from './pages/Chartporter'
+import Genitractor from './pages/Genitractor'
 import Shell from './components/Shell'
 
 function ProtectedRoute({ children, title }) {
@@ -27,8 +29,8 @@ function AppRoutes() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="settings" element={<Settings />} />
         <Route path="artists" element={<Artists />} />
-        <Route path="tools/chartporter" element={<div className="tool-placeholder">Chartporter (Phase 3)</div>} />
-        <Route path="tools/genitractor" element={<div className="tool-placeholder">Genitractor (Phase 3)</div>} />
+        <Route path="tools/chartporter" element={<Chartporter />} />
+        <Route path="tools/genitractor" element={<Genitractor />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
