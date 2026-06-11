@@ -84,6 +84,80 @@ class ApiKey(Base):
         return "•" * 8 + self.key_value[-4:]
 
 
+class Artist(Base):
+    __tablename__ = "artists"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False)
+    artist_name = Column(String(255), nullable=False)
+    chartmetric_id = Column(String(32), default="")
+    country = Column(String(128), default="")
+    region = Column(String(128), default="")
+    continent = Column(String(64), default="")
+    pronouns = Column(String(32), default="")
+    solo_group = Column(String(32), default="")
+    associated_labels = Column(Text, default="")
+    label_category = Column(String(64), default="")
+    genres = Column(Text, default="")
+    moods = Column(Text, default="")
+    activities = Column(Text, default="")
+    career_stage = Column(String(32), default="")
+    momentum = Column(String(32), default="")
+    spotify_followers = Column(Integer, default=0)
+    monthly_listeners = Column(Integer, default=0)
+    instagram_followers = Column(Integer, default=0)
+    instagram_engagement = Column(String(16), default="")
+    spotify_link = Column(Text, default="")
+    first_release = Column(String(32), default="")
+    latest_release = Column(String(32), default="")
+    # Genitact data
+    emails = Column(Text, default="")
+    instagram = Column(Text, default="")
+    facebook = Column(Text, default="")
+    # User workflow
+    status = Column(String(32), default="Not Sent")
+    batch_label = Column(String(64), default="")
+    notes = Column(Text, default="")
+    # Extra columns from CSV stored as JSON
+    extra_data = Column(JSON, default=None)
+    imported_at = Column(Float, default=time.time)
+    updated_at = Column(Float, default=None)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "artist_name": self.artist_name,
+            "chartmetric_id": self.chartmetric_id or "",
+            "country": self.country or "",
+            "region": self.region or "",
+            "continent": self.continent or "",
+            "pronouns": self.pronouns or "",
+            "solo_group": self.solo_group or "",
+            "associated_labels": self.associated_labels or "",
+            "label_category": self.label_category or "",
+            "genres": self.genres or "",
+            "moods": self.moods or "",
+            "activities": self.activities or "",
+            "career_stage": self.career_stage or "",
+            "momentum": self.momentum or "",
+            "spotify_followers": self.spotify_followers or 0,
+            "monthly_listeners": self.monthly_listeners or 0,
+            "instagram_followers": self.instagram_followers or 0,
+            "instagram_engagement": self.instagram_engagement or "",
+            "spotify_link": self.spotify_link or "",
+            "first_release": self.first_release or "",
+            "latest_release": self.latest_release or "",
+            "emails": self.emails or "",
+            "instagram": self.instagram or "",
+            "facebook": self.facebook or "",
+            "status": self.status or "Not Sent",
+            "batch_label": self.batch_label or "",
+            "notes": self.notes or "",
+            "extra_data": self.extra_data,
+            "imported_at": self.imported_at,
+        }
+
+
 class LifetimeStats(Base):
     __tablename__ = "lifetime_stats"
 
