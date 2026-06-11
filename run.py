@@ -2,8 +2,10 @@
 Run: python run.py
 """
 import socket
+import shutil
 import webbrowser
 import threading
+from pathlib import Path
 
 from app.server import app
 
@@ -20,6 +22,17 @@ def find_open_port(start: int = 5000, tries: int = 10) -> int:
 
 
 def main():
+    # Auto-backup DB to Downloads on every startup (safety copy)
+    db_file = Path(__file__).parent / "data" / "ignite.db"
+    downloads = Path.home() / "Downloads"
+    if db_file.exists() and downloads.exists():
+        backup = downloads / "ignite_backup.db"
+        try:
+            shutil.copy2(str(db_file), str(backup))
+            print(f"[backup] DB saved to ~/Downloads/ignite_backup.db")
+        except Exception:
+            pass
+
     port = find_open_port()
     url = f"http://127.0.0.1:{port}"
     print(f"Virtual Scout running at {url}")
