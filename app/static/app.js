@@ -152,8 +152,8 @@ async function refreshStatus(){
     $("pill-groq").className="pill clickable "+(s.groq_set?"ok":"missing");
     $("pill-gemini").className="pill clickable "+(s.gemini_set?"ok":"missing");
     if(!s.groq_set&&!s.gemini_set)sys("⚠ No AI keys — click pills to add.","warn");
-    if(s.groq_set)sys("✓ Groq ready.","ok");
-    if(s.gemini_set)sys("✓ Gemini ready.","ok");
+    if(s.groq_set)sys("✓ Groq ready ("+s.groq_preview+"••••)","ok");
+    if(s.gemini_set)sys("✓ Gemini ready ("+s.gemini_preview+"••••)","ok");
     sys("✓ iTunes ready.","ok");
     sys("✓ Deezer ready.","ok");
     sys("Chartport ready.","info");
