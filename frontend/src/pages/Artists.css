@@ -39,8 +39,9 @@
 .at-table-wrap{flex:1;overflow:auto;min-height:0;will-change:scroll-position;-webkit-overflow-scrolling:touch}
 .at-table{width:max-content;min-width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
 .at-table thead{position:sticky;top:0;z-index:5;background:var(--bg-elevated)}
-.at-table th{padding:8px 12px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--text-tertiary);text-transform:uppercase;border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none;transition:color .1s}
-.at-table th:hover{color:var(--text)}.at-table th.sorted{color:var(--accent)}
+.at-table th{padding:8px 12px;text-align:left;font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--text-tertiary);text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap;user-select:none;transition:color .1s}
+.at-table th.sortable{cursor:pointer}
+.at-table th.sortable:hover{color:var(--text)}.at-table th.sorted{color:var(--accent)}
 .at-table th svg{vertical-align:middle;margin-left:3px}
 .at-table td{padding:7px 12px;border-bottom:1px solid rgba(37,43,54,.3);color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
 .at-table tr{transition:background .06s;will-change:background}
