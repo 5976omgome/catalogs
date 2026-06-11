@@ -470,3 +470,27 @@ def delete_artists():
         return jsonify({"error": str(e)}), 500
     finally:
         Session.remove()
+
+
+
+@artists_bp.route("/delete-batch", methods=["POST"])
+@login_required
+def delete_batch():
+    """Delete all artists in a specific week/batch group."""
+    data = request.get_json(silent=True) or {}
+    batch_label = data.get("batch_label", "").strip()
+    if not batch_label:
+        return jsonify({"error": "No batch_label provided"}), 400
+    session = Session()
+    try:
+        deleted = session.query(Artist).filter(
+            Artist.user_id == current_user.id,
+            Artist.batch_label == batch_label
+        ).delete(synchronize_session=False)
+        session.commit()
+        return jsonify({"ok": True, "deleted": deleted})
+    except Exception as e:
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        Session.remove()

@@ -13,13 +13,17 @@
 .at-btn-report{color:var(--accent);border-color:var(--accent-border);background:var(--accent-soft)}
 
 /* ── WEEK TABS — Gmail-style colored labels ── */
-.at-tabs{display:flex;align-items:center;gap:2px;padding:6px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg-card);overflow-x:auto}
+.at-tabs{display:flex;align-items:center;gap:1px;padding:4px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg-card);overflow-x:auto;scrollbar-width:none}
 .at-tabs::-webkit-scrollbar{height:0}
+.at-tab-group{display:inline-flex;align-items:center;position:relative}
 .at-tab{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:600;padding:5px 10px;border-radius:var(--r-full);border:1px solid transparent;background:transparent;color:var(--text-tertiary);cursor:pointer;white-space:nowrap;transition:all .12s var(--ease)}
 .at-tab:hover{background:var(--bg-surface);color:var(--text-secondary)}
 .at-tab.active{background:var(--bg-surface);color:var(--text);border-color:var(--border-hover)}
-.at-tab-dot{width:8px;height:8px;border-radius:2px;background:var(--tab-color);flex-shrink:0}
-.at-tab.active .at-tab-dot{box-shadow:0 0 6px var(--tab-color)}
+.at-tab-dot{width:8px;height:8px;border-radius:2px;background:var(--tab-color);flex-shrink:0;transition:box-shadow .2s var(--ease)}
+.at-tab.active .at-tab-dot{box-shadow:0 0 8px var(--tab-color)}
+.at-tab-delete{display:none;position:absolute;right:-2px;top:-2px;width:14px;height:14px;border-radius:50%;background:var(--bg-card);border:1px solid var(--border);color:var(--text-quaternary);cursor:pointer;align-items:center;justify-content:center;font-size:0;transition:all .1s var(--ease)}
+.at-tab-group:hover .at-tab-delete{display:flex}
+.at-tab-delete:hover{background:var(--red-soft);color:var(--red);border-color:var(--red-border)}
 
 .at-filters{display:flex;align-items:center;gap:6px;padding:8px 16px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;background:var(--bg-card)}
 .at-filters select,.at-filters input{font-size:10px;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);outline:none}
@@ -70,9 +74,9 @@
 .pill-red{color:#e87f8f;background:rgba(232,127,143,.08);border:1px solid rgba(232,127,143,.2)}
 .pill-peach{color:#ffd6ba;background:rgba(255,214,186,.08);border:1px solid rgba(255,214,186,.2)}
 .pill-neutral{color:var(--text-tertiary);background:var(--bg-surface);border:1px solid var(--border)}
-.pill-date{color:var(--week-color,#ffd100);background:rgba(0,0,0,0);border:1px solid var(--week-color,#ffd100);opacity:.9}
+.pill-date{color:var(--wc,#ffd100);background:rgba(0,0,0,0);border:1px solid var(--wc,#ffd100);opacity:.9}
 .pill-date svg{flex-shrink:0;opacity:.7}
-.pill-week{color:var(--week-color,#ffd100);background:rgba(0,0,0,0);border:1px solid var(--week-color,rgba(255,209,0,.3))}
+.pill-week{color:var(--wc,#ffd100);background:rgba(0,0,0,0);border:1px solid color-mix(in srgb, var(--wc,#ffd100) 40%, transparent)}
 .pill-week svg{flex-shrink:0;opacity:.7}
 
 /* Status pill — clickable */
@@ -126,3 +130,14 @@
 .at-modal-close{position:absolute;top:10px;right:10px;border:none;background:none;color:var(--text-tertiary);cursor:pointer}
 
 @keyframes popIn{from{opacity:0;transform:scale(.94) translateY(4px)}to{opacity:1;transform:scale(1) translateY(0)}}
+
+
+
+/* Week select in import */
+.at-week-select{width:100%;padding:8px 10px;font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);outline:none;cursor:pointer}
+.at-week-select:focus{border-color:var(--accent-border)}
+
+/* Confirm dialog */
+.at-modal-confirm{width:280px}
+.at-confirm-actions{display:flex;gap:8px;margin-top:12px}
+.at-confirm-actions button{flex:1}
