@@ -176,40 +176,55 @@ class LifetimeStats(Base):
 # ---------------------------------------------------------------------------
 
 def init_db():
-    """Create all tables and seed user accounts if not present."""
+    """Create all tables and ensure exactly one account: admin / admin.
+
+    Reuses the existing primary user (lowest id) if present so any imported
+    artists/stats stay attached, renames it to 'admin', always resets the
+    password to 'admin', clears 2FA, and removes any other accounts.
+    Idempotent — safe on both a fresh and an existing database.
+    """
     Base.metadata.create_all(engine)
     session = Session()
     try:
-        # Seed admin user
-        admin = session.query(User).filter_by(email="gavin.roy07@ignitethelabel.com").first()
+        admin = session.query(User).filter_by(email="admin").first()
         if not admin:
-            admin = User(
-                email="gavin.roy07@ignitethelabel.com",
-                name="Gavin Roy",
-                role="admin",
-                timezone="America/New_York",
-            )
-            admin.set_password("0604")
-            session.add(admin)
+            # Reuse the original primary account so its data stays attached
+            admin = session.query(User).order_by(User.id).first()
+            if admin:
+                admin.email = "admin"
+                admin.name = "Admin"
+                admin.role = "admin"
+            else:
+                admin = User(
+                    email="admin",
+                    name="Admin",
+                    role="admin",
+                    timezone="America/New_York",
+                )
+                session.add(admin)
+                session.flush()  # assign id
 
-            # Init lifetime stats for admin
-            stats = LifetimeStats(user_id=1)
-            session.add(stats)
+        # Always guarantee the credentials work and 2FA can't block login
+        admin.email = "admin"
+        admin.role = "admin"
+        admin.set_password("admin")
+        admin.totp_enabled = False
+        admin.totp_secret = None
+        session.flush()
 
-        # Seed guest/demo viewer
-        guest = session.query(User).filter_by(email="guest").first()
-        if not guest:
-            guest = User(
-                email="guest",
-                name="Guest",
-                role="viewer",
-                timezone="America/New_York",
-            )
-            guest.set_password("guest")
-            session.add(guest)
+        admin_id = admin.id
+
+        # Ensure lifetime stats row exists for this account
+        if not session.query(LifetimeStats).filter_by(user_id=admin_id).first():
+            session.add(LifetimeStats(user_id=admin_id))
+
+        # Keep exactly one account
+        session.query(User).filter(User.id != admin_id).delete(
+            synchronize_session=False
+        )
 
         session.commit()
-        print("[db] Users ready (gavin.roy07@ignitethelabel.com + guest)", flush=True)
+        print("[db] Single account ready — login: admin / admin", flush=True)
     except Exception as e:
         session.rollback()
         print(f"[db] Init error: {e}", flush=True)
