@@ -82,26 +82,36 @@ def _get_gmail_service():
     return build('gmail', 'v1', credentials=creds)
 
 
-def _build_draft_html(artist_name):
-    """Build the HTML email body (same template as the Apps Script)."""
-    return f'''<div style="margin:0;padding:0;line-height:1.15;font-family:'Google Sans',Roboto,Arial,sans-serif;font-size:11pt;">
-Dear {artist_name} Management,<br>
-<br>
-I came across {artist_name}'s catalog and wanted to reach out directly. We work with artists and their teams on catalog acquisitions, and based on what's there, I think there's a conversation worth having.<br>
-<br>
-Would you be open to connecting for a quick call?<br>
-<br>
-Best,<br>
-<br>
-{SENDER_NAME}<br>
-{COMPANY}<br>
-<a href="https://{WEBSITE}" style="margin:0;padding:0;line-height:1.15;font-family:'Google Sans',Roboto,Arial,sans-serif;font-size:11pt;">{WEBSITE}</a>
-</div>'''
+def _build_draft_html(artist_name, deal_type="License"):
+    """Build the HTML email body. License='Dear', Buyout/Both='Hey'. Google Sans 11pt."""
+    font = "'Google Sans', Roboto, Arial, sans-serif"
+    base = f'margin:0;padding:0;line-height:1.15;font-family:{font};font-size:11pt;'
+    greeting = "Dear" if deal_type == "License" else "Hey"
+
+    return (
+        f'<div style="{base}">'
+        f'{greeting} {artist_name} Management,<br>'
+        f'<br>'
+        f"I came across {artist_name}'s catalog and wanted to reach out directly. "
+        f"We work with artists and their teams on catalog acquisitions, and based on what's there, "
+        f"I think there's a conversation worth having.<br>"
+        f'<br>'
+        f'Would you be open to connecting for a quick call?<br>'
+        f'<br>'
+        f'Best,<br>'
+        f'<br>'
+        f'{SENDER_NAME}<br>'
+        f'{COMPANY}<br>'
+        f'<a href="https://{WEBSITE}" style="{base}">{WEBSITE}</a>'
+        f'</div>'
+    )
 
 
-def _build_draft_plain(artist_name):
-    """Plain text fallback."""
-    return f"""Dear {artist_name} Management,
+def _build_draft_plain(artist_name, deal_type="License"):
+    """Plain text fallback. License='Dear', Buyout/Both='Hey'."""
+    greeting = "Dear" if deal_type == "License" else "Hey"
+
+    return f"""{greeting} {artist_name} Management,
 
 I came across {artist_name}'s catalog and wanted to reach out directly. We work with artists and their teams on catalog acquisitions, and based on what's there, I think there's a conversation worth having.
 
@@ -114,14 +124,14 @@ Best,
 {WEBSITE}"""
 
 
-def _create_gmail_draft(service, to_email, artist_name):
-    """Create a single Gmail draft."""
+def _create_gmail_draft(service, to_email, artist_name, deal_type="License"):
+    """Create a single Gmail draft with the appropriate template."""
     msg = MIMEMultipart('alternative')
     msg['To'] = to_email
     msg['Subject'] = artist_name
 
-    plain = MIMEText(_build_draft_plain(artist_name), 'plain')
-    html = MIMEText(_build_draft_html(artist_name), 'html')
+    plain = MIMEText(_build_draft_plain(artist_name, deal_type), 'plain')
+    html = MIMEText(_build_draft_html(artist_name, deal_type), 'html')
     msg.attach(plain)
     msg.attach(html)
 
@@ -256,7 +266,14 @@ def _drafter_worker(user_id, batch_label, status_filter):
 
             try:
                 emails = artist.emails.split(",")[0].strip()  # Use first email
-                _create_gmail_draft(service, emails, artist.artist_name)
+                # Determine template: License='Dear', Buyout/Both='Hey'
+                deal_type = artist.solo_group or "License"
+                if deal_type in ("Buyout", "Both"):
+                    deal_type = "Buyout"
+                else:
+                    deal_type = "License"
+
+                _create_gmail_draft(service, emails, artist.artist_name, deal_type)
                 _drafter_stats["created"] += 1
                 _broadcast({"type": "drafted", "artist": artist.artist_name, "email": emails,
                             "processed": i + 1, "total": len(artists)})

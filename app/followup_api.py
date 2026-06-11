@@ -36,6 +36,7 @@ WEEK_LABELS = [
 FOLLOWUP_SUBLABEL = "Follow Ups"
 
 SIGNATURE = """Best,
+
 Gavin Roy
 Ignite The Label
 ignitethelabel.com"""
@@ -79,8 +80,8 @@ def _extract_artist_name(subject):
 
 
 def _build_followup_body(artist_name):
-    """Build the follow-up email text."""
-    return f"""Hey,
+    """Build the follow-up email text. Uses 'Hey' greeting."""
+    return f"""Hey {artist_name} Management,
 
 I reached out a little while back regarding {artist_name}'s catalog but wanted to follow up in case it got buried. We work with artists and their teams on catalog licensing deals, and I think the music could be a strong fit for something we're currently developing.
 
