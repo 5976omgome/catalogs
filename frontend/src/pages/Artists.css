@@ -73,6 +73,18 @@
 
 .at-link{color:var(--accent);text-decoration:none;font-size:8px}.at-link:hover{text-decoration:underline}
 
+/* Email + Notes cells */
+.email-cell{display:inline-flex;align-items:center;gap:3px;font-size:8px;color:var(--frost);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.email-cell svg{flex-shrink:0;opacity:.6}
+.notes-cell{font-size:8px;color:var(--text-quaternary);font-style:italic;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mono{font-family:ui-monospace,"SF Mono",monospace;font-size:9px;font-variant-numeric:tabular-nums;color:var(--text-secondary)}
+
+/* Export dropdown */
+.at-export-wrap{position:relative;display:inline-flex}
+.at-export-dropdown{position:absolute;top:calc(100% + 4px);right:0;z-index:20;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-md);padding:4px;min-width:140px;max-height:240px;overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,.4);animation:popIn .12s var(--ease)}
+.at-export-divider{height:1px;background:var(--border);margin:3px 0}
+.at-export-label{display:block;font-size:7px;font-weight:700;letter-spacing:.1em;color:var(--text-quaternary);padding:3px 8px;text-transform:uppercase}
+
 .at-pagination{display:flex;align-items:center;justify-content:center;gap:8px;padding:5px;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg-elevated)}
 .at-pagination button{font-size:8px;padding:3px 8px}
 .at-pagination span{font-size:8px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
