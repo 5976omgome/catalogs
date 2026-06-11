@@ -234,6 +234,7 @@ main{
 .ablock .badge{font-size:8px;font-weight:800;letter-spacing:.1em;padding:2px 8px;border-radius:var(--r-full);background:var(--carbon);color:#fff;text-transform:uppercase;border:1px solid var(--graphite)}
 .ablock .badge.found{background:#2d6a4f;border-color:#2d6a4f}
 .ablock .badge.empty{background:var(--graphite);color:var(--dust);border-color:var(--graphite)}
+.ablock .badge.uncertain{background:#9a6700;border-color:#9a6700;color:#fff}
 .ablock .src{display:flex;gap:var(--s2);padding:2px 0}
 .ablock .src-name{flex:0 0 70px;font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--dust);font-weight:600}
 .ablock .src-vals{flex:1}
@@ -268,6 +269,12 @@ main{
 
 .confirm-msg{font-size:13px;color:var(--graphite);margin-bottom:var(--s4)}
 .confirm-actions{display:flex;gap:var(--s2)}
+
+/* Import modal */
+.import-actions{display:flex;flex-direction:column;gap:var(--s2)}
+.import-msg{font-size:10px;color:var(--graphite);font-family:ui-monospace,"SF Mono",monospace}
+.import-msg.ok{color:#2d6a4f}
+.import-msg.bad{color:#c0392b}
 
 .key-modal-input{width:100%;padding:var(--s3);font-size:13px;font-family:ui-monospace,"SF Mono",monospace;color:var(--carbon);background:#fff;border:2px solid var(--carbon);border-radius:var(--r-sm);outline:none;margin-bottom:var(--s3)}
 .key-modal-input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,209,0,.2)}

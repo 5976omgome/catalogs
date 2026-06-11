@@ -199,18 +199,19 @@ function addContactToFeed(ev){
   const block=document.createElement("div");block.className="ablock";
   const head=document.createElement("div");head.className="ahead";
   const nm=document.createElement("span");nm.className="aname";nm.textContent=ev.artist;
+  const ig=(ev.instagram||"");
+  const fb=(ev.facebook||"");
+  const hasAny=!!(ig.trim()||fb.trim());
   const badge=document.createElement("span");
-  const socials=ev.socials||{};
-  const hasAnything=socials.instagram||socials.facebook||socials.twitter;
-  badge.className="badge "+(hasAnything?"found":"empty");
-  badge.textContent=hasAnything?"FOUND":"NONE";
-  head.append(nm,badge);block.append(head);
+  badge.className="badge "+(hasAny?"found":"empty");
+  badge.textContent=hasAny?"FOUND":"NONE";
+  head.append(nm,badge);
+  if((ev.match_confidence||"")==="Uncertain"){
+    const u=document.createElement("span");u.className="badge uncertain";u.textContent="UNCERTAIN";head.append(u);
+  }
+  block.append(head);
 
-  const rows=[
-    ["IG",socials.instagram?"https://instagram.com/"+socials.instagram:""],
-    ["FB",socials.facebook?(socials.facebook.startsWith("http")?socials.facebook:"https://facebook.com/"+socials.facebook):""],
-    ["X",socials.twitter?"https://x.com/"+socials.twitter:""]
-  ];
+  const rows=[["IG",ig],["FB",fb]];
   for(const[label,url] of rows){
     const row=document.createElement("div");row.className="src";
     const lbl=document.createElement("div");lbl.className="src-name";lbl.textContent=label;
@@ -224,9 +225,9 @@ function addContactToFeed(ev){
   grid.scrollTop=grid.scrollHeight;
 
   totalProcessed++;
-  if(hasAnything)totalFound++;
+  if(hasAny)totalFound++;
   updateStats();
-  sys(`${hasAnything?"\u2713":"\u2014"} ${ev.artist}`,hasAnything?"ok":"");
+  sys(`${hasAny?"\u2713":"\u2014"} ${ev.artist}`,hasAny?"ok":"");
 }
 
 // ---------------------------------------------------------------------------
@@ -301,6 +302,55 @@ function initCrossToolBar(){
 }
 
 // ---------------------------------------------------------------------------
+// IMPORT MODAL
+// ---------------------------------------------------------------------------
+function _importMsg(text,cls){
+  const el=$("import-msg");if(!el)return;
+  el.textContent=text||"";
+  el.className="import-msg"+(cls?" "+cls:"");
+}
+function initImportModal(){
+  const modal=$("import-modal");if(!modal)return;
+  const openBtn=$("btn-import"),closeBtn=$("import-close");
+  const diskBtn=$("import-disk"),cpBtn=$("import-chartporter"),fileInput=$("import-file-input");
+  function open(){_importMsg("");modal.classList.add("open");if(diskBtn)diskBtn.focus()}
+  function close(){modal.classList.remove("open")}
+  if(openBtn)openBtn.addEventListener("click",open);
+  if(closeBtn)closeBtn.addEventListener("click",close);
+  modal.addEventListener("click",e=>{if(e.target===modal)close()});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&modal.classList.contains("open"))close()});
+
+  // Import from disk — reuse the existing upload/enqueue path.
+  if(diskBtn)diskBtn.addEventListener("click",()=>{if(fileInput)fileInput.click()});
+  if(fileInput)fileInput.addEventListener("change",async e=>{
+    const files=Array.from(e.target.files||[]);
+    e.target.value="";
+    if(!files.length)return;
+    const ok=[],bad=[];
+    for(const f of files){
+      if(/\.(csv|tsv)$/i.test(f.name))ok.push(f);else bad.push(f.name);
+    }
+    if(bad.length){_importMsg("Skipped non-CSV/TSV: "+bad.join(", "),"bad")}
+    for(const f of ok)await uploadFile(f);
+    if(ok.length)sys("Imported "+ok.length+" file(s) from disk.","ok");
+    close();
+  });
+
+  // Import from Chartporter — pull queued files from the audit tool.
+  if(cpBtn)cpBtn.addEventListener("click",async()=>{
+    _importMsg("Importing\u2026");
+    try{
+      const r=await fetch("/api/genitractor/import-from-chartporter",{method:"POST"});
+      const d=await r.json();
+      if(!r.ok){_importMsg(d.error||"Import failed","bad");return}
+      _importMsg(d.message||("Imported "+(d.imported||0)),"ok");
+      sys(d.message||("Imported "+(d.imported||0)+" from Chartporter."),d.imported?"ok":"info");
+      setTimeout(close,900);
+    }catch(e){_importMsg("Import failed: "+e.message,"bad")}
+  });
+}
+
+// ---------------------------------------------------------------------------
 // UPLOAD + INIT
 // ---------------------------------------------------------------------------
 async function uploadFile(file){
@@ -355,6 +405,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   _safeInit("toolsDropdown",initToolsDropdown);
   _safeInit("feedback",initFeedback);
   _safeInit("crossToolBar",initCrossToolBar);
+  _safeInit("importModal",initImportModal);
   _safeInit("controls",()=>{
     $("file-input").addEventListener("change",e=>{for(const f of e.target.files)uploadFile(f);e.target.value=""});
     $("stat-pct").addEventListener("click",()=>{_statShowFraction=!_statShowFraction;updateStats()});

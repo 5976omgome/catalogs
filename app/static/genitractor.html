@@ -38,6 +38,7 @@
       <button id="btn-run" class="primary">RUN</button>
       <button id="btn-stop" class="warn">STOP</button>
       <button id="btn-export-all" class="ghost">EXPORT</button>
+      <button id="btn-import" class="ghost">IMPORT</button>
       <button id="btn-clear" class="ghost">CLEAR</button>
       <span class="pill-divider"></span>
       <span class="timer" id="timer">00:00</span>
@@ -145,6 +146,24 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Import Modal -->
+  <div class="modal-overlay" id="import-modal">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <h2>Import Artists</h2>
+        <button class="ghost modal-close" id="import-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="import-actions">
+          <button class="primary" id="import-disk">Import from disk</button>
+          <button class="primary" id="import-chartporter">Import from Chartporter</button>
+        </div>
+        <span class="import-msg" id="import-msg"></span>
+      </div>
+    </div>
+    <input type="file" id="import-file-input" accept=".csv,.tsv" multiple hidden>
   </div>
 
   <!-- Cross-Tool Progress Bar (shows Chartporter progress) -->

@@ -376,21 +376,6 @@ class JobManager:
                     df.at[idx, "iTunes Labels"] = str(" | ".join(itunes_labels) if itunes_labels else "")
                     df.at[idx, "Deezer Labels"] = str(" | ".join(deezer_labels) if deezer_labels else "")
 
-                    # Genius socials → separate columns with full links
-                    if socials:
-                        if socials.get("instagram"):
-                            handle = socials["instagram"].lstrip("@")
-                            df.at[idx, "Instagram"] = f"https://instagram.com/{handle}"
-                        if socials.get("facebook"):
-                            fb = socials["facebook"]
-                            if fb.startswith("http"):
-                                df.at[idx, "Facebook"] = fb
-                            else:
-                                df.at[idx, "Facebook"] = f"https://facebook.com/{fb}"
-                        if socials.get("youtube"):
-                            yt = socials["youtube"]
-                            df.at[idx, "YouTube"] = yt if yt.startswith("http") else f"https://youtube.com/{yt}"
-
                     with self._lock:
                         item.processed += 1
                         if a.status == "KEEP":
