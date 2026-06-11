@@ -24,6 +24,8 @@ from app.settings_api import settings_bp
 from app.stats_api import stats_bp
 from app.artists_api import artists_bp
 from app.reports_api import reports_bp
+from app.drafter_api import drafter_bp
+from app.followup_api import followup_bp
 
 # ---------------------------------------------------------------------------
 # App factory
@@ -45,6 +47,8 @@ app.register_blueprint(settings_bp)
 app.register_blueprint(stats_bp)
 app.register_blueprint(artists_bp)
 app.register_blueprint(reports_bp)
+app.register_blueprint(drafter_bp)
+app.register_blueprint(followup_bp)
 
 # Initialize database (creates tables + seeds admin)
 init_db()
@@ -91,6 +95,16 @@ def legacy_genitractor():
     return app.send_static_file("genitractor.html")
 
 
+@app.route("/legacy/drafter")
+def legacy_drafter():
+    return app.send_static_file("drafter.html")
+
+
+@app.route("/legacy/followup")
+def legacy_followup():
+    return app.send_static_file("followup.html")
+
+
 # Serve React SPA static assets (JS/CSS bundles from Vite build)
 @app.route("/assets/<path:filename>")
 def spa_assets(filename):
@@ -122,6 +136,8 @@ def logos(filename):
 @app.route("/tools/chartporter")
 @app.route("/tools/genitact")
 @app.route("/tools/genitractor")
+@app.route("/tools/drafter")
+@app.route("/tools/followup")
 def spa_catchall():
     if (DIST_DIR / "index.html").exists():
         return send_from_directory(str(DIST_DIR), "index.html")
