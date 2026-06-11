@@ -1,8 +1,70 @@
-.artists-page{
-  height:100%;background:var(--bg);
-  display:flex;align-items:center;justify-content:center;
-}
-.artists-empty{text-align:center;animation:fadeUp .4s var(--ease) both}
-.artists-empty h2{font-size:10px;font-weight:700;letter-spacing:.18em;color:var(--teal);margin-bottom:var(--s2)}
-.artists-empty p{font-size:11px;color:var(--text-tertiary)}
-.artists-hint{margin-top:var(--s3);font-size:9px;color:var(--text-quaternary);letter-spacing:.08em}
+.artists-page{height:100%;background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+
+/* Toolbar */
+.at-toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg-elevated)}
+.at-toolbar-left,.at-toolbar-right{display:flex;align-items:center;gap:8px}
+.at-count{font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--text-tertiary)}
+.at-search{display:flex;align-items:center;gap:5px;padding:4px 8px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);transition:border-color .15s var(--ease)}
+.at-search:focus-within{border-color:var(--accent-border)}
+.at-search svg{color:var(--text-quaternary);flex-shrink:0}
+.at-search input{border:none;background:none;color:var(--text);font-size:10px;width:140px;outline:none}
+.at-search input::placeholder{color:var(--text-quaternary)}
+.at-btn{display:flex;align-items:center;gap:4px;font-size:8px;font-weight:700;letter-spacing:.05em;padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--bg-surface);color:var(--text-secondary);cursor:pointer;transition:all .12s var(--ease)}
+.at-btn:hover{background:var(--bg-card-hover);color:var(--text);border-color:var(--border-hover)}
+.at-btn-report{color:var(--accent);border-color:var(--accent-border);background:var(--accent-soft)}
+.at-btn-report:hover{background:rgba(137,176,174,.15)}
+
+/* Filters */
+.at-filters{display:flex;align-items:center;gap:6px;padding:6px 14px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;background:var(--bg-card);animation:fadeUp .2s var(--ease)}
+.at-filters select,.at-filters input{font-size:9px;padding:4px 6px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);outline:none;min-width:90px}
+.at-filters select:focus,.at-filters input:focus{border-color:var(--accent-border)}
+.at-btn-clear{display:flex;align-items:center;gap:3px;font-size:8px;font-weight:600;padding:3px 6px;border-radius:var(--r-sm);border:none;background:var(--red-soft);color:var(--red);cursor:pointer;transition:all .1s var(--ease)}
+.at-btn-clear:hover{background:rgba(232,127,143,.15)}
+
+/* Column picker */
+.at-col-picker{display:flex;flex-wrap:wrap;gap:4px;padding:6px 14px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg-card);animation:fadeUp .2s var(--ease)}
+.at-col-check{display:flex;align-items:center;gap:3px;font-size:8px;color:var(--text-secondary);cursor:pointer;padding:2px 5px;border-radius:3px;transition:background .1s}
+.at-col-check:hover{background:var(--bg-surface)}
+.at-col-check input{width:10px;height:10px;accent-color:var(--accent)}
+.at-col-check span{white-space:nowrap}
+
+/* Table */
+.at-table-wrap{flex:1;overflow:auto;min-height:0}
+.at-table{width:100%;border-collapse:collapse;font-size:10px}
+.at-table thead{position:sticky;top:0;z-index:5;background:var(--bg-elevated)}
+.at-table th{padding:6px 8px;text-align:left;font-size:8px;font-weight:700;letter-spacing:.08em;color:var(--text-tertiary);text-transform:uppercase;border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;user-select:none;transition:color .1s var(--ease)}
+.at-table th:hover{color:var(--text)}
+.at-table th.sorted{color:var(--accent)}
+.at-table th svg{vertical-align:middle;margin-left:2px}
+.at-table td{padding:5px 8px;border-bottom:1px solid rgba(37,43,54,.5);color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.at-table tr:hover td{background:var(--bg-card-hover);color:var(--text)}
+.at-table .at-loading,.at-table .at-empty{text-align:center;padding:40px;color:var(--text-quaternary);font-size:10px;letter-spacing:.1em}
+
+/* Status select inline */
+.at-status-select{font-size:9px;padding:2px 4px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);cursor:pointer;outline:none}
+.at-status-select:focus{border-color:var(--accent-border)}
+
+/* Links */
+.at-link{color:var(--accent);text-decoration:none;font-size:9px}.at-link:hover{text-decoration:underline}
+
+/* Pagination */
+.at-pagination{display:flex;align-items:center;justify-content:center;gap:10px;padding:6px;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg-elevated)}
+.at-pagination button{font-size:9px;padding:4px 10px}
+.at-pagination span{font-size:9px;color:var(--text-tertiary)}
+
+/* Import Modal */
+.at-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;display:flex;align-items:center;justify-content:center}
+.at-modal{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;width:340px;position:relative;animation:fadeUp .2s var(--ease)}
+.at-modal h3{font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--accent);margin-bottom:6px}
+.at-modal p{font-size:10px;color:var(--text-tertiary);margin-bottom:12px;line-height:1.4}
+.at-import-field{margin-bottom:12px}
+.at-import-field label{display:block;font-size:8px;font-weight:700;letter-spacing:.1em;color:var(--text-quaternary);text-transform:uppercase;margin-bottom:4px}
+.at-import-field input{width:100%;padding:6px 8px;font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);outline:none}
+.at-import-field input:focus{border-color:var(--accent-border)}
+.at-import-btn{display:block;text-align:center;cursor:pointer}
+.at-import-btn span{display:inline-block;padding:8px 20px;font-size:9px;font-weight:700;letter-spacing:.08em;background:var(--accent);color:#0c0e12;border-radius:var(--r-sm);transition:all .12s var(--ease)}
+.at-import-btn:hover span{background:var(--accent-hover)}
+.at-modal-close{position:absolute;top:10px;right:10px;border:none;background:none;color:var(--text-tertiary);cursor:pointer;padding:4px}
+.at-modal-close:hover{color:var(--text)}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
