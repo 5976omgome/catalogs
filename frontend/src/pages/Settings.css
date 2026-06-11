@@ -1,6 +1,6 @@
 .settings{
   height:100%;background:var(--bg);
-  padding:var(--s6);display:flex;flex-direction:column;gap:var(--s5);
+  padding:16px 20px;display:flex;flex-direction:column;gap:14px;
   overflow-y:auto;
 }
 
