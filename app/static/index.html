@@ -9,8 +9,9 @@
   <style>
     .embedded .topbar,.embedded .powered-footer,.embedded .cross-tool-bar{display:none!important}
     .embedded .queue-bar{position:relative!important;top:0!important}
-    .embedded html,.embedded body{height:100%!important;max-height:100%!important;overflow:hidden!important}
-    .embedded main{max-width:100%;padding-top:0}
+    .embedded html,.embedded body{height:100%!important;overflow:hidden!important}
+    .embedded main{max-width:100%;padding-top:8px;flex:1;min-height:0;overflow-y:auto}
+    .embedded .card.grow{min-height:200px}
   </style>
 </head>
 <body>
