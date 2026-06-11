@@ -1,17 +1,17 @@
-.login-page{display:flex;align-items:center;justify-content:center;height:100vh;position:relative;overflow:hidden}
+.login-page{display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;max-width:1440px;max-height:900px;margin:auto;position:relative;overflow:hidden}
 .login-bg{position:absolute;inset:0;background:var(--bg);z-index:0}
 
 .login-card{
-  position:relative;z-index:1;width:380px;
+  position:relative;z-index:1;width:400px;
   background:var(--bg-card);border:1px solid var(--border);
   border-radius:var(--r-lg);padding:var(--s8) var(--s6);
   box-shadow:0 24px 80px rgba(0,0,0,.6);
   animation:fadeUp .4s var(--ease) both;
 }
 
-.login-logo{text-align:center;margin-bottom:var(--s6)}
-.login-logo img{width:40px;height:40px;margin-bottom:var(--s3);filter:brightness(0) invert(.85) sepia(.3) saturate(.6) hue-rotate(130deg);opacity:.85}
-.login-logo h1{font-size:13px;font-weight:800;letter-spacing:.16em;color:var(--snow);margin-bottom:var(--s1)}
+.login-logo{text-align:center;margin-bottom:var(--s8)}
+.login-logo img{width:80px;height:80px;margin-bottom:var(--s4);filter:brightness(0) invert(.85) sepia(.3) saturate(.6) hue-rotate(130deg);opacity:.9}
+.login-logo h1{font-size:14px;font-weight:800;letter-spacing:.2em;color:var(--snow);margin-bottom:var(--s1)}
 .login-logo p{font-size:8px;font-weight:500;letter-spacing:.28em;color:var(--teal);opacity:.7;text-transform:uppercase}
 
 .login-form{display:flex;flex-direction:column;gap:var(--s4)}

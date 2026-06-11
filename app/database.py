@@ -100,15 +100,15 @@ class LifetimeStats(Base):
 # ---------------------------------------------------------------------------
 
 def init_db():
-    """Create all tables and seed the admin account if not present."""
+    """Create all tables and seed user accounts if not present."""
     Base.metadata.create_all(engine)
     session = Session()
     try:
         # Seed admin user
-        admin = session.query(User).filter_by(email="gavin@ignitethelabel.com").first()
+        admin = session.query(User).filter_by(email="gavin.roy07@ignitethelabel.com").first()
         if not admin:
             admin = User(
-                email="gavin@ignitethelabel.com",
+                email="gavin.roy07@ignitethelabel.com",
                 name="Gavin Roy",
                 role="admin",
                 timezone="America/New_York",
@@ -116,14 +116,24 @@ def init_db():
             admin.set_password("0604")
             session.add(admin)
 
-            # Init lifetime stats
+            # Init lifetime stats for admin
             stats = LifetimeStats(user_id=1)
             session.add(stats)
 
-            session.commit()
-            print("[db] Admin account seeded: gavin@ignitethelabel.com", flush=True)
-        else:
-            print("[db] Database ready.", flush=True)
+        # Seed guest/demo viewer
+        guest = session.query(User).filter_by(email="guest").first()
+        if not guest:
+            guest = User(
+                email="guest",
+                name="Guest",
+                role="viewer",
+                timezone="America/New_York",
+            )
+            guest.set_password("guest")
+            session.add(guest)
+
+        session.commit()
+        print("[db] Users ready (gavin.roy07@ignitethelabel.com + guest)", flush=True)
     except Exception as e:
         session.rollback()
         print(f"[db] Init error: {e}", flush=True)
