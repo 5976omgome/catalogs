@@ -24,16 +24,17 @@ const TITLES = {
   '/tools/followup': 'IGNITE: FOLLOW UPPER',
 }
 
-const TOOLTIPS = {
-  chartporter: 'Audits artist catalogs for ownership conflicts by cross-referencing iTunes and Deezer label data.',
-  genitact: 'Extracts Instagram and Facebook contacts from Genius artist profiles using balanced name-matching.',
-  drafter: 'Creates Gmail drafts for filtered artists from your library. One draft per artist with your outreach template.',
-  followup: 'Scans Gmail Follow Ups labels and creates reply drafts for threads that haven\'t been followed up yet.',
-}
+const TOOLS = [
+  { to: '/tools/chartporter', icon: BarChart3, label: 'Chartporter', tip: 'Audits artist catalogs for ownership conflicts by cross-referencing iTunes and Deezer label data.' },
+  { to: '/tools/genitact', icon: Zap, label: 'Genitact', tip: 'Extracts Instagram and Facebook contacts from Genius artist profiles using balanced name-matching.' },
+  { to: '/tools/drafter', icon: Mail, label: 'Drafter', tip: 'Creates Gmail drafts for filtered artists from your library. One draft per artist with your outreach template.' },
+  { to: '/tools/followup', icon: MailPlus, label: 'Follow Upper', tip: 'Scans Gmail Follow Ups labels and creates reply drafts for threads that haven\'t been followed up yet.' },
+]
 
 export default function Sidebar() {
   const [hovered, setHovered] = useState(false)
   const [clock, setClock] = useState('')
+  const [tip, setTip] = useState(null)
   const { logout } = useAuth()
   const location = useLocation()
 
@@ -57,7 +58,7 @@ export default function Sidebar() {
     <aside
       className={`sidebar ${expanded ? 'expanded' : 'collapsed'}`}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseLeave={() => { setHovered(false); setTip(null) }}
     >
       {/* Brand */}
       <div className="sb-brand">
@@ -93,34 +94,21 @@ export default function Sidebar() {
         <div className="sb-divider">
           <span className="sb-section">Tools</span>
         </div>
-        <div className="sb-item-wrap">
-          <NavLink to="/tools/chartporter" className="sb-item">
-            <BarChart3 size={16} />
-            <span className="sb-label">Chartporter</span>
+        {TOOLS.map(({ to, icon: Icon, label, tip: text }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className="sb-item"
+            onMouseEnter={e => {
+              const r = e.currentTarget.getBoundingClientRect()
+              setTip({ text, top: r.top + r.height / 2, left: r.right + 10 })
+            }}
+            onMouseLeave={() => setTip(null)}
+          >
+            <Icon size={16} />
+            <span className="sb-label">{label}</span>
           </NavLink>
-          <div className="sb-tooltip">{TOOLTIPS.chartporter}</div>
-        </div>
-        <div className="sb-item-wrap">
-          <NavLink to="/tools/genitact" className="sb-item">
-            <Zap size={16} />
-            <span className="sb-label">Genitact</span>
-          </NavLink>
-          <div className="sb-tooltip">{TOOLTIPS.genitact}</div>
-        </div>
-        <div className="sb-item-wrap">
-          <NavLink to="/tools/drafter" className="sb-item">
-            <Mail size={16} />
-            <span className="sb-label">Drafter</span>
-          </NavLink>
-          <div className="sb-tooltip">{TOOLTIPS.drafter}</div>
-        </div>
-        <div className="sb-item-wrap">
-          <NavLink to="/tools/followup" className="sb-item">
-            <MailPlus size={16} />
-            <span className="sb-label">Follow Upper</span>
-          </NavLink>
-          <div className="sb-tooltip">{TOOLTIPS.followup}</div>
-        </div>
+        ))}
       </nav>
 
       {/* Footer */}
@@ -130,6 +118,13 @@ export default function Sidebar() {
           <span className="sb-label">Log Out</span>
         </button>
       </div>
+
+      {/* Floating tooltip — fixed position so it never clips or shifts layout */}
+      {tip && (
+        <div className="sb-tooltip" style={{ top: tip.top, left: tip.left }}>
+          {tip.text}
+        </div>
+      )}
     </aside>
   )
 }

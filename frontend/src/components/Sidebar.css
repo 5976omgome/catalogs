@@ -80,25 +80,32 @@
 }
 .sidebar.expanded .sb-label{opacity:1;transform:translateX(0);pointer-events:auto}
 
-/* ── Tooltip ── */
-.sb-item-wrap{position:relative}
+/* ── Tooltip (fixed-positioned via JS coords so it never clips or
+   shifts layout, regardless of the sidebar's overflow:hidden) ── */
 .sb-tooltip{
-  display:none;position:absolute;
-  left:calc(100% + 8px);top:50%;transform:translateY(-50%);
-  z-index:500;width:180px;padding:8px 10px;
+  position:fixed;z-index:1000;
+  width:200px;padding:9px 11px;
   background:var(--bg-card);border:1px solid var(--border-hover);
-  border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.5);
-  font-size:9px;font-weight:400;line-height:1.4;
+  border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.55);
+  font-size:9px;font-weight:400;line-height:1.45;
   color:var(--text-secondary);pointer-events:none;
-  opacity:0;transition:opacity .15s var(--ease);
+  transform:translateY(-50%);
+  animation:tipIn .14s var(--ease);
 }
-.sidebar.expanded .sb-item-wrap:hover .sb-tooltip{display:block;opacity:1;animation:popIn .15s var(--ease)}
+@keyframes tipIn{
+  from{opacity:0;transform:translateY(-50%) translateX(-5px)}
+  to{opacity:1;transform:translateY(-50%) translateX(0)}
+}
 
-/* ── Dividers ── */
+/* ── Dividers ──
+   Constant vertical footprint in BOTH states so expanding the sidebar
+   on hover never pushes the items below it down. Collapsed shows a thin
+   centered line; expanded shows the section label — same height. */
 .sb-divider{
-  margin:10px 0 4px;padding:0 12px;
-  height:14px;display:flex;align-items:center;
-  overflow:hidden;
+  margin:10px 0 2px;padding:0 12px;
+  height:16px;min-height:16px;
+  display:flex;align-items:center;
+  position:relative;overflow:hidden;
 }
 .sb-section{
   font-size:7px;font-weight:700;letter-spacing:.2em;
@@ -107,7 +114,11 @@
   transition:opacity .15s .1s var(--ease),transform .15s .1s var(--ease);
 }
 .sidebar.expanded .sb-section{opacity:1;transform:translateX(0)}
-.sidebar.collapsed .sb-divider{margin:6px 10px 4px;padding:0;height:1px;background:var(--border);transition:background .3s var(--ease)}
+.sidebar.collapsed .sb-divider{padding:0 10px}
+.sidebar.collapsed .sb-divider::after{
+  content:"";position:absolute;left:10px;right:10px;top:50%;
+  height:1px;background:var(--border);
+}
 
 /* ── Footer ── */
 .sb-footer{
