@@ -8,6 +8,8 @@ const ROUTE_THEMES = {
   '/artists': 'theme-artists',
   '/tools/chartporter': 'theme-chartporter',
   '/tools/genitact': 'theme-genitract',
+  '/tools/drafter': 'theme-drafter',
+  '/tools/followup': 'theme-followup',
 }
 
 export default function Shell() {

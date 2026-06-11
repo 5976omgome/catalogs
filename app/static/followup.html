@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IGNITE: FOLLOW UPPER</title>
+  <link rel="stylesheet" href="/legacy-static/styles.css">
+  <script>if(window.self!==window.top)document.documentElement.classList.add('embedded')</script>
+  <style>
+    .embedded .topbar,.embedded .powered-footer,.embedded .cross-tool-bar{display:none!important}
+    .embedded .queue-bar{position:relative!important;top:0!important}
+    .embedded html,.embedded body{height:100%!important;overflow:hidden!important}
+    .embedded main{max-width:100%;padding-top:8px;flex:1;min-height:0;overflow-y:auto}
+    .embedded .card.grow{min-height:200px}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-group">
+      <a href="https://ignitethelabel.com" target="_blank" rel="noopener" class="brand-logo-link"><img src="/logos/ignite.svg" alt="IGNITE" class="brand-logo"></a>
+      <div class="brand-text">
+        <div class="brand">VIRTUAL SCOUT</div>
+        <div class="brand-sub">FOLLOW-UP DRAFTING</div>
+      </div>
+      <span class="clock" id="clock">00:00:00</span>
+    </div>
+    <div class="pills">
+      <span class="pill" id="pill-gmail">GMAIL</span>
+      <span class="pill-divider"></span>
+      <div class="tools-dropdown" id="tools-dropdown">
+        <button class="btn-tools" id="tool-btn">FOLLOW UPPER</button>
+        <div class="tools-menu" id="tools-menu">
+          <a href="/" class="tool-option tool-chartporter-opt">Chartport</a>
+          <a href="/genitractor" class="tool-option tool-genitractor-opt">Genitact</a>
+          <a href="/drafter" class="tool-option">Drafter</a>
+          <a href="/followup" class="tool-option active">Follow Upper</a>
+        </div>
+      </div>
+      <button class="btn-feedback" id="btn-feedback">FEEDBACK</button>
+    </div>
+  </header>
+
+  <nav class="queue-bar">
+    <div class="queue-row">
+      <button id="btn-run" class="primary">RUN</button>
+      <button id="btn-stop" class="warn">STOP</button>
+      <button id="btn-clear" class="ghost">CLEAR</button>
+      <span class="pill-divider"></span>
+      <span class="timer" id="timer">00:00</span>
+      <span class="stat-pct clickable" id="stat-pct" title="Click to toggle fraction">0% TOTAL</span>
+      <span class="stat-clean clickable" id="stat-clean" title="Click to toggle fraction">0% CLEAN</span>
+    </div>
+  </nav>
+
+  <main>
+    <section class="card collapsible" id="card-system">
+      <header class="card-head" data-collapse="sys-body">
+        <h2>SYSTEM</h2>
+        <button class="ghost collapse-btn">&#9660;</button>
+      </header>
+      <div class="sys-log-wrap" id="sys-body">
+        <div id="sys-log"></div>
+      </div>
+    </section>
+
+    <section class="card grow collapsible" id="card-feeds">
+      <header class="card-head" data-collapse="feeds-body">
+        <h2>FEED</h2>
+        <button class="ghost collapse-btn">&#9660;</button>
+      </header>
+      <div id="feeds-body">
+        <div id="feeds-grid" class="feeds-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/legacy-static/followup.js"></script>
+</body>
+</html>

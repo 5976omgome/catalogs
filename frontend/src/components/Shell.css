@@ -46,3 +46,19 @@
   --theme-accent-border:rgba(255,209,0,.2);
   --theme-glow:rgba(255,209,0,.12);
 }
+
+
+
+.shell.theme-drafter{
+  --theme-accent:#89b0ae;
+  --theme-accent-soft:rgba(137,176,174,.1);
+  --theme-accent-border:rgba(137,176,174,.25);
+  --theme-glow:rgba(137,176,174,.15);
+}
+
+.shell.theme-followup{
+  --theme-accent:#89b0ae;
+  --theme-accent-soft:rgba(137,176,174,.1);
+  --theme-accent-border:rgba(137,176,174,.25);
+  --theme-glow:rgba(137,176,174,.15);
+}
