@@ -160,16 +160,9 @@ export default function Artists() {
     switch (col.key) {
       case 'status':
         return (
-          <div className="pill-cell">
-            <span className={`pill-tag pill-${STATUS_COLORS[val] || 'neutral'}`} onClick={e => { e.stopPropagation(); setEditingStatus(editingStatus === a.id ? null : a.id) }}>
-              {val || 'Not Sent'}
-            </span>
-            {editingStatus === a.id && (
-              <div className="pill-dropdown" onClick={e => e.stopPropagation()}>
-                {STATUSES.map(s => <button key={s} className={`pill-opt pill-${STATUS_COLORS[s]}`} onClick={() => updateStatus(a.id, s)}>{s}</button>)}
-              </div>
-            )}
-          </div>
+          <select className={`at-status pill-${STATUS_COLORS[val] || 'neutral'}`} value={val || 'Not Sent'} onChange={e => updateStatus(a.id, e.target.value)} onClick={e => e.stopPropagation()}>
+            {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
         )
       case 'momentum':
         return val ? <span className={`pill-tag pill-${MOMENTUM_COLORS[val] || 'grey'}`}>{val}</span> : ''
