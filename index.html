@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IGNITE SCOUT - Catalog Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo-container">
+                    <img src="ignite-logo.png" alt="IGNITE" class="logo-img" onerror="this.onerror=null;this.src='ignite-logo.svg';">
+                </div>
+                <div class="header-titles">
+                    <h1 class="title">SCOUT</h1>
+                    <p class="subtitle">CATALOG INTELLIGENCE</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="btn-feedback" id="btnFeedback">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 10.5a1.5 1.5 0 01-1.5 1.5h-8L2 14.5v-11A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v7z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Feedback
+                </button>
+                <button class="btn-instructions" id="btnInstructions">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    How to Use
+                </button>
+                <span class="header-badge">Q2 2026</span>
+            </div>
+        </header>
+
+        <!-- Instructions Modal -->
+        <div class="modal-overlay" id="instructionsModal">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>Platform Instructions</h2>
+                    <button class="modal-close" id="modalClose">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="instruction-section">
+                        <h3>Overview</h3>
+                        <p>IGNITE SCOUT is a catalog intelligence platform designed to identify independent artists who own their catalogs and are viable candidates for licensing, buyout, or A&R opportunities. The system cross-references multiple data sources to verify ownership and flag conflicts automatically.</p>
+                    </div>
+
+                    <div class="instruction-section">
+                        <h3>How CSV Exports Work</h3>
+                        <p>The platform processes CSV exports from Chartmetric. These must be exported in a specific format:</p>
+                        <ul>
+                            <li><strong>Export Format:</strong> UTF-8 encoded CSV with headers</li>
+                            <li><strong>Required Columns:</strong> Artist Name, Chartmetric ID, Monthly Listeners, Career Start Year</li>
+                            <li><strong>File Naming:</strong> <code>Artists Values - YYYY_MM_DD - HH_MM_SS.csv</code></li>
+                            <li><strong>Export Source:</strong> Chartmetric &rarr; Artist Lists &rarr; Export as CSV</li>
+                            <li><strong>Upload:</strong> Drag and drop into the Queue panel or click the + CSV button</li>
+                            <li><strong>Processing:</strong> Each CSV is processed sequentially. The percentage shown indicates completion progress of ownership verification across all APIs.</li>
+                        </ul>
+                    </div>
+
+                    <div class="instruction-section">
+                        <h3>API Integrations</h3>
+                        <div class="api-detail">
+                            <h4>iTunes Search API</h4>
+                            <p>Searches the iTunes/Apple Music catalog to identify P-line holders (℗ line). Checks who owns the sound recording rights. If a third-party label appears as the P-line holder, it flags the artist for review.</p>
+                        </div>
+                        <div class="api-detail">
+                            <h4>Deezer API</h4>
+                            <p>Cross-references artist releases on Deezer to verify label/distributor information. Identifies if releases are distributed through known independent distributors (DistroKid, TuneCore, etc.) or third-party labels that indicate existing deals.</p>
+                        </div>
+                        <div class="api-detail">
+                            <h4>Genius API</h4>
+                            <p>Retrieves artist social media links, bio information, and associated accounts. Used to find contact information (Instagram, Twitter/X, Facebook, website) and verify artist identity. Social links appear in the same reading section alongside iTunes and Deezer data for each artist.</p>
+                        </div>
+                        <div class="api-detail">
+                            <h4>Chartmetric</h4>
+                            <p>Primary data source. Provides artist metadata, distributor/label information from their database, monthly listener counts, career timelines, and growth metrics.</p>
+                        </div>
+                        <div class="api-detail">
+                            <h4>Groq &amp; Gemini (AI)</h4>
+                            <p>AI models used for intelligent classification. They analyze the combined signals from all APIs and determine whether an artist should be marked as KEEP, REVIEW, or DROP based on ownership patterns, label affiliations, and deal indicators.</p>
+                        </div>
+                    </div>
+
+                    <div class="instruction-section">
+                        <h3>Classification System</h3>
+                        <ul>
+                            <li><strong class="status-keep">KEEP</strong> &mdash; All sources show artist name or known independent distributor. Safe to proceed with outreach.</li>
+                            <li><strong class="status-review">REVIEW</strong> &mdash; Mixed signals detected. Third-party labels found on some sources, or no data returned. Requires manual verification.</li>
+                            <li><strong class="status-drop-third">DROP_THIRDPARTY</strong> &mdash; Third-party label confirmed across sources. Artist likely does not own their catalog.</li>
+                            <li><strong class="status-drop-major">DROP_MAJOR</strong> &mdash; Major label affiliation detected. Not a viable opportunity.</li>
+                        </ul>
+                    </div>
+
+                    <div class="instruction-section">
+                        <h3>Reading the Feed</h3>
+                        <p>Each artist card in the feed displays:</p>
+                        <ul>
+                            <li><strong>Status Badge:</strong> KEEP / REVIEW / DROP classification</li>
+                            <li><strong>Career Start:</strong> Year the artist first appeared on streaming platforms</li>
+                            <li><strong>Chartmetric:</strong> Distributor or label info from Chartmetric's database</li>
+                            <li><strong>iTunes:</strong> P-line holders found across releases</li>
+                            <li><strong>Deezer:</strong> Label/distributor data from Deezer's catalog</li>
+                            <li><strong>Genius:</strong> Social links (Instagram, Twitter, website) for contact research</li>
+                            <li><strong>Reasoning:</strong> AI-generated explanation of the classification decision</li>
+                        </ul>
+                    </div>
+
+                    <div class="instruction-section">
+                        <h3>Daily Workflow</h3>
+                        <ol>
+                            <li>Export artist list from Chartmetric (CSV)</li>
+                            <li>Upload CSV to the Queue</li>
+                            <li>System processes artists through all APIs</li>
+                            <li>Review KEEP artists for outreach readiness</li>
+                            <li>Manually verify REVIEW artists</li>
+                            <li>Skip DROP artists</li>
+                            <li>Target: 100 artists reviewed / ~20 qualified per day</li>
+                        </ol>
+                    </div>
+
+                    <div class="instruction-section">
+                        <h3>Priority Order</h3>
+                        <ol>
+                            <li><strong>Licensing Opportunities</strong> &mdash; Always the primary focus</li>
+                            <li><strong>Buyout Opportunities</strong> &mdash; Larger catalogs with proven history</li>
+                            <li><strong>A&R Opportunities</strong> &mdash; Emerging artists for signing</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feedback Modal -->
+        <div class="modal-overlay" id="feedbackModal">
+            <div class="modal modal-feedback">
+                <div class="modal-header">
+                    <h2>Submit Feedback</h2>
+                    <button class="modal-close" id="feedbackModalClose">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="feedback-form">
+                        <div class="feedback-field">
+                            <label class="feedback-label">Category</label>
+                            <div class="feedback-categories">
+                                <button class="feedback-cat" data-cat="BUG">
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5 5l4 4M9 5l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                    BUG
+                                </button>
+                                <button class="feedback-cat" data-cat="IDEA">
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v1M11.5 2.5l-.7.7M13 7h-1M11.5 11.5l-.7-.7M7 13v-1M2.5 11.5l.7-.7M1 7h1M2.5 2.5l.7.7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="7" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/></svg>
+                                    IDEA
+                                </button>
+                                <button class="feedback-cat" data-cat="OTHER">
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="4" cy="7" r="1.2" fill="currentColor"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="10" cy="7" r="1.2" fill="currentColor"/></svg>
+                                    OTHER
+                                </button>
+                            </div>
+                        </div>
+                        <div class="feedback-field">
+                            <label class="feedback-label">Your Feedback</label>
+                            <textarea class="feedback-textarea" id="feedbackText" placeholder="Describe the bug, idea, or note..." rows="5"></textarea>
+                        </div>
+                        <div class="feedback-ai-row">
+                            <button class="btn-ai-clean" id="btnAiClean">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.5 4.5L13 7l-4.5 1.5L7 13l-1.5-4.5L1 7l4.5-1.5L7 1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                                Clean up with Groq
+                            </button>
+                            <span class="ai-status" id="aiStatus"></span>
+                        </div>
+                        <div class="feedback-preview-container" id="feedbackPreviewContainer" style="display:none;">
+                            <label class="feedback-label">AI-Enhanced Preview</label>
+                            <div class="feedback-preview" id="feedbackPreview"></div>
+                        </div>
+                        <div class="feedback-actions">
+                            <button class="btn-submit-feedback" id="btnSubmitFeedback" disabled>
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M8 3l5 4-5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                Submit to Repo
+                            </button>
+                            <span class="submit-status" id="submitStatus"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Left Panel: API Status & Queue -->
+            <aside class="sidebar">
+                <div class="panel api-panel">
+                    <div class="panel-header">
+                        <span class="panel-label">API</span>
+                        <button class="btn-add" id="btnApiSettings">Keys</button>
+                    </div>
+                    <div class="api-keys-panel" id="apiKeysPanel" style="display:none;">
+                        <div class="api-key-field">
+                            <label class="api-key-label">Groq API Key</label>
+                            <input type="password" class="api-key-input" id="inputGroqKey" placeholder="gsk_..." autocomplete="off">
+                        </div>
+                        <div class="api-key-field">
+                            <label class="api-key-label">GitHub Token</label>
+                            <input type="password" class="api-key-input" id="inputGithubToken" placeholder="ghp_..." autocomplete="off">
+                        </div>
+                        <button class="btn-save-keys" id="btnSaveKeys">Save</button>
+                    </div>
+                    <div class="api-grid">
+                        <div class="api-item active">
+                            <span class="api-dot"></span>
+                            <span>ITUNES</span>
+                        </div>
+                        <div class="api-item active">
+                            <span class="api-dot"></span>
+                            <span>DEEZER</span>
+                        </div>
+                        <div class="api-item active">
+                            <span class="api-dot"></span>
+                            <span>GROQ</span>
+                        </div>
+                        <div class="api-item active">
+                            <span class="api-dot"></span>
+                            <span>GEMINI</span>
+                        </div>
+                        <div class="api-item error">
+                            <span class="api-dot"></span>
+                            <span>GENIUS</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel queue-panel">
+                    <div class="panel-header">
+                        <span class="panel-label">QUEUE</span>
+                        <button class="btn-add">+ CSV</button>
+                    </div>
+                    <div class="queue-list">
+                        <div class="queue-item">
+                            <span class="queue-name">Artists Values - 2026_06_02 - 19_50_18.csv</span>
+                            <div class="queue-progress">
+                                <div class="progress-bar"><div class="progress-fill" style="width:53%"></div></div>
+                                <span class="progress-text">53%</span>
+                            </div>
+                        </div>
+                        <div class="queue-item">
+                            <span class="queue-name">Artists Values - 2026_05_29 - 13_51_19.csv</span>
+                            <div class="queue-progress">
+                                <div class="progress-bar"><div class="progress-fill" style="width:47%"></div></div>
+                                <span class="progress-text">47%</span>
+                            </div>
+                        </div>
+                        <div class="queue-item">
+                            <span class="queue-name">Artists Values - 2026_05_29 - 13_51_46.csv</span>
+                            <div class="queue-progress">
+                                <div class="progress-bar"><div class="progress-fill" style="width:47%"></div></div>
+                                <span class="progress-text">47%</span>
+                            </div>
+                        </div>
+                        <div class="queue-item">
+                            <span class="queue-name">Artists Values - 2026_05_29 - 13_50_28.csv</span>
+                            <div class="queue-progress">
+                                <div class="progress-bar"><div class="progress-fill" style="width:52%"></div></div>
+                                <span class="progress-text">52%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Log -->
+                <div class="panel system-panel">
+                    <div class="panel-header">
+                        <span class="panel-label">SYSTEM</span>
+                    </div>
+                    <div class="system-log" id="systemLog">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center: Feed -->
+            <section class="feed-section">
+                <div class="feed-header">
+                    <span class="panel-label">FEEDS</span>
+                    <div class="feed-tabs" id="feedTabs">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+                <div class="feed-content" id="feedContent">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-top">
+                <span class="footer-label">POWERED BY</span>
+                <div class="footer-logos">
+                    <span class="footer-logo-item">Kiro</span>
+                    <span class="footer-logo-item">Chartmetric</span>
+                    <span class="footer-logo-item">iTunes</span>
+                    <span class="footer-logo-item">Deezer</span>
+                    <span class="footer-logo-item">Genius</span>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <span class="footer-brand">IGNITE THE LABEL &middot; Q2 2026</span>
+                <div class="version-dropdown-container">
+                    <button class="btn-version" id="btnVersion">
+                        v3.1.0
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    <div class="version-panel" id="versionPanel">
+                        <h4>Changelog</h4>
+                        <div class="version-entry">
+                            <div class="version-tag">v3.1.0 <span class="version-date">June 3, 2026</span></div>
+                            <ul>
+                                <li>Added Feedback button with BUG / IDEA / OTHER categories</li>
+                                <li>Groq AI text cleanup &mdash; fixes grammar, structures feedback as an optimized prompt for Claude</li>
+                                <li>Feedback commits directly to repo as markdown files in <code>feedback/</code> folder</li>
+                                <li>File naming: <code>MM-DD.HH.MM.CATEGORY.md</code></li>
+                                <li>Markdown format with YAML-style frontmatter for optimal Claude parsing</li>
+                            </ul>
+                        </div>
+                        <div class="version-entry">
+                            <div class="version-tag">v3.0.0 <span class="version-date">June 3, 2026</span></div>
+                            <ul>
+                                <li>Added Genius API social links in artist reading section</li>
+                                <li>Fixed Genius API error state display &mdash; now shows connection status</li>
+                                <li>Added comprehensive instructions modal with full platform documentation</li>
+                                <li>Redesigned footer with powered-by logos in monochrome palette</li>
+                                <li>Added IGNITE logo with chroma-matched white/gold accent styling</li>
+                                <li>Added version changelog dropdown</li>
+                                <li>Improved feed card layout with all data sources in unified section</li>
+                                <li>Critical bug fix: Genius social data now renders in same section as iTunes/Deezer readings</li>
+                            </ul>
+                        </div>
+                        <div class="version-entry">
+                            <div class="version-tag">v2.1.0 <span class="version-date">June 2, 2026</span></div>
+                            <ul>
+                                <li>Added AI classification via Groq and Gemini APIs</li>
+                                <li>Implemented reasoning explanations for each artist decision</li>
+                                <li>Queue processing percentage display</li>
+                                <li>System log with real-time classification output</li>
+                                <li>Bug fix: Artists with special characters in names now parse correctly</li>
+                                <li>Bug fix: Deezer API timeout handling improved</li>
+                            </ul>
+                        </div>
+                        <div class="version-entry">
+                            <div class="version-tag">v2.0.0 <span class="version-date">May 29, 2026</span></div>
+                            <ul>
+                                <li>Multi-CSV queue support</li>
+                                <li>iTunes P-line verification integration</li>
+                                <li>Deezer label/distributor cross-reference</li>
+                                <li>Feed UI with tabbed CSV navigation</li>
+                                <li>Variant vs third-party classification tags</li>
+                                <li>Progress tracking per CSV file</li>
+                            </ul>
+                        </div>
+                        <div class="version-entry">
+                            <div class="version-tag">v1.0.0 <span class="version-date">May 25, 2026</span></div>
+                            <ul>
+                                <li>Initial platform build</li>
+                                <li>Chartmetric CSV parsing and display</li>
+                                <li>Basic KEEP/REVIEW/DROP classification</li>
+                                <li>Manual ownership verification workflow</li>
+                                <li>Single-file processing only</li>
+                            </ul>
+                        </div>
+                        <div class="version-entry">
+                            <div class="version-tag">v0.1.0 <span class="version-date">May 20, 2026</span></div>
+                            <ul>
+                                <li>Proof of concept</li>
+                                <li>CSV upload and basic artist list rendering</li>
+                                <li>No API integrations</li>
+                                <li>Manual-only workflow</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
