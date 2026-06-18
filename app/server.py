@@ -4,19 +4,25 @@ SSE note: does NOT set 'Connection' header (that was the hop-by-hop crash
 on Waitress). Waitress handles keep-alive/close itself.
 """
 import json
+import threading
 import time
 import uuid
 from pathlib import Path
 
 from flask import Flask, request, Response, jsonify, send_file
 
-from app import config, excel
+from app import config, excel, csv_export
 from app.jobs import JobManager
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024  # 32 MB max upload
 
 _manager = JobManager()
+
+# Pass-level mutual exclusion held by the Genitractor extraction pass
+# (_geni_worker) for the duration of its Genius-consuming loop. Distinct from
+# genius._genius_lock, which only paces individual request timing.
+genius_pass_lock = threading.Lock()
 
 
 def get_manager() -> JobManager:
@@ -30,6 +36,11 @@ def get_manager() -> JobManager:
 @app.route("/")
 def index():
     return app.send_static_file("index.html")
+
+
+@app.route("/genitractor")
+def genitractor_page():
+    return app.send_static_file("genitractor.html")
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +145,7 @@ def api_queue_clear():
 
 @app.route("/api/download/<item_id>")
 def api_download(item_id: str):
-    """Download the full output xlsx (works on running/stopped/error items too)."""
+    """Download the full output CSV (works on running/stopped/error items too)."""
     mgr = get_manager()
     item = mgr.find(item_id)
     if not item:
@@ -143,6 +154,7 @@ def api_download(item_id: str):
         return jsonify({"error": "no output yet — run not started or no artists processed"}), 404
     return send_file(
         str(item.output_path),
+        mimetype="text/csv",
         as_attachment=True,
         download_name=item.output_path.name,
     )
@@ -150,7 +162,7 @@ def api_download(item_id: str):
 
 @app.route("/api/export/<item_id>/<filter_name>")
 def api_export(item_id: str, filter_name: str):
-    """Export a filtered subset of the output xlsx."""
+    """Export a filtered subset of the output as plain CSV."""
     mgr = get_manager()
     item = mgr.find(item_id)
     if not item:
@@ -171,9 +183,9 @@ def api_export(item_id: str, filter_name: str):
         return jsonify({"error": "filter must be keep|review|drops|all"}), 400
 
     stem = item.output_path.stem
-    dst = config.OUTPUT_DIR / f"{stem}-{f}.xlsx"
+    dst = config.OUTPUT_DIR / f"{stem}-{f}.csv"
     try:
-        kept = excel.filter_xlsx_by_status(item.output_path, dst, statuses)
+        kept = csv_export.filter_csv_by_status(item.output_path, dst, statuses)
     except Exception as e:
         return jsonify({"error": f"export failed: {e}"}), 500
 
@@ -184,40 +196,45 @@ def api_export(item_id: str, filter_name: str):
             pass
         return jsonify({"error": "no rows match this filter"}), 404
 
-    return send_file(str(dst), as_attachment=True, download_name=dst.name)
+    return send_file(str(dst), mimetype="text/csv", as_attachment=True, download_name=dst.name)
 
 
 @app.route("/api/export_all")
 def api_export_all():
-    """Merge ALL finished item outputs into one master xlsx."""
+    """Merge ALL completed item outputs into one master CSV.
+
+    Only items with status in {done, stopped} AND an existing output are merged,
+    so a running item's mid-write checkpoint is never read (Concern H I/O safety).
+    """
     mgr = get_manager()
     items_with_output = []
     with mgr._lock:
         for item in mgr._items:
-            if item.output_path and item.output_path.exists():
+            if item.status in ("done", "stopped") and item.output_path and item.output_path.exists():
                 items_with_output.append(item)
 
     if not items_with_output:
         return jsonify({"error": "no finished outputs to merge"}), 404
 
     try:
-        merged_path = excel.merge_all_outputs(
+        merged_path = csv_export.merge_all_csv(
             [item.output_path for item in items_with_output],
-            config.OUTPUT_DIR / "AllCombinedOutput.xlsx",
+            config.OUTPUT_DIR / "AllCombinedOutput.csv",
         )
     except Exception as e:
         return jsonify({"error": f"merge failed: {e}"}), 500
 
     return send_file(
         str(merged_path),
+        mimetype="text/csv",
         as_attachment=True,
-        download_name="AllCombinedOutput.xlsx",
+        download_name="AllCombinedOutput.csv",
     )
 
 
 @app.route("/api/queue/stop_and_export/<item_id>")
 def api_stop_and_export(item_id: str):
-    """Safety net: stop the run AND download whatever's been processed."""
+    """Safety net: stop the run AND download whatever's been processed (as CSV)."""
     mgr = get_manager()
     item = mgr.find(item_id)
     if not item:
@@ -236,9 +253,608 @@ def api_stop_and_export(item_id: str):
 
     return send_file(
         str(item.output_path),
+        mimetype="text/csv",
         as_attachment=True,
         download_name=item.output_path.name,
     )
+
+
+# ---------------------------------------------------------------------------
+# GENITRACTOR — Contact extraction tool (Genius-only, separate from main audit)
+# Processes CSVs to extract Instagram/Facebook via the Genius API.
+# Exports a clean CSV with: Artist Name, Instagram, Facebook, Match Confidence
+# ---------------------------------------------------------------------------
+
+import csv
+import io
+import threading as _geni_threading
+from queue import Queue as _GeniQueue, Full as _GeniFull
+
+_geni_items = []
+_geni_lock = _geni_threading.Lock()
+_geni_subscribers = []
+_geni_active_threads = {}
+_geni_stop_flags = {}
+
+# Periodic-pause configuration for large Genitractor runs (Concern D).
+GENI_PAUSE_EVERY = 250    # pause after this many artists
+GENI_PAUSE_SECONDS = 5    # sleep this many seconds at each pause
+
+GENI_UPLOAD_DIR = config.BASE_DIR / ".geni_uploads"
+GENI_UPLOAD_DIR.mkdir(exist_ok=True)
+GENI_OUTPUT_DIR = config.BASE_DIR / "GeniOutputs"
+GENI_OUTPUT_DIR.mkdir(exist_ok=True)
+
+
+@app.route("/api/cross-status")
+def api_cross_status():
+    """Returns status of both tools for cross-tool progress bar.
+
+    Sums ONLY currently-running items for both tools so live percentages are
+    not inflated by finished work, and surfaces each tool's `started_at` (the
+    min start time of its running items) for the cross-tool timer.
+    """
+    mgr = get_manager()
+
+    # Chartporter status — running items only
+    cp_processed = 0
+    cp_total = 0
+    cp_running = False
+    cp_started_at = None
+    with mgr._lock:
+        for item in mgr._items:
+            if item.status == "running":
+                cp_running = True
+                cp_processed += item.processed
+                cp_total += item.total
+                if item.started_at is not None:
+                    cp_started_at = item.started_at if cp_started_at is None else min(cp_started_at, item.started_at)
+
+    # Genitractor status — running items only
+    gn_processed = 0
+    gn_total = 0
+    gn_running = False
+    gn_started_at = None
+    with _geni_lock:
+        for item in _geni_items:
+            if item["status"] == "running":
+                gn_running = True
+                gn_processed += item.get("processed", 0)
+                gn_total += item.get("total", 0)
+                st = item.get("started_at")
+                if st is not None:
+                    gn_started_at = st if gn_started_at is None else min(gn_started_at, st)
+
+    return jsonify({
+        "chartporter": {"running": cp_running, "processed": cp_processed, "total": cp_total, "started_at": cp_started_at},
+        "genitractor": {"running": gn_running, "processed": gn_processed, "total": gn_total, "started_at": gn_started_at},
+    })
+
+
+def _geni_broadcast(event):
+    with _geni_lock:
+        dead = []
+        for q in _geni_subscribers:
+            try:
+                q.put_nowait(event)
+            except _GeniFull:
+                dead.append(q)
+        for q in dead:
+            try:
+                _geni_subscribers.remove(q)
+            except ValueError:
+                pass
+
+
+@app.route("/api/genitractor/upload", methods=["POST"])
+def geni_upload():
+    if "file" not in request.files:
+        return jsonify({"error": "no file"}), 400
+    f = request.files["file"]
+    if not f.filename:
+        return jsonify({"error": "no filename"}), 400
+    ext = Path(f.filename).suffix.lower()
+    if ext not in (".csv", ".tsv"):
+        return jsonify({"error": "only .csv/.tsv"}), 400
+
+    safe_name = f"{uuid.uuid4().hex[:8]}_{Path(f.filename).name}"
+    dest = GENI_UPLOAD_DIR / safe_name
+    f.save(str(dest))
+
+    item = {
+        "id": uuid.uuid4().hex[:12],
+        "filename": f.filename,
+        "path": str(dest),
+        "status": "queued",
+        "processed": 0,
+        "total": 0,
+        "found": 0,
+        "started_at": None,
+        "error": "",
+    }
+    with _geni_lock:
+        _geni_items.append(item)
+    _geni_broadcast({"type": "item_added", "item": item})
+    return jsonify(item), 201
+
+
+@app.route("/api/genitractor/import-from-chartporter", methods=["POST"])
+def geni_import_from_chartporter():
+    """Copy Chartporter's currently-QUEUED files into the Genitractor queue.
+
+    Reads a point-in-time snapshot of the JobManager items whose status is
+    "queued" (with a non-null path), dedupes by source path, skips missing
+    files, copies each into GENI_UPLOAD_DIR under a UUID-prefix scheme, and
+    enqueues one Genitractor item per file (emitting one item_added each).
+    Never mutates the Chartporter queue.
+    """
+    import shutil
+
+    mgr = get_manager()
+    # Point-in-time snapshot of QUEUED-status Chartporter items only.
+    with mgr._lock:
+        queued = [
+            {"filename": it.filename, "path": str(it.path)}
+            for it in mgr._items
+            if it.status == "queued" and it.path is not None
+        ]
+
+    if not queued:
+        return jsonify({
+            "ok": True, "imported": 0, "skipped": 0, "skipped_files": [],
+            "message": "Nothing to import \u2014 Chartporter queue has no queued files.",
+        }), 200
+
+    imported = 0
+    skipped_files = []
+    seen_paths = set()
+    new_items = []
+    for q in queued:
+        src = Path(q["path"])
+        skey = str(src)
+        if skey in seen_paths:  # dedupe by source path
+            continue
+        seen_paths.add(skey)
+        if not src.exists():  # skip missing, keep going
+            skipped_files.append(q["filename"])
+            continue
+        safe_name = f"{uuid.uuid4().hex[:8]}_{Path(q['filename']).name}"
+        dest = GENI_UPLOAD_DIR / safe_name
+        shutil.copy2(str(src), str(dest))
+        item = {
+            "id": uuid.uuid4().hex[:12],
+            "filename": q["filename"],  # preserve display filename
+            "path": str(dest),          # unique on-disk name
+            "status": "queued",
+            "processed": 0,
+            "total": 0,
+            "found": 0,
+            "started_at": None,
+            "error": "",
+        }
+        with _geni_lock:
+            _geni_items.append(item)
+        new_items.append(item)
+        imported += 1
+
+    # One item_added per imported item (live queue update).
+    for item in new_items:
+        _geni_broadcast({"type": "item_added", "item": item})
+
+    message = f"Imported {imported} file(s)"
+    if skipped_files:
+        message += f", skipped {len(skipped_files)} missing"
+    return jsonify({
+        "ok": True,
+        "imported": imported,
+        "skipped": len(skipped_files),
+        "skipped_files": skipped_files,
+        "message": message,
+    }), 200
+
+
+@app.route("/api/genitractor/start", methods=["POST"])
+def geni_start():
+    with _geni_lock:
+        queued = [i for i in _geni_items if i["status"] == "queued"]
+        running = sum(1 for i in _geni_items if i["status"] == "running")
+        # Only 1 CSV at a time for Genitractor (Genius rate limit is global)
+        if running >= 1:
+            return jsonify({"ok": True, "started": 0, "message": "Already running — queued"})
+        to_start = queued[:1]
+
+    for item in to_start:
+        _geni_stop_flags[item["id"]] = False
+        t = _geni_threading.Thread(target=_geni_worker, args=(item,), daemon=True)
+        _geni_active_threads[item["id"]] = t
+        t.start()
+
+    return jsonify({"ok": True, "started": len(to_start)})
+
+
+@app.route("/api/genitractor/stop", methods=["POST"])
+def geni_stop():
+    with _geni_lock:
+        for item in _geni_items:
+            if item["status"] == "running":
+                _geni_stop_flags[item["id"]] = True
+    return jsonify({"ok": True})
+
+
+@app.route("/api/genitractor/clear", methods=["POST"])
+def geni_clear():
+    """Clear all non-running Genitractor items and their contacts.
+
+    Mirrors JobManager.clear_done(): keeps queued/running items, drops the
+    rest, clears their `_contacts`, then broadcasts a fresh snapshot.
+    Running items are never cleared.
+    """
+    global _geni_items
+    with _geni_lock:
+        kept = [i for i in _geni_items if i["status"] in ("queued", "running")]
+        for i in kept:
+            # Defensive: never carry stale contacts on a non-running kept item.
+            if i["status"] != "running":
+                i["_contacts"] = []
+        _geni_items = kept
+        alive_ids = {i["id"] for i in _geni_items}
+        # Clean up dead thread/stop-flag refs
+        for k in list(_geni_stop_flags.keys()):
+            if k not in alive_ids:
+                _geni_stop_flags.pop(k, None)
+        snapshot_items = [_geni_item_dict(i) for i in _geni_items]
+    _geni_broadcast({"type": "snapshot", "items": snapshot_items})
+    return jsonify({"ok": True})
+
+
+@app.route("/api/genitractor/export")
+def geni_export():
+    """Export all found contacts as a CSV (completed items only)."""
+    with _geni_lock:
+        all_contacts = []
+        for item in _geni_items:
+            # Only export from items that are not actively being written.
+            if item["status"] == "running":
+                continue
+            contacts = list(item.get("_contacts", []))
+            all_contacts.extend(contacts)
+
+    if not all_contacts:
+        return jsonify({"error": "no contacts found yet"}), 404
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Artist Name", "Instagram", "Facebook", "Match Confidence"])
+    for c in all_contacts:
+        writer.writerow([
+            c.get("artist", ""),
+            c.get("instagram", ""),
+            c.get("facebook", ""),
+            c.get("match_confidence", ""),
+        ])
+
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=Genitractor_Contacts.csv"},
+    )
+
+
+@app.route("/api/genitractor/stream")
+def geni_stream():
+    q = _GeniQueue(maxsize=200)
+    with _geni_lock:
+        _geni_subscribers.append(q)
+    # Send snapshot
+    snapshot = {"type": "snapshot", "items": [_geni_item_dict(i) for i in _geni_items]}
+    try:
+        q.put_nowait(snapshot)
+    except _GeniFull:
+        pass
+
+    def generate():
+        try:
+            while True:
+                try:
+                    event = q.get(timeout=30)
+                    yield f"data: {json.dumps(event)}\n\n"
+                except Exception:
+                    yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+        except GeneratorExit:
+            pass
+        finally:
+            with _geni_lock:
+                try:
+                    _geni_subscribers.remove(q)
+                except ValueError:
+                    pass
+
+    return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+def _geni_item_dict(item):
+    return {
+        "id": item["id"],
+        "filename": item["filename"],
+        "status": item["status"],
+        "processed": item["processed"],
+        "total": item["total"],
+        "found": item.get("found", 0),
+        "started_at": item.get("started_at"),
+        "error": item.get("error", ""),
+    }
+
+
+def _geni_worker(item):
+    """Process one CSV — extract artist names, look up Genius socials one by one.
+
+    All mutations of shared item fields (status/processed/total/_contacts/found)
+    happen under `_geni_lock`; Genius network I/O happens OUTSIDE the lock.
+    The whole extraction pass holds `genius_pass_lock` so it never runs
+    concurrently with the post-audit Genius social pass.
+    """
+    import pandas as pd
+    from app.sources import genius
+
+    try:
+        with _geni_lock:
+            item["status"] = "running"
+            item["started_at"] = time.time()
+        _geni_broadcast({"type": "item_started", "item": _geni_item_dict(item)})
+
+        # Read CSV
+        df = pd.read_csv(item["path"])
+        df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
+
+        # Find artist column
+        artist_col = None
+        for col in df.columns:
+            if col.lower().strip() in ("artist", "artist name", "name"):
+                artist_col = col
+                break
+        if not artist_col:
+            # Try second column if first is numeric ID
+            if len(df.columns) >= 2:
+                first_vals = df.iloc[:3, 0].astype(str)
+                if all(v.isdigit() for v in first_vals):
+                    artist_col = df.columns[1]
+
+        if not artist_col:
+            with _geni_lock:
+                item["status"] = "error"
+                item["error"] = "No artist column found"
+            _geni_broadcast({"type": "item_error", "item": _geni_item_dict(item)})
+            return
+
+        artists = df[artist_col].dropna().astype(str).str.strip().tolist()
+        with _geni_lock:
+            item["total"] = len(artists)
+            item["_contacts"] = []
+            item["found"] = 0
+        _geni_broadcast({"type": "item_started", "item": _geni_item_dict(item)})
+
+        # Hold the cross-pass lock for the duration of the Genius-consuming loop.
+        with genius_pass_lock:
+            for i, artist_name in enumerate(artists):
+                if _geni_stop_flags.get(item["id"]):
+                    with _geni_lock:
+                        item["status"] = "stopped"
+                    _geni_broadcast({"type": "item_stopped", "item": _geni_item_dict(item)})
+                    return
+
+                if not artist_name:
+                    with _geni_lock:
+                        item["processed"] = i + 1
+                    continue
+
+                # Periodic pause for large runs (Concern D)
+                if i > 0 and GENI_PAUSE_EVERY > 0 and i % GENI_PAUSE_EVERY == 0:
+                    time.sleep(GENI_PAUSE_SECONDS)
+
+                # Genius lookup — network I/O OUTSIDE the lock.
+                contact = {"artist": artist_name, "instagram": "", "facebook": "", "match_confidence": ""}
+                outcome = None
+                try:
+                    result = genius.get_socials(artist_name)  # dict | None | RATE_LIMITED
+                    if result is genius.RATE_LIMITED:
+                        outcome = "rate_limited"
+                    elif result is None:
+                        outcome = "no_profile"
+                    else:
+                        contact["instagram"] = (result.get("instagram") or "").strip()
+                        contact["facebook"] = (result.get("facebook") or "").strip()
+                        contact["match_confidence"] = result.get("match_confidence", "")
+                        outcome = "found" if (contact["instagram"] or contact["facebook"]) else "no_profile"
+                except Exception as ex:
+                    # Per-artist extraction error — classify and keep going.
+                    print(f"[genitractor] extraction error for '{artist_name}': {ex}", flush=True)
+                    outcome = "error"
+
+                # Lock only to append the contact and bump counters (short critical section).
+                with _geni_lock:
+                    item["_contacts"].append(contact)
+                    item["processed"] = i + 1
+                    if outcome == "found":
+                        item["found"] = item.get("found", 0) + 1
+                    processed = item["processed"]
+                    total = item["total"]
+
+                _geni_broadcast({
+                    "type": "contact_done",
+                    "item_id": item["id"],
+                    "artist": artist_name,
+                    "outcome": outcome,
+                    "instagram": contact["instagram"],
+                    "facebook": contact["facebook"],
+                    "match_confidence": contact["match_confidence"],
+                    "processed": processed,
+                    "total": total,
+                })
+
+        with _geni_lock:
+            item["status"] = "done"
+        _geni_broadcast({"type": "item_done", "item": _geni_item_dict(item)})
+
+        # Auto-start next queued
+        with _geni_lock:
+            next_queued = [i for i in _geni_items if i["status"] == "queued"][:1]
+        for ni in next_queued:
+            _geni_stop_flags[ni["id"]] = False
+            t = _geni_threading.Thread(target=_geni_worker, args=(ni,), daemon=True)
+            _geni_active_threads[ni["id"]] = t
+            t.start()
+
+    except Exception as e:
+        import traceback
+        print(f"[genitractor] Error: {e}\n{traceback.format_exc()}", flush=True)
+        with _geni_lock:
+            item["status"] = "error"
+            item["error"] = str(e)
+        _geni_broadcast({"type": "item_error", "item": _geni_item_dict(item)})
+    finally:
+        _geni_active_threads.pop(item["id"], None)
+        # Cleanup upload file
+        try:
+            Path(item["path"]).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# Feedback — writes .md files to feedback/ folder, Groq AI cleanup
+# ---------------------------------------------------------------------------
+
+FEEDBACK_DIR = config.BASE_DIR / "feedback"
+FEEDBACK_DIR.mkdir(exist_ok=True)
+
+
+@app.route("/api/feedback", methods=["POST"])
+def api_feedback():
+    """Submit feedback — writes a markdown file to feedback/ folder."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "invalid body"}), 400
+
+    category = (data.get("category") or "").strip().upper()
+    if category not in ("BUG", "IDEA", "OTHER"):
+        return jsonify({"error": "category must be BUG, IDEA, or OTHER"}), 400
+
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "text is required"}), 400
+
+    raw_text = (data.get("raw_text") or "").strip()
+    ai_enhanced = bool(data.get("ai_enhanced", False))
+
+    from datetime import datetime
+    now = datetime.now()
+    filename = f"{now.strftime('%m-%d.%H.%M')}.{category}.md"
+
+    # Build markdown optimized for Claude parsing
+    lines = [
+        "---",
+        f"category: {category}",
+        f"date: {now.isoformat()}",
+        f"platform: IGNITE VIRTUAL SCOUT",
+        f"version: v5.0.0",
+        f"ai_enhanced: {str(ai_enhanced).lower()}",
+        "---",
+        "",
+        f"# {category}: {text.split(chr(10))[0][:80]}",
+        "",
+        text,
+        "",
+    ]
+
+    if ai_enhanced and raw_text:
+        lines.extend([
+            "---",
+            "",
+            f"> **Original (raw):** {raw_text}",
+            "",
+        ])
+
+    content = "\n".join(lines)
+    filepath = FEEDBACK_DIR / filename
+    filepath.write_text(content, encoding="utf-8")
+
+    return jsonify({"ok": True, "file": filename}), 201
+
+
+@app.route("/api/feedback/clean", methods=["POST"])
+def api_feedback_clean():
+    """Use Groq to clean up feedback text into an optimized Claude prompt."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "invalid body"}), 400
+
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "text is required"}), 400
+
+    category = (data.get("category") or "OTHER").strip().upper()
+
+    groq_key = config.groq_api_key()
+    if not groq_key:
+        return jsonify({"error": "Groq API key not configured. Add it in the API panel."}), 400
+
+    category_context = {
+        "BUG": "This is a bug report for IGNITE: VIRTUAL SCOUT, a Flask-based catalog intelligence platform. It processes CSV artist exports through iTunes, Deezer, Genius, Chartmetric, Groq, and Gemini APIs to verify catalog ownership for licensing/buyout opportunities.",
+        "IDEA": "This is a feature idea for IGNITE: VIRTUAL SCOUT, a Flask-based catalog intelligence platform that processes CSV artist exports through multiple APIs to verify catalog ownership.",
+        "OTHER": "This is general feedback for IGNITE: VIRTUAL SCOUT, a Flask-based catalog intelligence platform.",
+    }.get(category, "This is feedback for IGNITE: VIRTUAL SCOUT.")
+
+    system_prompt = f"""You are an expert prompt engineer. Your job is to take raw user feedback and transform it into a perfectly structured, actionable prompt that Claude (Opus) can immediately research and act on.
+
+Rules:
+- Fix all grammar and spelling errors
+- Clarify vague instructions — ask yourself what Claude would need to know to act on this
+- Add context about WHAT part of the system this relates to
+- Break complex feedback into clear, actionable steps
+- For bugs: include what happened, what should happen, and where it occurs
+- For ideas: include the goal, how it would work, and what it affects
+- Structure with markdown headers and bullet points
+- Keep it concise but complete — no fluff
+- Do NOT wrap in code fences or add explanatory text around the output
+- Output ONLY the enhanced prompt text, nothing else
+
+{category_context}"""
+
+    import requests as http_req
+    try:
+        resp = http_req.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {groq_key}",
+            },
+            json={
+                "model": "llama-3.3-70b-versatile",
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": text},
+                ],
+                "temperature": 0.3,
+                "max_tokens": 1024,
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        result = resp.json()
+        cleaned = result["choices"][0]["message"]["content"].strip()
+        return jsonify({"ok": True, "cleaned": cleaned})
+    except http_req.exceptions.Timeout:
+        return jsonify({"error": "Groq API timeout — try again"}), 504
+    except http_req.exceptions.HTTPError as e:
+        msg = str(e)
+        try:
+            msg = e.response.json().get("error", {}).get("message", msg)
+        except Exception:
+            pass
+        return jsonify({"error": f"Groq API error: {msg}"}), 502
+    except Exception as e:
+        return jsonify({"error": f"Groq request failed: {e}"}), 500
 
 
 # ---------------------------------------------------------------------------

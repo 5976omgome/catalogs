@@ -1,4 +1,4 @@
-"""Catalog Audit — entry point.
+"""Virtual Scout — entry point.
 Run: python run.py
 """
 import socket
@@ -22,12 +22,12 @@ def find_open_port(start: int = 5000, tries: int = 10) -> int:
 def main():
     port = find_open_port()
     url = f"http://127.0.0.1:{port}"
-    print(f"Catalog Audit running at {url}")
+    print(f"Virtual Scout running at {url}")
     print("Press Ctrl+C to stop.")
     threading.Timer(1.5, lambda: webbrowser.open(url)).start()
     try:
         from waitress import serve
-        serve(app, host="127.0.0.1", port=port, threads=4)
+        serve(app, host="127.0.0.1", port=port, threads=16)
     except KeyboardInterrupt:
         print("\nShutting down.")
 

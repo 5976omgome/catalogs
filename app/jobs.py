@@ -20,7 +20,7 @@ from typing import Optional, List
 
 import pandas as pd
 
-from app import config, audit as audit_mod, excel
+from app import config, audit as audit_mod, excel, csv_export
 
 PARALLEL_ARTISTS = 4  # Artists processed simultaneously within one CSV
 
@@ -78,6 +78,7 @@ class JobItem:
     review: int = 0
     drop: int = 0
     output_path: Optional[Path] = None
+    started_at: Optional[float] = None  # epoch seconds — set at the running transition
     _stop: bool = field(default=False, repr=False)
     use_gemini: bool = field(default=True)   # Whether AI bridge runs for this item
     verbose: bool = field(default=True)       # Emit debug events (always on, UI toggle controls display)
@@ -95,6 +96,7 @@ class JobItem:
             "review": self.review,
             "drop": self.drop,
             "has_output": self.output_path is not None and self.output_path.exists(),
+            "started_at": self.started_at,
             "use_gemini": self.use_gemini,
             "verbose": self.verbose,
             "use_genius": self.use_genius,
@@ -159,9 +161,13 @@ class JobManager:
             return [i.to_dict() for i in self._items]
 
     def start(self):
-        """Start ALL queued items simultaneously — each on its own thread."""
+        """Start queued items — max 4 concurrent. Rest stay queued."""
         with self._lock:
-            queued = [i for i in self._items if i.status == "queued"]
+            running_count = sum(1 for i in self._items if i.status == "running")
+            available_slots = 4 - running_count
+            if available_slots <= 0:
+                return
+            queued = [i for i in self._items if i.status == "queued"][:available_slots]
         for item in queued:
             if item.id not in self._active_threads:
                 t = threading.Thread(target=self._run_item_safe, args=(item,), daemon=True)
@@ -202,10 +208,13 @@ class JobManager:
         finally:
             with self._lock:
                 self._active_threads.pop(item.id, None)
+            # Auto-start next queued item (max 4 concurrent)
+            self.start()
 
     def _run_item(self, item: JobItem):
         with self._lock:
             item.status = "running"
+            item.started_at = time.time()
         self._broadcast({"type": "item_started", "item": item.to_dict()})
 
         # Read CSV
@@ -300,20 +309,10 @@ class JobManager:
                 debug_info["evals_count"] = len(a.evaluations)
                 debug_info["steps"].append(f"audit: {int(elapsed*1000)}ms → {a.status}")
 
-            # Genius socials (optional)
+            # Genius socials — REMOVED from main audit loop.
+            # Genius rate limits are too strict for parallel processing.
+            # Use the separate "GENIUS RUN" button after main audit completes.
             socials = None
-            if item.use_genius:
-                from app.sources import genius
-                from app import config as _cfg
-                t1 = _time.time() if item.verbose else 0
-                if _cfg.genius_token():
-                    socials = genius.get_socials(artist)
-                    if item.verbose and debug_info is not None:
-                        ge = _time.time() - t1
-                        debug_info["steps"].append(f"genius: {int(ge*1000)}ms → {socials or 'no socials found'}")
-                else:
-                    if item.verbose and debug_info is not None:
-                        debug_info["steps"].append("genius: SKIPPED (no token)")
 
             return idx, a, socials, debug_info
 
@@ -455,9 +454,9 @@ class JobManager:
         try:
             out_dir = config.OUTPUT_DIR
             stem = Path(item.filename).stem
-            out_path = out_dir / f"{stem}Output.xlsx"
+            out_path = out_dir / f"{stem}Output.csv"
             processed_df = df.iloc[:item.processed].copy() if item.processed < len(df) else df
-            excel.write_xlsx(processed_df, out_path)
+            csv_export.write_csv(processed_df, out_path)
             with self._lock:
                 item.output_path = out_path
         except Exception as e:

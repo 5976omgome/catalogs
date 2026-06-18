@@ -54,7 +54,7 @@ def write_xlsx(df: pd.DataFrame, path: Path):
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Catalog Audit"
+    ws.title = "Virtual Scout"
 
     # Determine columns to write: original CSV columns + audit columns
     headers = list(df.columns)

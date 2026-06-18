@@ -1,0 +1,6 @@
+Artist,Status,Status Reason,iTunes Labels,Deezer Labels,Earliest Year,AI Note
+Major Star,DROP_MAJOR,Major-family token in Chartmetric label: 'Universal Music Group' (skipped API calls),,,2018,
+Licensed Act,DROP_MAJOR,Major-family token in Chartmetric label: 'under exclusive license to RCA' (skipped API calls),,,2019,
+Indie Self,KEEP,All sources show artist name or known distributor,Indie Self Records [variant],,2015,
+Third Party,DROP_THIRDPARTY,Third-party labels in: iTunes='Big Third Party Co'; Chartmetric='Some Random Label',Big Third Party Co [thirdparty],,2016,
+No Data,REVIEW,No data from any source,,,,
