@@ -8,6 +8,7 @@ import time
 from typing import List, Dict, Optional
 
 from app.sources._http import deezer_session as _s
+from app.sources._match import artist_matches
 from app import cache
 
 _BASE = "https://api.deezer.com"
@@ -47,12 +48,11 @@ def get_releases(artist: str, limit: int = 5) -> List[Dict]:
             r.raise_for_status()
             data = r.json().get("data", [])
 
-        # Filter by artist name match
-        an = _normalize(artist)
+        # Filter by artist name match (high-precision: exact / token-set
+        # equality — loose substring matching removed to stop namesake bleed).
         matched = []
         for track in data:
-            ta = _normalize(track.get("artist", {}).get("name", ""))
-            if an == ta or an in ta or ta in an:
+            if artist_matches(artist, track.get("artist", {}).get("name", "")):
                 matched.append(track)
             if len(matched) >= limit * 2:
                 break
@@ -112,17 +112,13 @@ def get_earliest_year(artist: str) -> Optional[int]:
         r.raise_for_status()
         data = r.json().get("data", [])
 
-        an = _normalize(artist)
         artist_id = None
         for item in data:
-            if _normalize(item.get("name", "")) == an:
+            if artist_matches(artist, item.get("name", "")):
                 artist_id = item.get("id")
                 break
-        if not artist_id and data:
-            # Check if first result is close enough
-            first_name = _normalize(data[0].get("name", ""))
-            if an in first_name or first_name in an:
-                artist_id = data[0].get("id")
+        # No loose fallback: an inexact Deezer artist is the wrong artist, and a
+        # wrong earliest-year is worse than none (year is informational only).
 
         if not artist_id:
             cache.put(cache_key, [])

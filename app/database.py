@@ -201,6 +201,10 @@ def init_db():
                     role="admin",
                     timezone="America/New_York",
                 )
+                # password_hash is NOT NULL — must be set BEFORE flush, otherwise
+                # a fresh database fails the INSERT and no admin is ever created
+                # (login becomes impossible on a clean install).
+                admin.set_password("admin")
                 session.add(admin)
                 session.flush()  # assign id
 

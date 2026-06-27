@@ -207,19 +207,27 @@ def _derive_status(audit: ArtistAudit):
     clean = [e for e in evals if e.classification in ("variant", "distributor")]
 
     if thirdparty:
-        # Special case: if iTunes shows VARIANT but Chartmetric is the ONLY
-        # thirdparty source, trust iTunes (P-line is ground truth)
+        # Special case: trust iTunes (P-line is ground truth) ONLY when it
+        # shows a positive self-released signal — the artist's OWN imprint
+        # (a name-variant). A mere distributor tag (e.g. DistroKid) is NOT
+        # strong enough to overrule a real Chartmetric third-party label;
+        # that combination is genuinely ambiguous and must go to REVIEW so an
+        # encumbered artist is never silently marked clean.
         itunes_clean = all(
             e.classification in ("variant", "distributor")
             for e in evals if e.source == "iTunes"
         )
+        itunes_has_variant = any(
+            e.source == "iTunes" and e.classification == "variant" for e in evals
+        )
         itunes_has_data = any(e.source == "iTunes" for e in evals)
         cm_only_thirdparty = all(e.source == "Chartmetric" for e in thirdparty)
 
-        if itunes_has_data and itunes_clean and cm_only_thirdparty:
+        if itunes_has_data and itunes_clean and itunes_has_variant and cm_only_thirdparty:
             audit.status = "KEEP"
             audit.status_reason = (
-                "iTunes confirms self-released. Chartmetric label is advisory."
+                "iTunes confirms self-released (artist's own imprint). "
+                "Chartmetric label is advisory."
             )
             audit.ai_note = "CM advisory override"
             return
