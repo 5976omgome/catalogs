@@ -55,7 +55,7 @@ function initCollapsible(){
   document.querySelectorAll(".card-head[data-collapse]").forEach(head=>{
     head.style.cursor="pointer";
     head.addEventListener("click",e=>{
-      if(e.target.closest("button:not(.collapse-btn)"))return;
+      if(e.target.closest(".ftoggle")||e.target.closest("#global-filters")||e.target.closest("button:not(.collapse-btn)")||e.target.closest("label")||e.target.closest("input"))return;
       const body=document.getElementById(head.dataset.collapse);
       if(!body)return;
       const card=head.closest(".card");
@@ -213,6 +213,7 @@ function addContactToFeed(ev){
     const unc=document.createElement("span");unc.className="badge uncertain";unc.textContent="UNCERTAIN";head.append(unc);
   }
   block.dataset.cat=cat;
+  if(!gFilters[cat])block.style.display="none";
   block.append(head);
 
   const rows=[

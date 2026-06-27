@@ -80,7 +80,8 @@ main{max-width:1440px;margin:0 auto;width:100%;padding:10px 16px;display:flex;fl
 /* ── CARDS ── */
 .card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;transition:border-color .2s var(--ease)}
 .card:hover{border-color:var(--border-hover)}
-.card.grow{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+#card-system{flex:0 0 auto}
+.card.grow{flex:1 1 0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .card.grow.is-collapsed{flex:0 0 auto}
 .card-head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer}
 .card-head h2{margin:0;font-size:9px;font-weight:700;letter-spacing:.16em;color:var(--accent)}
@@ -102,15 +103,21 @@ main{max-width:1440px;margin:0 auto;width:100%;padding:10px 16px;display:flex;fl
 .sysline{color:var(--text-quaternary);padding:1px 0}
 .sysline.ok{color:var(--accent)}.sysline.bad{color:var(--red)}.sysline.info{color:var(--frost)}.sysline.warn{color:var(--peach)}
 
-/* ── COLLAPSE/EXPAND ── grid-row transition */
-.sys-log-wrap,#feeds-body{display:grid;grid-template-rows:1fr;transition:grid-template-rows .3s var(--ease),opacity .25s var(--ease),padding .25s var(--ease)}
-.sys-log-wrap>*,#feeds-body>*{min-height:0;overflow:auto}
-.sys-log-wrap.collapsed,#feeds-body.collapsed{grid-template-rows:0fr;opacity:0;padding:0}
-.sys-log-wrap.collapsed>*,#feeds-body.collapsed>*{overflow:hidden}
+/* ── COLLAPSE/EXPAND ──
+   SYSTEM console animates via grid-template-rows (1fr -> 0fr). The FEED body is
+   a flex column (its inner grid scrolls), so it collapses via flex/height. */
+.sys-log-wrap{display:grid;grid-template-rows:1fr;transition:grid-template-rows .3s var(--ease),opacity .25s var(--ease),padding .25s var(--ease)}
+.sys-log-wrap>*{min-height:0;overflow:auto}
+.sys-log-wrap.collapsed{grid-template-rows:0fr;opacity:0;padding:0}
+.sys-log-wrap.collapsed>*{overflow:hidden}
 .collapse-btn{transition:transform .2s var(--ease)}
 
-/* ── FEEDS ── */
-#feeds-body{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+/* ── FEEDS ──
+   feeds body fills the grow card with a DEFINITE height (flex-basis:0) so the
+   live feed scrolls internally instead of inflating the card and crushing the
+   SYSTEM console above it. */
+#feeds-body{flex:1 1 0;min-height:0;display:flex;flex-direction:column;overflow:hidden;transition:opacity .2s var(--ease)}
+#feeds-body.collapsed{flex:0 0 0;min-height:0;height:0;padding:0;opacity:0;overflow:hidden}
 .feeds-grid{display:grid;gap:6px;padding:6px;flex:1;overflow-y:auto;overflow-x:hidden}
 .feeds-grid.cols-1{grid-template-columns:1fr}.feeds-grid.cols-2{grid-template-columns:1fr 1fr}.feeds-grid.cols-3{grid-template-columns:1fr 1fr 1fr}.feeds-grid.cols-4{grid-template-columns:1fr 1fr}
 .feed-panel{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg);overflow:hidden;min-height:0;transition:border-color .2s var(--ease)}
