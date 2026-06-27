@@ -17,6 +17,7 @@ import threading
 from typing import Optional, Dict, Union
 
 from app.sources._http import ai_session as _s
+from app.sources._match import artist_matches
 from app import config, cache
 
 _BASE = "https://api.genius.com"
@@ -145,28 +146,19 @@ def get_socials(artist: str) -> Optional[Union[Dict[str, str], _RateLimited]]:
             cache.put(cache_key, {})
             return None
 
-        # Find the artist ID from search results
-        an = _normalize(artist)
+        # Find the artist ID from search results (high-precision name match —
+        # loose substring + first-3-char fallback removed; they attached the
+        # wrong artist's socials to a row).
         artist_id = None
         artist_match_name = None
 
         for hit in hits:
             result = hit.get("result", {})
             primary = result.get("primary_artist", {})
-            if primary:
-                name = _normalize(primary.get("name", ""))
-                if name == an or an in name or name in an:
-                    artist_id = primary.get("id")
-                    artist_match_name = primary.get("name", "")
-                    break
-
-        if not artist_id:
-            first_hit = hits[0].get("result", {}).get("primary_artist", {})
-            if first_hit:
-                first_name = _normalize(first_hit.get("name", ""))
-                if len(an) >= 3 and (an[:3] in first_name or first_name[:3] in an):
-                    artist_id = first_hit.get("id")
-                    artist_match_name = first_hit.get("name", "")
+            if primary and artist_matches(artist, primary.get("name", "")):
+                artist_id = primary.get("id")
+                artist_match_name = primary.get("name", "")
+                break
 
         if not artist_id:
             cache.put(cache_key, {})

@@ -8,6 +8,7 @@ import time
 from typing import List, Dict, Optional
 
 from app.sources._http import itunes_session as _s
+from app.sources._match import artist_matches
 from app import cache
 
 _BASE = "https://itunes.apple.com"
@@ -40,26 +41,13 @@ def get_releases(artist: str, limit: int = 15) -> List[Dict]:
         r.raise_for_status()
         data = r.json().get("results", [])
 
-        # Filter to artist name match
-        an = _normalize(artist)
-        an_tokens = set(an.split()) if len(an) > 3 else {an}
-        matched = []
-        for item in data:
-            item_artist = _normalize(item.get("artistName", ""))
-            # Exact normalized match
-            if an == item_artist:
-                matched.append(item)
-                continue
-            # Substring containment (either direction)
-            if len(an) > 3 and (an in item_artist or item_artist in an):
-                matched.append(item)
-                continue
-            # Token overlap for multi-word names (all artist tokens must appear)
-            if len(an_tokens) >= 2:
-                ia_tokens = set(item_artist.split())
-                if an_tokens.issubset(ia_tokens) or ia_tokens.issubset(an_tokens):
-                    matched.append(item)
-                    continue
+        # Filter to artist name match (high-precision: exact / token-set equality;
+        # loose substring matching removed — it blended namesakes' P-lines into
+        # one verdict, e.g. "Mike" pulling Mike Posner, Mike WiLL Made-It, etc.)
+        matched = [
+            item for item in data
+            if artist_matches(artist, item.get("artistName", ""))
+        ]
 
         # Sort by release date descending (newest first)
         matched.sort(
@@ -115,8 +103,7 @@ def get_earliest_year(artist: str) -> Optional[int]:
         an = _normalize(artist)
         years = []
         for item in data:
-            item_artist = _normalize(item.get("artistName", ""))
-            if an == item_artist or an in item_artist or item_artist in an:
+            if artist_matches(artist, item.get("artistName", "")):
                 rd = item.get("releaseDate", "")
                 if rd:
                     m = re.match(r"(\d{4})", rd)
