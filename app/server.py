@@ -428,22 +428,24 @@ GENI_MAX_RL_RETRIES = 5   # max in-place retries per artist before giving up
 GENI_RL_COOLDOWN = 30     # seconds to wait between those retries
 
 
-def _genius_socials_resilient(artist_name, stop_check=None, on_cooldown=None):
-    """Fetch Genius socials, retrying the SAME artist through rate limits.
+def _genius_socials_resilient(artist_name, key=None, stop_check=None, on_cooldown=None):
+    """Fetch Genius socials for one artist using a specific key, retrying the
+    SAME artist (on the SAME key) through rate limits.
 
     ``genius.get_socials`` already applies escalating backoff internally and
     returns the RATE_LIMITED sentinel only when that is exhausted. Here we wait
     a longer cooldown and try the same artist again (up to GENI_MAX_RL_RETRIES)
-    so the artist is never left blank just because Genius was briefly throttling.
+    so the artist is never left blank just because a key was briefly throttling.
 
-    Returns (socials_or_None, gave_up_rate_limited). ``stop_check`` (callable)
-    lets a cooldown abort promptly when the user stops the run.
+    Returns (socials_or_None, gave_up_rate_limited). When gave_up is True the
+    caller can hand the artist to a DIFFERENT key (load-balanced failover).
+    ``stop_check`` (callable) lets a cooldown abort promptly on user stop.
     """
     from app.sources import genius
 
     attempts = 0
     while True:
-        socials = genius.get_socials(artist_name)
+        socials = genius.get_socials(artist_name, key=key)
         if socials is not genius.RATE_LIMITED:
             return socials, False
 
@@ -457,6 +459,43 @@ def _genius_socials_resilient(artist_name, stop_check=None, on_cooldown=None):
             if stop_check and stop_check():
                 return None, True
             time.sleep(1)
+
+
+def _gather_genius_keys():
+    """Return every configured Genius token for load-balancing.
+
+    Order: DB-stored slots 1-4 first (skipping any explicitly marked invalid),
+    then the legacy keys.json / GENIUS_TOKEN env value as a fallback. Duplicates
+    are removed while preserving order. Works for any count from 0 to 4+.
+    """
+    keys = []
+    try:
+        from app.database import Session, ApiKey
+        s = Session()
+        try:
+            rows = (s.query(ApiKey)
+                      .filter_by(service="genius")
+                      .order_by(ApiKey.slot.asc())
+                      .all())
+            for r in rows:
+                v = (r.key_value or "").strip()
+                if v and r.is_valid is not False:  # None (unknown) is allowed
+                    keys.append(v)
+        finally:
+            Session.remove()
+    except Exception as e:
+        print(f"[genitractor] DB key gather failed: {e}", flush=True)
+
+    legacy = config.genius_token()
+    if legacy:
+        keys.append(legacy)
+
+    seen, out = set(), []
+    for k in keys:
+        if k not in seen:
+            seen.add(k)
+            out.append(k)
+    return out
 
 GENI_UPLOAD_DIR = config.BASE_DIR / ".geni_uploads"
 GENI_UPLOAD_DIR.mkdir(exist_ok=True)
@@ -799,86 +838,155 @@ def _geni_worker(item):
             return
 
         artists = df[artist_col].dropna().astype(str).str.strip().tolist()
+        artists = [a for a in artists if a]  # drop blanks up front
+
+        keys = _gather_genius_keys()
+
         with _geni_lock:
             item["total"] = len(artists)
             item["_contacts"] = []
             item["found"] = 0
+            item["processed"] = 0
         _geni_broadcast({"type": "item_started", "item": _geni_item_dict(item)})
 
-        # Hold the cross-pass lock for the duration of the Genius-consuming loop.
-        with genius_pass_lock:
-            for i, artist_name in enumerate(artists):
-                if _geni_stop_flags.get(item["id"]):
-                    with _geni_lock:
-                        item["status"] = "stopped"
-                    _geni_broadcast({"type": "item_stopped", "item": _geni_item_dict(item)})
+        if not keys:
+            with _geni_lock:
+                item["status"] = "error"
+                item["error"] = "No Genius API key configured — add one in Settings."
+            _geni_broadcast({"type": "item_error", "item": _geni_item_dict(item)})
+            return
+
+        n_keys = len(keys)
+        per_key = (len(artists) + n_keys - 1) // n_keys if n_keys else 0  # ceil
+        # Announce total artist count + how the run is divided across keys.
+        _geni_broadcast({
+            "type": "run_plan",
+            "item_id": item["id"],
+            "total": len(artists),
+            "keys": n_keys,
+            "per_key": per_key,
+            "text": (f"{len(artists)} artists \u2192 {n_keys} Genius key"
+                     f"{'s' if n_keys != 1 else ''}, ~{per_key} each"),
+        })
+
+        # ---- Work-stealing pool: one thread per key, shared artist queue ----
+        # A shared queue (rather than fixed 250-row slices) splits work ~evenly
+        # across keys AND auto-rebalances: a throttled key processes fewer while
+        # healthy keys pick up the slack. Each key has its own 2 req/sec budget
+        # (per-key limiter in genius.py), so N keys give ~N x throughput. A
+        # persistently flagged key hands its artist to another key (capped
+        # requeue) so nothing is lost. Works for any key count from 1 to 4+.
+        from collections import deque
+        pending = deque(range(len(artists)))
+        requeues = {}
+        MAX_REQUEUE = max(0, n_keys - 1)  # an artist may try every key once
+        work_lock = _geni_threading.Lock()
+
+        def _stopped():
+            return bool(_geni_stop_flags.get(item["id"]))
+
+        def _claim():
+            with work_lock:
+                return pending.popleft() if pending else None
+
+        def _requeue(idx):
+            with work_lock:
+                requeues[idx] = requeues.get(idx, 0) + 1
+                if requeues[idx] <= MAX_REQUEUE:
+                    pending.append(idx)
+                    return True
+                return False
+
+        def _record(artist_name, socials):
+            contact = {"artist": artist_name, "instagram": "", "facebook": "", "match_confidence": ""}
+            has_social = False
+            if socials:
+                contact["instagram"] = socials.get("instagram", "")
+                contact["facebook"] = socials.get("facebook", "")
+                contact["match_confidence"] = socials.get("match_confidence", "")
+                has_social = bool(contact["instagram"] or contact["facebook"])
+            with _geni_lock:
+                item["_contacts"].append(contact)
+                item["processed"] = item.get("processed", 0) + 1
+                if has_social:
+                    item["found"] = item.get("found", 0) + 1
+                processed, total = item["processed"], item["total"]
+            _geni_broadcast({
+                "type": "contact_done",
+                "item_id": item["id"],
+                "artist": artist_name,
+                "socials": {
+                    "instagram": contact["instagram"],
+                    "facebook": contact["facebook"],
+                    "match_confidence": contact["match_confidence"],
+                },
+                "processed": processed,
+                "total": total,
+            })
+
+        def _key_worker(key, slot_no):
+            while not _stopped():
+                idx = _claim()
+                if idx is None:
                     return
-
-                if not artist_name:
-                    with _geni_lock:
-                        item["processed"] = i + 1
-                    continue
-
-                # Periodic pause for large runs (Concern D)
-                if i > 0 and GENI_PAUSE_EVERY > 0 and i % GENI_PAUSE_EVERY == 0:
-                    time.sleep(GENI_PAUSE_SECONDS)
-
-                # Genius lookup — network I/O OUTSIDE the lock. Retries the same
-                # artist through rate limits so coverage is complete in ONE pass
-                # (Bug fix: no more "re-run finds extra contacts").
-                socials, rate_limited = _genius_socials_resilient(
-                    artist_name,
-                    stop_check=lambda: bool(_geni_stop_flags.get(item["id"])),
-                    on_cooldown=lambda attempt: _geni_broadcast({
+                artist_name = artists[idx]
+                socials, gave_up = _genius_socials_resilient(
+                    artist_name, key=key,
+                    stop_check=_stopped,
+                    on_cooldown=lambda attempt, sn=slot_no, an=artist_name: _geni_broadcast({
                         "type": "rate_limit_cooldown",
                         "item_id": item["id"],
-                        "artist": artist_name,
+                        "artist": an,
+                        "slot": sn,
                         "attempt": attempt,
                         "max_attempts": GENI_MAX_RL_RETRIES,
                         "cooldown": GENI_RL_COOLDOWN,
                     }),
                 )
+                if gave_up and not _stopped():
+                    # This key has been throttled past the whole backoff schedule
+                    # — it won't recover soon. Hand the artist back for a healthy
+                    # key and RETIRE this worker so a flagged key can't monopolize
+                    # the queue. If every key has already tried it, record empty.
+                    if _requeue(idx):
+                        _geni_broadcast({
+                            "type": "key_failover",
+                            "item_id": item["id"],
+                            "artist": artist_name,
+                            "slot": slot_no,
+                        })
+                    else:
+                        _record(artist_name, None)
+                    return
+                _record(artist_name, socials)
 
-                contact = {
-                    "artist": artist_name,
-                    "instagram": "",
-                    "facebook": "",
-                    "match_confidence": "",
-                }
-                has_social = False
+        # Hold the cross-pass lock for the whole Genius-consuming run.
+        with genius_pass_lock:
+            threads = []
+            for slot_no, key in enumerate(keys, start=1):
+                t = _geni_threading.Thread(
+                    target=_key_worker, args=(key, slot_no), daemon=True)
+                threads.append(t)
+                t.start()
+            for t in threads:
+                t.join()
 
-                if socials:
-                    contact["instagram"] = socials.get("instagram", "")
-                    contact["facebook"] = socials.get("facebook", "")
-                    contact["match_confidence"] = socials.get("match_confidence", "")
-                    has_social = bool(socials.get("instagram") or socials.get("facebook"))
+            # Drain any items still pending (e.g. all keys retired after being
+            # throttled) so the run always completes with processed == total.
+            if not _stopped():
+                while True:
+                    idx = _claim()
+                    if idx is None:
+                        break
+                    _record(artists[idx], None)
 
-                # Lock only to append the contact and bump counters (short critical section).
-                with _geni_lock:
-                    item["_contacts"].append(contact)
-                    item["processed"] = i + 1
-                    if has_social:
-                        item["found"] = item.get("found", 0) + 1
-                    processed = item["processed"]
-                    total = item["total"]
-
-                _geni_broadcast({
-                    "type": "contact_done",
-                    "item_id": item["id"],
-                    "artist": artist_name,
-                    "socials": {
-                        "instagram": contact["instagram"],
-                        "facebook": contact["facebook"],
-                        "match_confidence": contact["match_confidence"],
-                    },
-                    "processed": processed,
-                    "total": total,
-                    "rate_limited": rate_limited,
-                })
-
+        stopped = _stopped()
         with _geni_lock:
-            item["status"] = "done"
-        _geni_broadcast({"type": "item_done", "item": _geni_item_dict(item)})
+            item["status"] = "stopped" if stopped else "done"
+        _geni_broadcast({
+            "type": "item_stopped" if stopped else "item_done",
+            "item": _geni_item_dict(item),
+        })
 
         # Auto-start next queued
         with _geni_lock:

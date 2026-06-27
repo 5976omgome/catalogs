@@ -26,13 +26,25 @@ from app import config, cache
 
 _BASE = "https://api.genius.com"
 
-# Global rate limiter — 2 req/sec is the safe max for Genius free tier
-_genius_lock = threading.Lock()
-_last_request_time = 0.0
-_MIN_INTERVAL = 0.5  # 2 requests/second — tested safe, no 429s
+# Per-key rate limiting — each Genius token gets its OWN 2 req/sec budget, so
+# N keys deliver ~N x throughput when Genitractor load-balances across them.
+_MIN_INTERVAL = 0.5  # 2 requests/second per key — tested safe, no 429s
 
 # Escalating backoff schedule (seconds) applied on rate-limit responses.
 _BACKOFF_SCHEDULE = [2, 4, 8, 16, 32]
+
+_key_state_lock = threading.Lock()
+_key_states = {}  # token (or "__global__") -> {"lock": Lock, "last": float}
+
+
+def _state_for(key):
+    k = key or "__global__"
+    with _key_state_lock:
+        st = _key_states.get(k)
+        if st is None:
+            st = {"lock": threading.Lock(), "last": 0.0}
+            _key_states[k] = st
+        return st
 
 
 class _RateLimited:
@@ -47,16 +59,16 @@ class _RateLimited:
 RATE_LIMITED = _RateLimited()
 
 
-def _rate_limit():
-    """Non-blocking rate limiter — computes wait, releases lock, then sleeps."""
-    global _last_request_time
+def _rate_limit(key=None):
+    """Per-key non-blocking rate limiter — paces each token independently."""
+    st = _state_for(key)
     wait = 0.0
-    with _genius_lock:
+    with st["lock"]:
         now = time.time()
-        elapsed = now - _last_request_time
+        elapsed = now - st["last"]
         if elapsed < _MIN_INTERVAL:
             wait = _MIN_INTERVAL - elapsed
-        _last_request_time = now + wait
+        st["last"] = now + wait
     if wait > 0:
         time.sleep(wait)
 
@@ -79,15 +91,15 @@ def _is_rate_limited(r) -> bool:
     return False
 
 
-def _request_with_backoff(url, params, headers, timeout=10):
-    """GET with rate limiting + escalating backoff on rate-limit responses.
+def _request_with_backoff(url, params, headers, key=None, timeout=10):
+    """GET with per-key rate limiting + escalating backoff on rate-limit responses.
 
     Returns the ``requests`` response on success/non-rate-limit status, or the
     typed ``RATE_LIMITED`` sentinel if the backoff schedule is exhausted.
     """
     attempt = 0
     while True:
-        _rate_limit()
+        _rate_limit(key)
         r = _s.get(url, params=params, headers=headers, timeout=timeout)
         # 401 is an auth problem, not a rate limit — let the caller handle it.
         if r.status_code == 401:
@@ -191,19 +203,24 @@ def _cache_key(artist: str) -> str:
 # Main API — balanced artist matching with confidence scoring
 # ---------------------------------------------------------------------------
 
-def get_socials(artist: str) -> Optional[Union[Dict[str, str], _RateLimited]]:
+def get_socials(artist: str, key: Optional[str] = None) -> Optional[Union[Dict[str, str], _RateLimited]]:
     """Fetch Instagram & Facebook for an artist from Genius.
 
     Uses balanced matching: examines up to 10 search hits, picks Exact
     (normalized name equality) or Uncertain (substring/prefix) match.
     Rejects loose guesses entirely — no blind first-hit fallback.
 
+    Args:
+        artist: artist name to look up
+        key: a specific Genius token to use (for multi-key load-balancing).
+             Falls back to the configured/legacy token when omitted.
+
     Returns:
         dict: {"instagram": url, "facebook": url, "match_confidence": "Exact"|"Uncertain"}
         None: no acceptable match found, or no API key configured
         RATE_LIMITED: Genius rate-limited us past the backoff schedule
     """
-    key = config.genius_token()
+    key = key or config.genius_token()
     if not key:
         return None
 
@@ -220,6 +237,7 @@ def get_socials(artist: str) -> Optional[Union[Dict[str, str], _RateLimited]]:
             f"{_BASE}/search",
             params={"q": artist, "per_page": 10},
             headers=headers,
+            key=key,
             timeout=10,
         )
         if r is RATE_LIMITED:
@@ -280,6 +298,7 @@ def get_socials(artist: str) -> Optional[Union[Dict[str, str], _RateLimited]]:
             f"{_BASE}/artists/{artist_id}",
             params={"text_format": "plain"},
             headers=headers,
+            key=key,
             timeout=10,
         )
         if r2 is RATE_LIMITED:
