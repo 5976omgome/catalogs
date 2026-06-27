@@ -731,7 +731,10 @@ def geni_export():
             # Only export from items that are not actively being written.
             if item["status"] == "running":
                 continue
-            contacts = list(item.get("_contacts", []))
+            # Sort by original row index so the CSV is always in input order,
+            # regardless of the order parallel key-workers finished in.
+            contacts = sorted(item.get("_contacts", []),
+                              key=lambda c: c.get("_idx", 1 << 30))
             all_contacts.extend(contacts)
 
     if not all_contacts:
@@ -897,8 +900,9 @@ def _geni_worker(item):
                     return True
                 return False
 
-        def _record(artist_name, socials):
-            contact = {"artist": artist_name, "instagram": "", "facebook": "", "match_confidence": ""}
+        def _record(idx, artist_name, socials):
+            contact = {"artist": artist_name, "instagram": "", "facebook": "",
+                       "match_confidence": "", "_idx": idx}
             has_social = False
             if socials:
                 contact["instagram"] = socials.get("instagram", "")
@@ -956,9 +960,9 @@ def _geni_worker(item):
                             "slot": slot_no,
                         })
                     else:
-                        _record(artist_name, None)
+                        _record(idx, artist_name, None)
                     return
-                _record(artist_name, socials)
+                _record(idx, artist_name, socials)
 
         # Hold the cross-pass lock for the whole Genius-consuming run.
         with genius_pass_lock:
@@ -978,7 +982,7 @@ def _geni_worker(item):
                     idx = _claim()
                     if idx is None:
                         break
-                    _record(artists[idx], None)
+                    _record(idx, artists[idx], None)
 
         stopped = _stopped()
         with _geni_lock:
