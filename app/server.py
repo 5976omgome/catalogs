@@ -417,6 +417,47 @@ _geni_stop_flags = {}
 GENI_PAUSE_EVERY = 250    # pause after this many artists
 GENI_PAUSE_SECONDS = 5    # sleep this many seconds at each pause
 
+# Rate-limit recovery (Bug fix): when Genius rate-limits us past
+# get_socials()'s own escalating backoff, RETRY THE SAME ARTIST after a cooldown
+# instead of recording an empty result and moving on. The old behavior left
+# rate-limited artists blank — and because RATE_LIMITED is never cached, a
+# re-run "recovered" them, which is exactly why re-running a file yielded MORE
+# contacts the second time. Retrying in-place makes a single pass complete and
+# deterministic.
+GENI_MAX_RL_RETRIES = 5   # max in-place retries per artist before giving up
+GENI_RL_COOLDOWN = 30     # seconds to wait between those retries
+
+
+def _genius_socials_resilient(artist_name, stop_check=None, on_cooldown=None):
+    """Fetch Genius socials, retrying the SAME artist through rate limits.
+
+    ``genius.get_socials`` already applies escalating backoff internally and
+    returns the RATE_LIMITED sentinel only when that is exhausted. Here we wait
+    a longer cooldown and try the same artist again (up to GENI_MAX_RL_RETRIES)
+    so the artist is never left blank just because Genius was briefly throttling.
+
+    Returns (socials_or_None, gave_up_rate_limited). ``stop_check`` (callable)
+    lets a cooldown abort promptly when the user stops the run.
+    """
+    from app.sources import genius
+
+    attempts = 0
+    while True:
+        socials = genius.get_socials(artist_name)
+        if socials is not genius.RATE_LIMITED:
+            return socials, False
+
+        attempts += 1
+        if attempts > GENI_MAX_RL_RETRIES:
+            return None, True
+        if on_cooldown:
+            on_cooldown(attempts)
+        # Cooperative cooldown — wake every second to honor a stop request.
+        for _ in range(GENI_RL_COOLDOWN):
+            if stop_check and stop_check():
+                return None, True
+            time.sleep(1)
+
 GENI_UPLOAD_DIR = config.BASE_DIR / ".geni_uploads"
 GENI_UPLOAD_DIR.mkdir(exist_ok=True)
 GENI_OUTPUT_DIR = config.BASE_DIR / "GeniOutputs"
@@ -782,11 +823,21 @@ def _geni_worker(item):
                 if i > 0 and GENI_PAUSE_EVERY > 0 and i % GENI_PAUSE_EVERY == 0:
                     time.sleep(GENI_PAUSE_SECONDS)
 
-                # Genius lookup — network I/O OUTSIDE the lock.
-                socials = genius.get_socials(artist_name)
-                rate_limited = socials is genius.RATE_LIMITED
-                if rate_limited:
-                    socials = None  # backoff already applied inside get_socials
+                # Genius lookup — network I/O OUTSIDE the lock. Retries the same
+                # artist through rate limits so coverage is complete in ONE pass
+                # (Bug fix: no more "re-run finds extra contacts").
+                socials, rate_limited = _genius_socials_resilient(
+                    artist_name,
+                    stop_check=lambda: bool(_geni_stop_flags.get(item["id"])),
+                    on_cooldown=lambda attempt: _geni_broadcast({
+                        "type": "rate_limit_cooldown",
+                        "item_id": item["id"],
+                        "artist": artist_name,
+                        "attempt": attempt,
+                        "max_attempts": GENI_MAX_RL_RETRIES,
+                        "cooldown": GENI_RL_COOLDOWN,
+                    }),
+                )
 
                 contact = {
                     "artist": artist_name,

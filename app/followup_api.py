@@ -201,35 +201,32 @@ def _followup_worker(week_filter):
             except Exception:
                 pass
 
-        # Determine which weeks to process
-        weeks_to_process = WEEK_LABELS
+        # Discover every "*/Follow Ups" label dynamically. The old code only
+        # scanned a hardcoded WEEK_LABELS list, so any week not in that list
+        # (e.g. every week after 06/07) was silently never followed up. Match
+        # the sublabel exactly so unrelated labels aren't swept in.
+        followup_labels = [
+            (name, lid) for name, lid in all_labels.items()
+            if name == FOLLOWUP_SUBLABEL or name.endswith(f"/{FOLLOWUP_SUBLABEL}")
+        ]
         if week_filter:
-            weeks_to_process = [w for w in WEEK_LABELS if week_filter in w]
+            followup_labels = [(n, i) for (n, i) in followup_labels if week_filter in n]
+        followup_labels.sort(key=lambda x: x[0])
+
+        if not followup_labels:
+            _broadcast({"type": "sys", "text": "No '*/Follow Ups' labels found in Gmail.", "cls": "warn"})
 
         total_threads = 0
-        for week in weeks_to_process:
-            full_label = f"{week}/{FOLLOWUP_SUBLABEL}"
-            label_id = all_labels.get(full_label)
-            if not label_id:
-                _broadcast({"type": "sys", "text": f"Label not found: {full_label}", "cls": "warn"})
-                continue
-
-            # Get threads with this label
+        for full_label, label_id in followup_labels:
             threads_result = service.users().threads().list(userId='me', labelIds=[label_id]).execute()
-            threads = threads_result.get('threads', [])
-            total_threads += len(threads)
+            total_threads += len(threads_result.get('threads', []))
 
         _followup_stats["total"] = total_threads
         _broadcast({"type": "total", "count": total_threads})
 
-        for week in weeks_to_process:
+        for full_label, label_id in followup_labels:
             if _followup_stop:
                 break
-
-            full_label = f"{week}/{FOLLOWUP_SUBLABEL}"
-            label_id = all_labels.get(full_label)
-            if not label_id:
-                continue
 
             _broadcast({"type": "sys", "text": f"Processing: {full_label}", "cls": "info"})
 
@@ -284,7 +281,8 @@ def _followup_worker(week_filter):
 
                     _followup_stats["created"] += 1
                     existing_draft_threads.add(thread_id)
-                    _broadcast({"type": "drafted", "artist": artist_name, "week": week.split('/')[-1]})
+                    _broadcast({"type": "drafted", "artist": artist_name,
+                                "week": full_label.rsplit('/', 1)[0].split('/')[-1]})
 
                     time.sleep(0.3)
 
