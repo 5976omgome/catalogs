@@ -111,6 +111,10 @@ export default function Sidebar() {
           <LogOut size={16} />
           <span className="sb-label">Log Out</span>
         </button>
+        <div className="sb-version">
+          <span className="sb-version-dot" />
+          <span className="sb-version-label">VERSION 6.0</span>
+        </div>
       </div>
 
       {/* Floating tooltip — fixed position so it never clips or shifts layout */}

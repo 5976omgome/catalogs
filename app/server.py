@@ -1037,7 +1037,7 @@ def api_feedback():
         f"category: {category}",
         f"date: {now.isoformat()}",
         f"platform: IGNITE VIRTUAL SCOUT",
-        f"version: v5.0.0",
+        f"version: v6.0.0",
         f"ai_enhanced: {str(ai_enhanced).lower()}",
         "---",
         "",

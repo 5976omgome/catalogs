@@ -65,7 +65,7 @@ export default function Login() {
           </button>
         </form>
         <div className="login-footer">
-          <span>IGNITE THE LABEL &middot; Q2 2026</span>
+          <span>IGNITE THE LABEL &middot; VERSION 6.0 &middot; Q2 2026</span>
         </div>
       </div>
     </div>

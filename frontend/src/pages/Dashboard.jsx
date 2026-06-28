@@ -18,7 +18,7 @@ export default function Dashboard() {
         <Widget icon={<Users size={18} />} label="Total Artists" value={stats.total_processed.toLocaleString()} color="var(--accent)" />
         <Widget icon={<Percent size={18} />} label="Yield Rate" value={`${stats.total_yield}%`} sub={`${stats.emails_sent} / ${stats.total_processed}`} color="var(--frost)" />
         <Widget icon={<Mail size={18} />} label="Emails Sent" value={stats.emails_sent.toLocaleString()} sub={`${stats.not_sent} remaining`} color="var(--peach)" />
-        <Widget icon={<TrendingUp size={18} />} label="Moving Forward" value={stats.moving_forward.toLocaleString()} sub={`${stats.batches} weeks`} color="var(--green)" />
+        <Widget icon={<TrendingUp size={18} />} label="Moving Forward" value={stats.moving_forward.toLocaleString()} sub={`${stats.batches} batches`} color="var(--green)" />
       </div>
 
       <div className="dash-mission">

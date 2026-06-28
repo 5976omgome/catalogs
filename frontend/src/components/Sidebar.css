@@ -36,8 +36,6 @@
 .sidebar.expanded .sb-logo-img{opacity:1}
 .shell.theme-genitract .sb-logo-img{filter:brightness(0) invert(.9) sepia(.8) saturate(3) hue-rotate(15deg)}
 .shell.theme-artists .sb-logo-img{filter:brightness(0) invert(.8) sepia(.5) saturate(2) hue-rotate(290deg)}
-.shell.theme-drafter .sb-logo-img{filter:brightness(0) invert(.9) sepia(.5) saturate(2) hue-rotate(90deg)}
-.shell.theme-followup .sb-logo-img{filter:brightness(0) invert(.9) sepia(.6) saturate(2) hue-rotate(30deg)}
 .shell.theme-chartporter .sb-logo-img{filter:brightness(0) invert(.9) sepia(.4) saturate(1.5) hue-rotate(180deg)}
 
 .sb-brand-content{
@@ -126,3 +124,24 @@
 }
 .sb-logout{color:var(--text-tertiary);font-size:10px;transition:all .15s var(--ease)}
 .sb-logout:hover{color:#e87f8f;background:rgba(232,127,143,.06);transform:translateX(2px)}
+
+/* ── Version badge ──
+   Collapsed: just the accent dot, centered. Expanded: dot + label. */
+.sb-version{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 12px 2px;height:18px;overflow:hidden;
+}
+.sb-version-dot{
+  width:6px;height:6px;flex-shrink:0;border-radius:50%;
+  background:var(--theme-accent);
+  box-shadow:0 0 6px var(--theme-accent);
+  opacity:.7;
+}
+.sb-version-label{
+  font-size:7px;font-weight:700;letter-spacing:.2em;
+  color:var(--text-tertiary);text-transform:uppercase;white-space:nowrap;
+  opacity:0;transform:translateX(-6px);
+  transition:opacity .15s .06s var(--ease),transform .15s .06s var(--ease);
+}
+.sidebar.expanded .sb-version-label{opacity:1;transform:translateX(0)}
+.sidebar.collapsed .sb-version{padding:6px 10px 2px;justify-content:center}
