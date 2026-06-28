@@ -4,11 +4,11 @@ No auth required. Free. Returns the actual legal phonographic copyright owner.
 Pulls up to 15 most recent releases per artist.
 """
 import re
-import time
 from typing import List, Dict, Optional
 
 from app.sources._http import itunes_session as _s
 from app.sources._match import artist_matches
+from app.sources import _ratelimit as _rl
 from app import cache
 
 _BASE = "https://itunes.apple.com"
@@ -32,6 +32,7 @@ def get_releases(artist: str, limit: int = 15) -> List[Dict]:
     results = []
     try:
         # Search for the artist
+        _rl.itunes_limiter.acquire()
         r = _s.get(f"{_BASE}/search", params={
             "term": artist,
             "entity": "album",
@@ -91,6 +92,7 @@ def get_earliest_year(artist: str) -> Optional[int]:
         return cached[0] if cached else None
 
     try:
+        _rl.itunes_limiter.acquire()
         r = _s.get(f"{_BASE}/search", params={
             "term": artist,
             "entity": "album",

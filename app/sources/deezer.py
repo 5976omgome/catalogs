@@ -4,11 +4,11 @@ No auth required. Free. 50 requests / 5 seconds rate limit.
 Uses shared Session for FD safety.
 """
 import re
-import time
 from typing import List, Dict, Optional
 
 from app.sources._http import deezer_session as _s
 from app.sources._match import artist_matches
+from app.sources import _ratelimit as _rl
 from app import cache
 
 _BASE = "https://api.deezer.com"
@@ -37,6 +37,7 @@ def get_releases(artist: str, limit: int = 5) -> List[Dict]:
             "order": "TRACK_DESC",  # Newest first
             "strict": "on",
         }
+        _rl.deezer_limiter.acquire()
         r = _s.get(f"{_BASE}/search", params=params, timeout=10)
         r.raise_for_status()
         data = r.json().get("data", [])
@@ -44,6 +45,7 @@ def get_releases(artist: str, limit: int = 5) -> List[Dict]:
         # If strict returns nothing, retry without
         if not data:
             params.pop("strict")
+            _rl.deezer_limiter.acquire()
             r = _s.get(f"{_BASE}/search", params=params, timeout=10)
             r.raise_for_status()
             data = r.json().get("data", [])
@@ -67,7 +69,7 @@ def get_releases(artist: str, limit: int = 5) -> List[Dict]:
                 continue
             seen_albums.add(album_id)
 
-            time.sleep(0.12)  # Rate limit
+            _rl.deezer_limiter.acquire()  # Global per-IP pacing (replaces per-thread sleep)
             try:
                 ra = _s.get(f"{_BASE}/album/{album_id}", timeout=10)
                 ra.raise_for_status()
@@ -106,6 +108,7 @@ def get_earliest_year(artist: str) -> Optional[int]:
 
     try:
         # Search for artist ID first
+        _rl.deezer_limiter.acquire()
         r = _s.get(f"{_BASE}/search/artist", params={
             "q": artist, "limit": 5, "strict": "on",
         }, timeout=10)
@@ -124,7 +127,7 @@ def get_earliest_year(artist: str) -> Optional[int]:
             cache.put(cache_key, [])
             return None
 
-        time.sleep(0.12)
+        _rl.deezer_limiter.acquire()
         # Get albums sorted by release date ascending
         r2 = _s.get(f"{_BASE}/artist/{artist_id}/albums", params={
             "limit": 50, "order": "RELEASE_DATE_ASC",
