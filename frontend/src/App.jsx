@@ -4,6 +4,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Settings from './pages/Settings'
 import Artists from './pages/Artists'
+import CrossCheck from './pages/CrossCheck'
 import Chartporter from './pages/Chartporter'
 import Genitractor from './pages/Genitractor'
 import Shell from './components/Shell'
@@ -29,6 +30,7 @@ function AppRoutes() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="settings" element={<Settings />} />
         <Route path="artists" element={<Artists />} />
+        <Route path="crosscheck" element={<CrossCheck />} />
         <Route path="tools/chartporter" element={<Chartporter />} />
         <Route path="tools/genitact" element={<Genitractor />} />
       </Route>

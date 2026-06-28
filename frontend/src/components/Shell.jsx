@@ -6,6 +6,7 @@ const ROUTE_THEMES = {
   '/dashboard': 'theme-dashboard',
   '/settings': 'theme-settings',
   '/artists': 'theme-artists',
+  '/crosscheck': 'theme-crosscheck',
   '/tools/chartporter': 'theme-chartporter',
   '/tools/genitact': 'theme-genitract',
 }

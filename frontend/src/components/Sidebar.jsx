@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Settings, Users, BarChart3, Zap, LogOut } from 'lucide-react'
+import { LayoutDashboard, Settings, Users, BarChart3, Zap, LogOut, CopyCheck } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import './Sidebar.css'
 
@@ -8,6 +8,7 @@ const SUBTITLES = {
   '/dashboard': 'CATALOG SCOUTING',
   '/settings': 'CONFIGURATION',
   '/artists': 'ARTIST LIBRARY',
+  '/crosscheck': 'LIBRARY CROSS-CHECK',
   '/tools/chartporter': 'CATALOG INTELLIGENCE',
   '/tools/genitact': 'CONTACT EXTRACTION',
 }
@@ -16,6 +17,7 @@ const TITLES = {
   '/dashboard': 'IGNITE: DASHBOARD',
   '/settings': 'IGNITE: SETTINGS',
   '/artists': 'IGNITE: ARTISTS',
+  '/crosscheck': 'IGNITE: CROSS CHECK',
   '/tools/chartporter': 'IGNITE: CHARTPORTER',
   '/tools/genitact': 'IGNITE: GENITACT',
 }
@@ -83,6 +85,10 @@ export default function Sidebar() {
         <NavLink to="/artists" className="sb-item">
           <Users size={16} />
           <span className="sb-label">Artists</span>
+        </NavLink>
+        <NavLink to="/crosscheck" className="sb-item">
+          <CopyCheck size={16} />
+          <span className="sb-label">Cross Check</span>
         </NavLink>
 
         <div className="sb-divider">

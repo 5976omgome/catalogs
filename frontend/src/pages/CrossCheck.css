@@ -1,0 +1,128 @@
+/* ============================================================
+   CROSS CHECK — duplicate scan page
+   Reuses the shared design tokens + animation keyframes. Its
+   colour identity comes entirely from --theme-accent, which
+   Shell sets to violet for the .theme-crosscheck route, so the
+   page stays flush with the rest of the interface while reading
+   as its own distinct space.
+   ============================================================ */
+
+.cc-page{
+  height:100%;overflow-y:auto;
+  padding:20px 22px;display:flex;flex-direction:column;gap:16px;
+  animation:fadeUp .34s var(--ease) both;
+}
+
+/* ── Header ── */
+.cc-header{display:flex;align-items:center;gap:12px}
+.cc-header-icon{
+  width:38px;height:38px;flex-shrink:0;border-radius:10px;
+  display:grid;place-items:center;
+  color:var(--theme-accent);
+  background:var(--theme-accent-soft);
+  border:1px solid var(--theme-accent-border);
+  box-shadow:0 0 16px var(--theme-glow);
+  animation:popIn .3s var(--ease) both;
+}
+.cc-title{margin:0;font-size:15px;font-weight:800;letter-spacing:.14em;color:var(--snow)}
+.cc-sub{margin:3px 0 0;font-size:11px;color:var(--text-tertiary);letter-spacing:.02em}
+
+/* ── Drop zone ── */
+.cc-drop{
+  flex:1;min-height:300px;
+  border:1.5px dashed var(--border-hover);border-radius:var(--r-lg);
+  display:grid;place-items:center;cursor:pointer;
+  background:radial-gradient(circle at 50% 38%, var(--theme-accent-soft), transparent 70%);
+  transition:border-color .25s var(--ease),transform .25s var(--ease),box-shadow .25s var(--ease);
+  animation:scaleIn .3s var(--ease) both;
+}
+.cc-drop:hover{border-color:var(--theme-accent-border);transform:translateY(-1px)}
+.cc-drop.dragging{
+  border-color:var(--theme-accent);
+  background:var(--theme-accent-soft);
+  box-shadow:inset 0 0 40px var(--theme-glow);
+}
+.cc-drop.loading{cursor:wait}
+.cc-drop-inner{display:flex;flex-direction:column;align-items:center;gap:11px;text-align:center;padding:34px}
+.cc-drop-ic{color:var(--theme-accent);opacity:.85;animation:subtleBreathe 4s var(--ease) infinite}
+.cc-drop-title{font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--text-secondary)}
+.cc-drop-hint{font-size:10px;color:var(--text-quaternary);letter-spacing:.04em}
+
+.cc-spinner{
+  width:34px;height:34px;border-radius:50%;
+  border:2.5px solid var(--theme-accent-soft);border-top-color:var(--theme-accent);
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Error ── */
+.cc-error{
+  display:flex;align-items:center;gap:7px;
+  padding:10px 13px;border-radius:var(--r-sm);
+  background:var(--red-soft);border:1px solid var(--red-border);color:var(--red);
+  font-size:11px;font-weight:600;animation:slideDown .2s var(--ease);
+}
+
+/* ── Results ── */
+.cc-results{display:flex;flex-direction:column;gap:12px;min-height:0;flex:1;animation:fadeUp .3s var(--ease) both}
+
+.cc-summary{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px}
+.cc-stat{
+  display:flex;flex-direction:column;gap:2px;align-items:flex-start;
+  padding:10px 14px;min-width:96px;border-radius:var(--r-md);
+  background:var(--bg-card);border:1px solid var(--border);
+  animation:popIn .3s var(--ease) both;
+}
+.cc-stat-ic{color:var(--text-tertiary);margin-bottom:3px;display:flex}
+.cc-stat-val{font-size:20px;font-weight:800;color:var(--snow);font-variant-numeric:tabular-nums;line-height:1}
+.cc-stat-lbl{font-size:8px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--text-tertiary)}
+.cc-stat-accent{border-color:var(--theme-accent-border);background:var(--theme-accent-soft)}
+.cc-stat-accent .cc-stat-val,.cc-stat-accent .cc-stat-ic{color:var(--theme-accent)}
+.cc-stat-warn .cc-stat-val,.cc-stat-warn .cc-stat-ic{color:var(--yellow)}
+.cc-stat-ok .cc-stat-val,.cc-stat-ok .cc-stat-ic{color:var(--teal)}
+
+.cc-actions{display:flex;gap:7px;margin-left:auto;align-items:center}
+.cc-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 14px;border-radius:var(--r-sm);
+  font-size:10px;font-weight:700;letter-spacing:.06em;
+  background:var(--bg-surface);border:1px solid var(--border);color:var(--text);
+  cursor:pointer;transition:all .15s var(--ease);
+}
+.cc-btn:hover{border-color:var(--border-hover);transform:translateY(-.5px);box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.cc-btn:active{transform:scale(.97)}
+.cc-btn.primary{background:var(--theme-accent);color:#0c0e12;border-color:var(--theme-accent);box-shadow:0 2px 10px var(--theme-glow)}
+.cc-btn.primary:hover{filter:brightness(1.08);transform:translateY(-1px)}
+
+.cc-meta{font-size:10px;color:var(--text-tertiary)}
+.cc-meta b{color:var(--text-secondary);font-weight:700}
+
+/* ── Preview table ── */
+.cc-table-wrap{
+  flex:1;min-height:160px;overflow:auto;
+  border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg-card);
+}
+.cc-table{border-collapse:collapse;width:100%;font-size:11px}
+.cc-table th{
+  position:sticky;top:0;z-index:2;text-align:left;white-space:nowrap;
+  padding:8px 11px;background:var(--bg-elevated);
+  font-size:8px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-tertiary);
+  border-bottom:1px solid var(--border);
+}
+.cc-table th.cc-flag-col{color:var(--theme-accent)}
+.cc-table td{
+  padding:7px 11px;border-bottom:1px solid var(--border);
+  color:var(--text-secondary);max-width:240px;
+}
+.cc-cell-text{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.cc-artist-cell{color:var(--text);font-weight:600}
+.cc-flag-cell{white-space:normal}
+.cc-table tbody tr{transition:background .12s var(--ease)}
+.cc-table tbody tr:hover{background:var(--bg-card-hover)}
+.cc-row-flagged{background:var(--theme-accent-soft)}
+.cc-row-flagged:hover{background:var(--theme-accent-soft)}
+.cc-flag-pill{
+  display:inline-block;padding:3px 9px;border-radius:var(--r-full);
+  background:var(--theme-accent-soft);border:1px solid var(--theme-accent-border);
+  color:var(--theme-accent);font-size:9px;font-weight:700;letter-spacing:.02em;white-space:nowrap;
+}

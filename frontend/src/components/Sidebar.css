@@ -36,6 +36,7 @@
 .sidebar.expanded .sb-logo-img{opacity:1}
 .shell.theme-genitract .sb-logo-img{filter:brightness(0) invert(.9) sepia(.8) saturate(3) hue-rotate(15deg)}
 .shell.theme-artists .sb-logo-img{filter:brightness(0) invert(.8) sepia(.5) saturate(2) hue-rotate(290deg)}
+.shell.theme-crosscheck .sb-logo-img{filter:brightness(0) invert(.8) sepia(.6) saturate(3) hue-rotate(225deg)}
 .shell.theme-chartporter .sb-logo-img{filter:brightness(0) invert(.9) sepia(.4) saturate(1.5) hue-rotate(180deg)}
 
 .sb-brand-content{

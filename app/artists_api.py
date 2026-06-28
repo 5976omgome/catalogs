@@ -612,3 +612,135 @@ def dedupe_artists():
         return jsonify({"error": str(e)}), 500
     finally:
         Session.remove()
+
+
+
+@artists_bp.route("/crosscheck", methods=["POST"])
+@login_required
+def crosscheck_artists():
+    """Temporary, read-only duplicate scan against the library.
+
+    Upload a table (.csv / .tsv). For each row we compare the artist name to
+    (a) every artist already in the user's library and (b) earlier rows in the
+    SAME uploaded file. Nothing is saved, modified, or deleted — we just return
+    the original table verbatim plus one extra flag column, and a summary the
+    UI can show.
+
+    Matching uses the same normaliser as Genius name-matching: case-insensitive,
+    diacritic-folded, punctuation-stripped, leading-"the" removed — so
+    "Beyoncé", "beyonce" and "The Beyonce " all collapse to one key.
+    """
+    import pandas as pd
+    from app.sources.genius import normalize_name
+
+    f = request.files.get("file")
+    if not f or not f.filename:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    raw = f.read()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1", errors="replace")
+
+    # Delimiter sniff: honour .tsv, else pick whichever is more common in the head.
+    sample = text[:5000]
+    sep = "\t" if (f.filename.lower().endswith(".tsv") or sample.count("\t") > sample.count(",")) else ","
+
+    try:
+        df = pd.read_csv(
+            io.StringIO(text), dtype=str, keep_default_na=False, na_filter=False, sep=sep
+        )
+    except Exception as e:
+        return jsonify({"error": f"Could not parse file: {e}"}), 400
+
+    df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
+    headers = [str(h) for h in df.columns]
+    if not headers:
+        return jsonify({"error": "File has no columns."}), 400
+
+    # Locate the artist-name column.
+    artist_idx = None
+    for i, h in enumerate(headers):
+        if h.strip().lower() in ("artist", "artist name", "artist_name", "name", "performer"):
+            artist_idx = i
+            break
+    if artist_idx is None:
+        return jsonify({
+            "error": "No artist column found. Expected a header named "
+                     "'Artist', 'Artist Name', or 'Name'.",
+            "headers_seen": headers,
+        }), 400
+
+    # Build library lookup: normalized name -> (display name, week label).
+    session = Session()
+    try:
+        lib = session.query(Artist.artist_name, Artist.batch_label) \
+            .filter_by(user_id=current_user.id).all()
+    finally:
+        Session.remove()
+
+    lib_map = {}
+    for nm, batch in lib:
+        norm = normalize_name(nm or "")
+        if norm and norm not in lib_map:
+            lib_map[norm] = (nm or "", batch or "")
+
+    # Pick a non-colliding header for the flag column.
+    flag_col = "Duplicate?"
+    existing = {h.strip().lower() for h in headers}
+    if flag_col.lower() in existing:
+        flag_col, n = "Duplicate Check", 2
+        while flag_col.lower() in existing:
+            flag_col = f"Duplicate Check {n}"
+            n += 1
+
+    out_headers = headers + [flag_col]
+    out_rows = []
+    seen_in_file = {}  # normalized name -> first row's display name
+    lib_dupes = file_dupes = flagged = 0
+
+    for rec in df.values.tolist():
+        rec = ["" if v is None else str(v) for v in rec]
+        if len(rec) < len(headers):
+            rec += [""] * (len(headers) - len(rec))
+        elif len(rec) > len(headers):
+            rec = rec[:len(headers)]
+
+        raw_name = rec[artist_idx].strip()
+        norm = normalize_name(raw_name)
+
+        notes = []
+        if norm:
+            if norm in lib_map:
+                disp, wk = lib_map[norm]
+                notes.append(f'DUPLICATE (library) — "{disp}"' + (f" · {wk}" if wk else ""))
+                lib_dupes += 1
+            if norm in seen_in_file:
+                notes.append(f'DUPLICATE (in file) — repeats "{seen_in_file[norm]}"')
+                file_dupes += 1
+            else:
+                seen_in_file[norm] = raw_name
+
+        flag_val = "; ".join(notes)
+        if flag_val:
+            flagged += 1
+        out_rows.append(rec + [flag_val])
+
+    stem = re.sub(r"\.(csv|tsv)$", "", f.filename, flags=re.I)
+    return jsonify({
+        "ok": True,
+        "headers": out_headers,
+        "rows": out_rows,
+        "flag_col": flag_col,
+        "artist_column": headers[artist_idx],
+        "summary": {
+            "total": len(out_rows),
+            "library_dupes": lib_dupes,
+            "file_dupes": file_dupes,
+            "flagged": flagged,
+            "clean": len(out_rows) - flagged,
+            "library_size": len(lib_map),
+        },
+        "filename": f"{stem}_crosschecked.csv",
+    })
