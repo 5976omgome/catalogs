@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Settings, Users, BarChart3, Zap, Mail, MailPlus, LogOut } from 'lucide-react'
+import { LayoutDashboard, Settings, Users, BarChart3, Zap, LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import './Sidebar.css'
 
@@ -10,8 +10,6 @@ const SUBTITLES = {
   '/artists': 'ARTIST LIBRARY',
   '/tools/chartporter': 'CATALOG INTELLIGENCE',
   '/tools/genitact': 'CONTACT EXTRACTION',
-  '/tools/drafter': 'OUTREACH DRAFTING',
-  '/tools/followup': 'FOLLOW-UP DRAFTING',
 }
 
 const TITLES = {
@@ -20,15 +18,11 @@ const TITLES = {
   '/artists': 'IGNITE: ARTISTS',
   '/tools/chartporter': 'IGNITE: CHARTPORTER',
   '/tools/genitact': 'IGNITE: GENITACT',
-  '/tools/drafter': 'IGNITE: DRAFTER',
-  '/tools/followup': 'IGNITE: FOLLOW UPPER',
 }
 
 const TOOLS = [
   { to: '/tools/chartporter', icon: BarChart3, label: 'Chartporter', tip: 'Audits artist catalogs for ownership conflicts by cross-referencing iTunes and Deezer label data.' },
   { to: '/tools/genitact', icon: Zap, label: 'Genitact', tip: 'Extracts Instagram and Facebook contacts from Genius artist profiles using balanced name-matching.' },
-  { to: '/tools/drafter', icon: Mail, label: 'Drafter', tip: 'Creates Gmail drafts for filtered artists from your library. One draft per artist with your outreach template.' },
-  { to: '/tools/followup', icon: MailPlus, label: 'Follow Upper', tip: 'Scans Gmail Follow Ups labels and creates reply drafts for threads that haven\'t been followed up yet.' },
 ]
 
 export default function Sidebar() {

@@ -1,16 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Key, Check, X, Mail, Globe, Shield, Zap } from 'lucide-react'
+import { Key, Check, Globe, Shield, Zap } from 'lucide-react'
 import './Settings.css'
 
 export default function Settings() {
   const [keys, setKeys] = useState({})
   const [values, setValues] = useState({})
   const [saving, setSaving] = useState({})
-  const [gmailStatus, setGmailStatus] = useState(null)
 
   useEffect(() => {
     fetch('/api/settings/keys').then(r => r.ok ? r.json() : { keys: {} }).then(d => setKeys(d.keys || {})).catch(() => {})
-    fetch('/api/drafter/auth-check').then(r => r.json()).then(d => setGmailStatus(d)).catch(() => {})
   }, [])
 
   async function saveKey(slotId, service, slot) {
@@ -53,16 +51,6 @@ export default function Settings() {
         <h2><Globe size={13} /> Connections</h2>
         <div className="conn-grid">
           <div className="conn-item">
-            <span className={`conn-dot ${gmailStatus?.ready ? 'ok' : ''}`} />
-            <div className="conn-info">
-              <span className="conn-name">Gmail API</span>
-              <span className="conn-detail">{gmailStatus?.ready ? 'gavin@ignitethelabel.com' : 'Not connected'}</span>
-            </div>
-            <button className="conn-btn" onClick={async () => { try { await fetch('/api/drafter/authorize', { method: 'POST' }); setGmailStatus({ ready: true }); } catch (e) { alert(e.message) } }}>
-              {gmailStatus?.ready ? 'CONNECTED' : 'CONNECT'}
-            </button>
-          </div>
-          <div className="conn-item">
             <span className="conn-dot ok" />
             <div className="conn-info">
               <span className="conn-name">iTunes</span>
@@ -100,21 +88,6 @@ export default function Settings() {
         <div className="key-grid">
           <KeySlot id="groq" label="Groq" service="groq" slot={1} />
           <KeySlot id="gemini" label="Gemini" service="gemini" slot={1} />
-        </div>
-      </section>
-
-      {/* Outreach */}
-      <section className="settings-section">
-        <h2><Mail size={13} /> Outreach</h2>
-        <div className="pref-grid">
-          <div className="pref-item">
-            <label>Scouting Email 1</label>
-            <input type="email" defaultValue="gavin@ignitethelabel.com" readOnly style={{ opacity: .7 }} />
-          </div>
-          <div className="pref-item">
-            <label>Scouting Email 2</label>
-            <input type="email" defaultValue="gavin.roy07@ignitethelabel.com" readOnly style={{ opacity: .7 }} />
-          </div>
         </div>
       </section>
 

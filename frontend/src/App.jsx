@@ -6,8 +6,6 @@ import Settings from './pages/Settings'
 import Artists from './pages/Artists'
 import Chartporter from './pages/Chartporter'
 import Genitractor from './pages/Genitractor'
-import Drafter from './pages/Drafter'
-import FollowUpper from './pages/FollowUpper'
 import Shell from './components/Shell'
 
 function ProtectedRoute({ children, title }) {
@@ -33,8 +31,6 @@ function AppRoutes() {
         <Route path="artists" element={<Artists />} />
         <Route path="tools/chartporter" element={<Chartporter />} />
         <Route path="tools/genitact" element={<Genitractor />} />
-        <Route path="tools/drafter" element={<Drafter />} />
-        <Route path="tools/followup" element={<FollowUpper />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
